@@ -56,7 +56,7 @@ public:
 	//! \brief Количество саббендов в нулевом уровне
 	static const sz_t SUBBANDS_ON_0_LEVEL	= 1;
 
-	//! \brief Какую часть уровня занимает саббенд
+	//! \brief Какую часть уровня разложения занимает один саббенд
 	static const sz_t SUBBANDS_DENOMINATOR	= 4;
 
 	//! \brief Индекс саббенда LL

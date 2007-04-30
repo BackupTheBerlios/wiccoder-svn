@@ -11,7 +11,7 @@
 // headers
 
 // standard C++ library headers
-#include <new>
+#include <new>							// for std::bad_alloc exception class
 
 // libwic headers
 #include <wic/libwic/types.h>
@@ -93,7 +93,7 @@ subbands::~subbands() {
 /*!	\param[in] i Номер (индекс) саббенда
 	\return Саббенд с указанным индексом
 
-	Это одна из основных открытая функция для доступа к саббендам,
+	Это одна из основных открытых функций для доступа к саббендам,
 	через которую работают все остальные.
 */
 subbands::subband_t &subbands::sb(const sz_t i) {
@@ -112,7 +112,7 @@ subbands::subband_t &subbands::sb(const sz_t i) {
 	(включительно). На уровне 0 находится только один LL саббенд и
 	параметр \c i не учитывается.
 
-	Это одна из основных открытая функция для доступа к саббендам,
+	Это вторая из основных открытых функций для доступа к саббендам,
 	через которую работают все остальные.
 */
 subbands::subband_t &subbands::sb(const sz_t lvl, const sz_t i) {

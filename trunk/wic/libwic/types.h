@@ -41,7 +41,7 @@ typedef unsigned int sz_t;
 //! \brief Байт (9 бит), без знака
 typedef unsigned char byte_t;
 
-//!	\brief Координаты
+//!	\brief Двухмерные координаты
 struct p_t {
 	p_t(const sz_t &x, const sz_t &y): x(x), y(y) {}
 	sz_t x;
