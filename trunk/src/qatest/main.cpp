@@ -29,7 +29,15 @@ bool test_subbands();
 bool test_subbands() {
 
 	try {
-		wic::subbands subbands();
+		wic::subbands subbands(16, 16, 2);
+		for (wic::sz_t i = 0; subbands.count() > i; ++i) {
+			wic::subbands::subband_t &sb = subbands.sb(i);
+			std::cout << i << ": ";
+			std::cout << "(" << sb.x_min << ", " << sb.y_min << ", ";
+			std::cout << sb.x_max << ", " << sb.y_max << ") - ";
+			std::cout << "count: " << sb.count << "; ";
+			std::cout << "npt: " << sb.npt << std::endl;
+		}
 	}
 	catch (const std::exception &e) {
 		std::cout << "Exception: " << e.what() << std::endl;
@@ -44,5 +52,6 @@ bool test_subbands() {
 ////////////////////////////////////////////////////////////////////////////////
 // main function definition
 int main(int argc, char **args) {
+	test_subbands();
 	return -1;
 }

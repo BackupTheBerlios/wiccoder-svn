@@ -15,6 +15,7 @@
 // headers
 
 // standard C++ library headers
+#include <new>							// for std::bad_alloc exception class
 #include <assert.h>
 
 // libwic headers
@@ -40,10 +41,10 @@ public:
 	/*!	Координаты указываются включительно со всех сторон.
 	*/
 	struct subband_t {
-		sz_t	x_min;
-		sz_t	y_min;
-		sz_t	x_max;
-		sz_t	y_max;
+		sz_t	x_min;	//!< \brief x координата левого верхнего коэффициента
+		sz_t	y_min;	//!< \brief y координата левого верхнего коэффициента
+		sz_t	x_max;	//!< \brief x координата правого нижнего коэффициента
+		sz_t	y_max;	//!< \brief y координата правого нижнего коэффициента
 		sz_t	count;	//!< \brief Вершин в саббенде
 		sz_t	npt;	//!< \brief Вершин в одной ветке дерева (nodes per tree)
 	};
@@ -56,19 +57,16 @@ public:
 	//! \brief Количество саббендов в нулевом уровне
 	static const sz_t SUBBANDS_ON_0_LEVEL	= 1;
 
-	//! \brief Какую часть уровня разложения занимает один саббенд
-	static const sz_t SUBBANDS_DENOMINATOR	= 4;
-
-	//! \brief Индекс саббенда LL
+	//! \brief Индекс саббенда LL в уровне разложения
 	static const sz_t SUBBAND_LL			= 0;
 
-	//! \brief Индекс саббенда HL
+	//! \brief Индекс саббенда HL в уровне разложения
 	static const sz_t SUBBAND_HL			= 0;
 
-	//! \brief Индекс саббенда LH
+	//! \brief Индекс саббенда LH в уровне разложения
 	static const sz_t SUBBAND_LH			= 1;
 
-	//! \brief Индекс саббенда HH
+	//! \brief Индекс саббенда HH в уровне разложения
 	static const sz_t SUBBAND_HH			= 2;
 
     // public functions --------------------------------------------------------
@@ -97,7 +95,7 @@ public:
 	//! \brief Возвращает LL саббенд
 	subband_t &sb_ll() { return sb(); }
 
-	//! \\brief Количество саббендов без LL
+	//! \\brief Количество саббендов без LL саббенда
 	sz_t mcount() const { return _mcount; }
 
 	//! \brief Общее количество саббендов
@@ -126,7 +124,7 @@ private:
 	//! \brief Массив описаний саббендов
 	subband_t *_sb;
 
-	//! \\brief Количество саббендов без LL
+	//! \\brief Количество саббендов без LL саббенда
 	sz_t _mcount;
 
 	//! \brief Общее количество саббендов

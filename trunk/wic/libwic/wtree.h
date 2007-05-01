@@ -15,11 +15,13 @@
 // include
 
 // standard C++ library headers
+#include <new>							// for std::bad_alloc exception class
 #include <assert.h>
 
 // libwic headers
 #include <wic/libwic/types.h>
 #include <wic/libwic/wnode.h>
+#include <wic/libwic/subbands.h>
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -96,6 +98,9 @@ private:
 
 	//! \brief Карта спектра
 	wnode *_nodes;
+
+	//! \brief Саббенды разложения
+	subbands *_subbands;
 };
 
 

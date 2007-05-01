@@ -11,7 +11,7 @@
 // headers
 
 // standard C++ library headers
-#include <new>							// for std::bad_alloc exception class
+// none
 
 // libwic headers
 #include <wic/libwic/types.h>
@@ -50,9 +50,6 @@ subbands::subbands(const sz_t width, const sz_t height, const sz_t lvls) {
 	sz_t x_max = _width - 1;
 	sz_t y_max = _height - 1;
 
-	// количество коэффициентов в HH саббенде
-	sz_t n = _width * _height / SUBBANDS_DENOMINATOR;
-
 	// заполнения информации о саббендах (кроме LL)
 	for (sz_t lvl = _lvls; 0 < lvl; --lvl) {
 
@@ -65,10 +62,10 @@ subbands::subbands(const sz_t width, const sz_t height, const sz_t lvls) {
 	}
 
 	// количество деревьев в разложении
-	const sz_t trees_count = (x_max * y_max);
+	const sz_t trees_count = (x_max + 1) * (y_max + 1);
 
 	// заполнения информации о LL саббенде
-	subband_t &sb_ll = subbands::sb_ll();
+	subband_t &sb_ll = subbands::sb();
 	sb_ll.x_min = 0;
 	sb_ll.y_min = 0;
 	sb_ll.x_max = x_max;
@@ -78,7 +75,7 @@ subbands::subbands(const sz_t width, const sz_t height, const sz_t lvls) {
 	// подсчёт количества узлов приходяшегося на одно дерево у саббенде
 	for (sz_t i = 0; _count > i; ++i) {
 		subband_t &sb = subbands::sb(i);
-		sb.npt = sb.count / n;
+		sb.npt = sb.count / trees_count;
 	}
 }
 
@@ -92,6 +89,9 @@ subbands::~subbands() {
 
 /*!	\param[in] i Номер (индекс) саббенда
 	\return Саббенд с указанным индексом
+
+	Саббенды индексируются по рекурсивному зигзагу. LL саббенд имеет
+	индекс 0, самый большой HH саббенд имеет наибольший индекс.
 
 	Это одна из основных открытых функций для доступа к саббендам,
 	через которую работают все остальные.
@@ -110,7 +110,13 @@ subbands::subband_t &subbands::sb(const sz_t i) {
 
 	Уровень разложения - число от 0 до количества уровней разложения
 	(включительно). На уровне 0 находится только один LL саббенд и
-	параметр \c i не учитывается.
+	параметр \c i не учитывается. Чем больше размер уровня (площадь его
+	саббендов), тем больше его номер.
+
+	Саббенды внутри уровня нумеруются по зигзагу:
+	- HL саббенд имеет индекс 0 (константа subbands::SUBBAND_HL)
+	- LH саббенд имеет индекс 1 (константа subbands::SUBBAND_LH)
+	- HH саббенд имеет индекс 2 (константа subbands::SUBBAND_HH)
 
 	Это вторая из основных открытых функций для доступа к саббендам,
 	через которую работают все остальные.

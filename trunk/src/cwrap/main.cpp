@@ -6,7 +6,7 @@
 
 
 int main() {
-	wic::subbands sb(32, 32, 3);
+	wic::subbands sb(32, 32, 2);
 	for (wic::sz_t i = 0; sb.count() > i; ++i) {
 		const wic::subbands::subband_t &s = sb.sb(i);
 		std::cout << "(" << s.x_min << ", " << s.y_min << ", ";

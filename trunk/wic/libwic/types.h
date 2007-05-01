@@ -23,6 +23,9 @@ namespace wic {
 ////////////////////////////////////////////////////////////////////////////////
 // types
 
+//! \brief Байт (8 бит), без знака
+typedef unsigned char byte_t;
+
 //! \brief Тип действительных вейвлет коэффициентов
 typedef double w_t;
 
@@ -32,19 +35,22 @@ typedef int wk_t;
 //! \brief Тип для признаков подрезания ветвей
 typedef unsigned char n_t;
 
-//! \brief Тип для значений RD-функции
+//! \brief Тип для значений RD-функции Лагранжа
 typedef double j_t;
 
 //! \brief Тип размеров (ширина, высота, длинна)
 typedef unsigned int sz_t;
 
-//! \brief Байт (9 бит), без знака
-typedef unsigned char byte_t;
-
 //!	\brief Двухмерные координаты
 struct p_t {
+	//! \brief Вспомогательный конструктор
+	/*!	\param[in] x x координата
+		\param[in] y y координата
+	*/
 	p_t(const sz_t &x, const sz_t &y): x(x), y(y) {}
+	//! \brief x координата
 	sz_t x;
+	//! \brief y координата
 	sz_t y;
 };
 

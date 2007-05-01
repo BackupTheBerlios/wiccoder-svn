@@ -15,7 +15,7 @@
 // headers
 
 // standard C++ library headers
-#include <assert.h>
+// none
 
 // libwic headers
 #include <wic/libwic/types.h>
@@ -37,11 +37,18 @@ namespace wic {
 /*!
 */
 struct wnode {
+	//! \brief Значение вейвлет коэффициента в узле
 	w_t w;
+	//! \brief Значение проквантованного вейвлет коэффициента в узле
 	w_t wc;
+	//! \brief Значение функции Лагранжа при подрезании ветви
 	j_t j0;
+	//! \brief Значение функции Лагранжа при сохранении ветви
 	j_t j1;
+	//! \brief Групповой признак подрезания ветвей
 	n_t n;
+	//!	\brief Флаг, указывающий, попал коэффициент в подрезанную ветвь или нет
+	bool invalid;
 };
 
 

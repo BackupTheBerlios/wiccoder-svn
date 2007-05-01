@@ -29,7 +29,9 @@ namespace wic {
 	\param[in] height
 	\param[in] lvls
 */
-wtree::wtree(const sz_t width, const sz_t height, const sz_t lvls) {
+wtree::wtree(const sz_t width, const sz_t height, const sz_t lvls):
+	_nodes(0), _subbands(0)
+{
 	// сохранение параметров спектра
 	_width	= width;
 	_height	= height;
@@ -37,14 +39,22 @@ wtree::wtree(const sz_t width, const sz_t height, const sz_t lvls) {
 
 	// выделение памяти под карту вейвлет коэффициентов (спектр)
 	_nodes = new wnode[coefs()];
+	if (0 == _nodes) throw std::bad_alloc();
 
-	assert(0 != _nodes);
+	// сброс всех значений в ноль
+	memset(_nodes, 0, nodes_sz());
+
+	// создание информации о саббендах
+	_subbands = new subbands(_width, _height, _lvls);
 }
 
 
 /*!
 */
 wtree::~wtree() {
+	// Освобождение информации о саббендах
+	if (0 != _subbands) delete[] _subbands;
+
 	// Освобождение памяти под карту вейвлет коэффициентов (спектр)
 	if (0 != _nodes) delete[] _nodes;
 }
@@ -60,13 +70,9 @@ sz_t wtree::nodes_sz() const {
 /*!	
 */
 void wtree::load(const w_t *const from) {
-	const sz_t nodes_sz = wtree::nodes_sz();
+	memset(_nodes, 0, nodes_sz());
 
-	memset(_nodes, 0, nodes_sz);
-
-	const sz_t count = _width * _height;
-
-	for (sz_t i = 0; count > i; ++i) {
+	for (sz_t i = 0; coefs() > i; ++i) {
 		_nodes[i].w = from[i];
 	}
 }
