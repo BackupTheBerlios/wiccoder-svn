@@ -41,6 +41,9 @@ typedef double j_t;
 //! \brief Тип размеров (ширина, высота, длинна)
 typedef unsigned int sz_t;
 
+//!	\\brief Тип для квантователя
+typedef double q_t;
+
 //!	\brief Двухмерные координаты
 struct p_t {
 	//! \brief Вспомогательный конструктор

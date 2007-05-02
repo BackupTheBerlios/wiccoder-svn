@@ -30,6 +30,8 @@ namespace wic {
 struct encode_in_t {
 	//! \brief Коэффициенты вейвлет преобразования изображения
 	w_t *image;
+	//! \brief Количество уровней вейвлет преобразования
+	sz_t lvls;
 	//! \brief Ширина изображения
 	sz_t width;
 	//! \brief Высота изображения

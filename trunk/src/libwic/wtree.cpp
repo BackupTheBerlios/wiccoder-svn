@@ -25,12 +25,12 @@ namespace wic {
 ////////////////////////////////////////////////////////////////////////////////
 // wtree class public definitions
 
-/*!	\param[in] width 
-	\param[in] height
-	\param[in] lvls
+/*!	\param[in] width Ширина изображения
+	\param[in] height Высота изображения
+	\param[in] lvls Количество уровней разложения
 */
 wtree::wtree(const sz_t width, const sz_t height, const sz_t lvls):
-	_nodes(0), _subbands(0)
+	_nodes(0), _subbands(0), _q(0)
 {
 	// сохранение параметров спектра
 	_width	= width;
@@ -42,10 +42,11 @@ wtree::wtree(const sz_t width, const sz_t height, const sz_t lvls):
 	if (0 == _nodes) throw std::bad_alloc();
 
 	// сброс всех значений в ноль
-	memset(_nodes, 0, nodes_sz());
+	_reset_trees_content();
 
 	// создание информации о саббендах
 	_subbands = new subbands(_width, _height, _lvls);
+	if (0 == _nodes) throw std::bad_alloc();
 }
 
 
@@ -53,28 +54,53 @@ wtree::wtree(const sz_t width, const sz_t height, const sz_t lvls):
 */
 wtree::~wtree() {
 	// Освобождение информации о саббендах
-	if (0 != _subbands) delete[] _subbands;
+	if (0 != _subbands) delete _subbands;
 
 	// Освобождение памяти под карту вейвлет коэффициентов (спектр)
 	if (0 != _nodes) delete[] _nodes;
 }
 
 
-/*!
+/*!	\return Количество байт, которое было выделенно для хранения всей
+	информации о деревьях (не считая информацию о саббендах)
 */
 sz_t wtree::nodes_sz() const {
 	return (coefs() * sizeof(wnode));
 }
 
 
-/*!	
+/*!	\param[in] from Вейвлет спектр, значения коэффициентов которого,
+	будут скопированы
 */
 void wtree::load(const w_t *const from) {
-	memset(_nodes, 0, nodes_sz());
+	_reset_trees_content();
 
 	for (sz_t i = 0; coefs() > i; ++i) {
 		_nodes[i].w = from[i];
 	}
+
+	quantize();
+}
+
+
+/*!	\param[in] q Квантователь
+
+	\todo Завести отдельную функцию квантования для одного коэффициента
+*/
+void wtree::quantize(const q_t q) {
+	for (sz_t i = 0; coefs() > i; ++i) {
+		_nodes[i].wc = w_t(_nodes[i].w / q);
+	}
+}
+
+
+/*!	\return Константная ссылка на объект wiv::subbands
+	\sa subbands
+*/
+const subbands &wtree::sb() const {
+	assert(0 != _subbands);
+
+	return (*_subbands);
 }
 
 
@@ -122,6 +148,16 @@ p_t wtree::prnt(const p_t &c) {
 */
 p_t wtree::child(const p_t &p) {
 	return p_t(p.x * 2, p.y * 2);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// wtree class protected definitions
+
+/*!
+*/
+void wtree::_reset_trees_content() {
+	memset(_nodes, 0, nodes_sz());
 }
 
 

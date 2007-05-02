@@ -103,6 +103,9 @@
 				RelativePath=".\codec.cpp">
 			</File>
 			<File
+				RelativePath=".\encoder.cpp">
+			</File>
+			<File
 				RelativePath=".\subbands.cpp">
 			</File>
 			<File
@@ -115,6 +118,9 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}">
 			<File
 				RelativePath="..\..\wic\libwic\codec.h">
+			</File>
+			<File
+				RelativePath=".\encoder.h">
 			</File>
 			<File
 				RelativePath="..\..\wic\libwic\subbands.h">

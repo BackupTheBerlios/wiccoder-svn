@@ -65,16 +65,16 @@ subbands::subbands(const sz_t width, const sz_t height, const sz_t lvls) {
 	const sz_t trees_count = (x_max + 1) * (y_max + 1);
 
 	// заполнени€ информации о LL саббенде
-	subband_t &sb_ll = subbands::sb();
+	subband_t &sb_ll = subbands::get_LL();
 	sb_ll.x_min = 0;
 	sb_ll.y_min = 0;
 	sb_ll.x_max = x_max;
 	sb_ll.y_max = y_max;
 	sb_ll.count = trees_count;
 
-	// подсчЄт количества узлов приход€шегос€ на одно дерево у саббенде
+	// подсчЄт количества узлов приход€шегос€ на одно дерево в саббенде
 	for (sz_t i = 0; _count > i; ++i) {
-		subband_t &sb = subbands::sb(i);
+		subband_t &sb = subbands::get(i);
 		sb.npt = sb.count / trees_count;
 	}
 }
@@ -96,7 +96,7 @@ subbands::~subbands() {
 	Ёто одна из основных открытых функций дл€ доступа к саббендам,
 	через которую работают все остальные.
 */
-subbands::subband_t &subbands::sb(const sz_t i) {
+subbands::subband_t &subbands::get(const sz_t i) {
 	assert(0 <= i && i < _count);
 
 	if (0 == i) return _sb[_mcount];
@@ -121,7 +121,7 @@ subbands::subband_t &subbands::sb(const sz_t i) {
 	Ёто втора€ из основных открытых функций дл€ доступа к саббендам,
 	через которую работают все остальные.
 */
-subbands::subband_t &subbands::sb(const sz_t lvl, const sz_t i) {
+subbands::subband_t &subbands::get(const sz_t lvl, const sz_t i) {
 
 	assert(0 <= i && i < SUBBANDS_PER_LEVEL);
 	assert(0 <= lvl && lvl <= _lvls);
@@ -153,9 +153,9 @@ void subbands::_mk_lvl(const sz_t lvl,
 	const sz_t count = x_min * y_min;
 
 	// ссылки на HL, LH и HH саббенды этого уровн€ соответственно
-	subband_t &sb_hl = sb(lvl, 0);
-	subband_t &sb_lh = sb(lvl, 1);
-	subband_t &sb_hh = sb(lvl, 2);
+	subband_t &sb_hl = get(lvl, 0);
+	subband_t &sb_lh = get(lvl, 1);
+	subband_t &sb_hh = get(lvl, 2);
 
 	// саббенд HL
 	sb_hl.x_min = x_min;
