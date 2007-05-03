@@ -106,6 +106,9 @@
 				RelativePath=".\encoder.cpp">
 			</File>
 			<File
+				RelativePath="..\..\wic\libwic\iterators.h">
+			</File>
+			<File
 				RelativePath=".\subbands.cpp">
 			</File>
 			<File
@@ -121,6 +124,9 @@
 			</File>
 			<File
 				RelativePath=".\encoder.h">
+			</File>
+			<File
+				RelativePath=".\iterators.cpp">
 			</File>
 			<File
 				RelativePath="..\..\wic\libwic\subbands.h">
