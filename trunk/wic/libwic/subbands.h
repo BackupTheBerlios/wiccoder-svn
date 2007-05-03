@@ -74,10 +74,10 @@ public:
 	static const sz_t SUBBAND_HH			= 2;
 
 	//! \brief Смещение для получения предидущего уровня (ближнего к вершине)
-	static const int LVL_PREV			= -1;
+	static const int LVL_PREV				= -1;
 
 	//! \brief Смещение для получения следуюшего уровня (дальнего от вершины)
-	static const int LVL_NEXT			= 1;
+	static const int LVL_NEXT				= 1;
 
     // public functions --------------------------------------------------------
 
