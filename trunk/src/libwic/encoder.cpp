@@ -42,7 +42,6 @@ encoder::~encoder() {
 void encoder::encode() {
 	wtree tree(0, 0, 0);
 	const sz_t lvl = tree.sb().lvls() + subbands::LVL_PREV;
-	wtree_iterator 
 }
 
 

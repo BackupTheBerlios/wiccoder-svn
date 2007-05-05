@@ -19,7 +19,6 @@
 
 // libwic headers
 #include <wic/libwic/types.h>
-#include <wic/libwic/subbands.h>
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -28,58 +27,97 @@ namespace wic {
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// basic_2d_iterator class declaration
-//! \brief Базовый класс для двумерных итераторов
-/*!	
+// basic_iterator class declaration
+//! \brief Базовый класс для итераторов
+/*!	Предоставляет общий интерфейс для итератора.
+
+	В процессе итерации будет изменяться объект типа \с ival_t
 */
-class basic_2d_iterator {
+template <class ival_t>
+class basic_iterator {
 	public:
+	// public types ------------------------------------------------------------
+
+	//! \brief Псевдоним для параметра шаблона, который доступен для
+	//!	пользователей класса
+	typedef ival_t ival_type;
+
 	// public methods ----------------------------------------------------------
 
-	//! \brief Конструктор
-	basic_2d_iterator(const sz_t x, const sz_t y);
-
-	//! \brief Конструктор
-	basic_2d_iterator(const p_t &p);
-
-	//!	\brief Копирующий конструктор
-	basic_2d_iterator(const basic_2d_iterator &i);
-
-	//!	\brief Деструктор
-	~basic_2d_iterator();
-
 	//! \brief Возвращает константную ссылку на текущее значение итератора
-	const sz_t &p() const { return _p; }
+	/*!	\return Текущее значение итератора
+	*/
+	virtual const ival_t &get() const = 0;
 
-	//! \brief Возвращает ссылку на текущее значение итератора
-	sz_t &p() { return _p; }
+	//! \brief Переходит к следующиму значению
+	/*!	\return Новое значение итератора значение итератора
+	*/
+	virtual const ival_t &next() = 0;
 
-protected:
-private:
-	// private data ------------------------------------------------------------
+	//! \brief Проверяет, закончилась ли итереция
+	/*!	\return \c true если достигли конца последовательности
+	*/
+	virtual const bool end() const = 0;
 
-	//! \brief Текущие координаты итератора
-	p_t _p;
 };
 
 
-////////////////////////////////////////////////////////////////////////////////
-// subband_iterator class declaration
 
-//! \brief
-class subband_iterator: public basic_2d_iterator {
+////////////////////////////////////////////////////////////////////////////////
+// base_square_iterator class declaration
+//! \brief Итератор по двумерной квадратной области
+/*! Предоставляет простейшую реализацию итератора по квадратной двумерной
+	области.
+
+	Класс-параметр шаблона \c point_t определяет тип, который будет
+	использоваться для хранения двемерных координат. Тип должен поддерживать:
+	- тип \c size_type, обозначающий тип, используемый для координат
+	- поле x
+*/
+template <class point_t>
+class basic_square_iterator: public basic_iterator<point_t> {
 public:
+	// public types ------------------------------------------------------------
+
+	//! \brief Тип используемый для представления двумерных координат
+	typedef point_t point_type;
+
 	// public methods ----------------------------------------------------------
 
 	//! \brief Конструктор
-	subband_iterator(const subbands::subband_t &subband);
+	/*!	\param[in] top_left
+		\param[in] bottom_right
+	*/
+	basic_square_iterator(const point_t &top_left,
+						  const point_t &bottom_right):
+		top_left.get_x()
+	{
+
+	}
+
+	//! \brief Копирующий конструктор
+	basic_square_iterator(const basic_square_iterator &src):
+		_point(src._point)
+	{}
 
 	//!	\brief Деструктор
-	~subband_iterator();
+	~basic_square_iterator();
+
+	//! \brief Определение виртуального basic_iterator::get()
+	virtual const ival_t &get() const = 0;
+
+	//! \brief Определение виртуального basic_iterator::next()
+	virtual const ival_t &next() = 0;
+
+	//! \brief Определение виртуального basic_iterator::end()
+	virtual const bool end() const = 0;
 
 protected:
 private:
 	// private data ------------------------------------------------------------
+
+	//! \brief Текущее значение итератора
+	point_t _point;
 
 };
 

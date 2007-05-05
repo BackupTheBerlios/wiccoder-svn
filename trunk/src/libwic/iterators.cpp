@@ -23,31 +23,7 @@ namespace wic {
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// basic_2d_iterator class public definitions
-
-/*!
-*/
-basic_2d_iterator::basic_2d_iterator(const sz_t x, const sz_t y):
-	_p(x, y)
-{
-}
-
-
-/*!
-*/
-basic_2d_iterator::basic_2d_iterator(const p_t &p):
-	_p(p)
-{
-}
-
-
-/*!
-*/
-basic_2d_iterator::basic_2d_iterator(const basic_2d_iterator &i):
-	_p(i._p)
-{
-}
-
+// basic_square_iterator class public definitions
 
 
 }	// end of namespace wic
