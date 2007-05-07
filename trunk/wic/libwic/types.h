@@ -63,16 +63,16 @@ struct p_t {
 	p_t(const size_type &x, const size_type &y): x(x), y(y) {}
 
 	//! \brief ¬озвращает значение координаты x
-	const size_type &get_x() const { return x; }
+	const size_type &getx() const { return x; }
 
 	//! \brief ¬озвращает значение координаты y
-	const size_type &get_y() const { return y; }
+	const size_type &gety() const { return y; }
 
 	//! \brief ¬озвращает значение координаты x
-	const size_type &get_x() { return x; }
+	size_type &getx() { return x; }
 
 	//! \brief ¬озвращает значение координаты y
-	const size_type &get_y() { return y; }
+	size_type &gety() { return y; }
 
 	//! \brief x координата
 	size_type x;

@@ -44,6 +44,9 @@ class basic_iterator {
 
 	// public methods ----------------------------------------------------------
 
+	//!	\brief Деструктор. Виртуальный, как полагается.
+	virtual ~basic_iterator() {}
+
 	//! \brief Возвращает константную ссылку на текущее значение итератора
 	/*!	\return Текущее значение итератора
 	*/
@@ -73,8 +76,8 @@ class basic_iterator {
 	использоваться для хранения двумерных координат. Интерфейс типа должен
 	поддерживать:
 	- тип \c size_type, обозначающий тип, используемый для координат
-	- метод size_type x() возвращающий координату x
-	- метод size_type y() возвращающий координату y
+	- метод size_type getx() возвращающий координату x
+	- метод size_type gety() возвращающий координату y
 */
 template <class point_t>
 class basic_square_iterator: public basic_iterator<point_t> {
@@ -100,7 +103,7 @@ public:
 						  const point_t &top_left,
 						  const point_t &bottom_right):
 		_point(start),
-		_top_left(top_lef), _bottom_right(bottom_right)
+		_top_left(top_left), _bottom_right(bottom_right)
 	{
 		assert(_top_left.getx()	<= _point.getx());
 		assert(_point.getx()	<= _bottom_right.getx());
@@ -113,12 +116,9 @@ public:
 	*/
 	basic_square_iterator(const basic_square_iterator &src):
 		_point(src._point),
-		_top_left(src._top_lef), _bottom_right(src._bottom_right)
+		_top_left(src._top_left), _bottom_right(src._bottom_right)
 	{
 	}
-
-	//!	\brief Деструктор
-	~basic_square_iterator();
 
 	//! \brief Определение виртуального basic_iterator::get()
 	virtual const point_t &get() const {
@@ -133,8 +133,8 @@ protected:
 		\return \c true если такой сдвиг возможен и был осуществлён, иначе
 		\c false
 	*/
-	bool _move_left(const typename point_t::size_type &x) {
-		if (_top_left.getx() <=_point.getx() - x) return false;
+	bool _move_left(const typename point_t::size_type &x = 1) {
+		if (_top_left.getx() + x > _point.getx()) return false;
 
 		_point.getx() -= x;
 
@@ -146,8 +146,8 @@ protected:
 		\return \c true если такой сдвиг возможен и был осуществлён, иначе
 		\c false
 	*/
-	bool _move_right(const typename point_t::size_type &x) {
-		if (_point.getx() + x <= _bottom_right.getx()) return false;
+	bool _move_right(const typename point_t::size_type &x = 1) {
+		if (_point.getx() + x > _bottom_right.getx()) return false;
 
 		_point.getx() += x;
 
@@ -159,8 +159,8 @@ protected:
 		\return \c true если такой сдвиг возможен и был осуществлён, иначе
 		\c false
 	*/
-	bool _move_up(const typename point_t::size_type &y) {
-		if (_top_left.gety() <=_point.gety() - y) return false;
+	bool _move_up(const typename point_t::size_type &y = 1) {
+		if (_top_left.gety() + y > _point.gety()) return false;
 
 		_point.gety() -= y;
 
@@ -172,8 +172,8 @@ protected:
 		\return \c true если такой сдвиг возможен и был осуществлён, иначе
 		\c false
 	*/
-	bool _move_down(const typename point_t::size_type &y) {
-		if (_point.gety() + y <= _bottom_right.gety()) return false;
+	bool _move_down(const typename point_t::size_type &y = 1) {
+		if (_point.gety() + y > _bottom_right.gety()) return false;
 
 		_point.gety() += y;
 
@@ -195,7 +195,88 @@ private:
 };
 
 
+
+////////////////////////////////////////////////////////////////////////////////
+// snake_square_iterator class declaration
+//!	\brief  
+/*!
+*/
 class snake_square_iterator: public basic_square_iterator<p_t> {
+public:
+	// public methods ----------------------------------------------------------
+
+	//! \brief Конструктор
+	/*!	\param[in] top_left Координаты верхнего-левого угла ограничивающего
+		прямоугольника 
+		\param[in] bottom_right Координаты нижнего-правого угла
+		ограничивающего прямоугольника
+
+		Координаты указываются включительно, т.е. все координаты указывают
+		на реальные точки двумерной области.
+
+		В качестве начальной точки будет взят верхний-левый угол.
+
+		\sa basic_square_iterator
+	*/
+	snake_square_iterator(const point_type &top_left,
+						  const point_type &bottom_right):
+		basic_square_iterator<point_type>(top_left, top_left, bottom_right)
+	{
+		_points_left = (bottom_right.getx() -  top_left.getx() + 1) *
+					   (bottom_right.gety() -  top_left.gety() + 1);
+
+		_going_left = false;
+	}
+
+	//! \brief Копирующий конструктор
+	/*!	\param[in] src Исходный объект
+	*/
+	snake_square_iterator(const snake_square_iterator &src):
+		basic_square_iterator<point_type>(src), _points_left(src._points_left),
+		_going_left(src._going_left)
+	{
+	}
+	
+	//! \brief Определение виртуального basic_iterator::next()
+	virtual const point_type &next() {
+		if (_going_left) {
+			if (_move_left()) --_points_left;
+			else if (_move_down()) {
+				--_points_left;
+				_going_left = false;
+			} else _points_left = 0;
+		} else {
+			if (_move_right()) --_points_left;
+			else if (_move_down()) {
+				--_points_left;
+				_going_left = true;
+			} else _points_left = 0;
+		}
+
+		return get();
+	}
+
+	//! \brief Определение виртуального basic_iterator::end()
+	virtual const bool end() const {
+		return (0 >= _points_left);
+	}
+
+	//! \brief Количество оставшихся точек
+	sz_t points_left() const { return _points_left; }
+
+	//!	\brief Текущее Направление прохода
+	bool going_left() const { return _going_left; }
+
+protected:
+private:
+	// private data ------------------------------------------------------------
+
+	//!	\brief Количество итераций, оставшихся до конца
+	sz_t _points_left;
+
+	//!	\brief Текущее направление перемещения.
+	bool _going_left;
+
 };
 
 
