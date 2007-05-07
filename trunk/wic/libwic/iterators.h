@@ -198,8 +198,20 @@ private:
 
 ////////////////////////////////////////////////////////////////////////////////
 // snake_square_iterator class declaration
-//!	\brief  
-/*!
+//!	\brief Итератор, проходящий квадратную область змейкой
+/*! Образец выполняемого прохода:
+	\code
+	- - - - - - - - >
+	                |
+	                V
+	< - - - - - - - -
+	|
+	V
+	- - - - - - - - >
+	                |
+			        V
+	< - - - - - - - -
+	\endcode
 */
 class snake_square_iterator: public basic_square_iterator<p_t> {
 public:
@@ -262,9 +274,9 @@ public:
 	}
 
 	//! \brief Количество оставшихся точек
-	sz_t points_left() const { return _points_left; }
+	const &sz_t points_left() const { return _points_left; }
 
-	//!	\brief Текущее Направление прохода
+	//!	\brief Текущее направление прохода
 	bool going_left() const { return _going_left; }
 
 protected:
