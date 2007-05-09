@@ -123,10 +123,7 @@
 				RelativePath="..\..\wic\libwic\codec.h">
 			</File>
 			<File
-				RelativePath=".\encoder.h">
-			</File>
-			<File
-				RelativePath=".\iterators.cpp">
+				RelativePath="..\..\wic\libwic\encoder.h">
 			</File>
 			<File
 				RelativePath="..\..\wic\libwic\subbands.h">
