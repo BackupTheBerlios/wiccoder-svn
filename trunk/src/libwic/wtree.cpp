@@ -73,6 +73,8 @@ sz_t wtree::nodes_sz() const {
 	будут скопированы
 */
 void wtree::load(const w_t *const from) {
+	assert(0 != from);
+
 	_reset_trees_content();
 
 	for (sz_t i = 0; coefs() > i; ++i) {
@@ -99,7 +101,7 @@ void wtree::quantize(const q_t q) {
 /*!	\return Константная ссылка на объект wiv::subbands
 	\sa subbands
 */
-const subbands &wtree::subbands() const {
+const subbands &wtree::sb() const {
 	assert(0 != _subbands);
 
 	return (*_subbands);

@@ -12,7 +12,7 @@
 
 // libwic headers
 #include <wic/libwic/codec.h>
-#include <wic/libwic/wtree.h>
+#include <wic/libwic/encoder.h>
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -27,8 +27,8 @@ namespace wic {
 	\param[in] out Resulting data and information
 */
 bool encode(const encode_in_t &in, encode_out_t &out) {
-	wtree tree(in.width, in.height, in.lvls);
-	tree.load(in.image);
+	wic::encoder encoder(in.image, in.width, in.height, in.lvls);
+
 	return false;
 }
 

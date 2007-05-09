@@ -6,31 +6,11 @@
 
 
 int main() {
-	wic::subbands sb(32, 32, 2);
-	for (wic::sz_t i = 0; sb.count() > i; ++i) {
-		const wic::subbands::subband_t &s = sb.get(i);
-		std::cout << "(" << s.x_min << ", " << s.y_min << ", ";
-		std::cout << s.x_max << ", " << s.y_max << ")" << std::endl;
-	}
-
-	std::cout << "rrr" << std::endl;
-
-	for (wic::sz_t lvl = 0; sb.lvls() >= lvl; ++lvl) {
-		for (wic::sz_t i = 0; wic::subbands::SUBBANDS_PER_LEVEL > i; ++i) {
-			const wic::subbands::subband_t &s = sb.get(lvl, i);
-			std::cout << "(" << s.x_min << ", " << s.y_min << ", ";
-			std::cout << s.x_max << ", " << s.y_max << ")" << std::endl;
-
-			if (0 == lvl) break;
-		}
-	}
-
-	wic::wtree tree(16, 16, 4);
-
 	wic::encode_in_t enc_in;
-	enc_in.width = 0;
-	enc_in.height = 0;
-	enc_in.width = 0;
+	enc_in.image	= 0;
+	enc_in.height	= 512;
+	enc_in.width	= 512;
+	enc_in.lvls		= 5;
 	wic::encode_out_t enc_out;
 	enc_out.data = 0;
 	enc_out.data_sz = 0;

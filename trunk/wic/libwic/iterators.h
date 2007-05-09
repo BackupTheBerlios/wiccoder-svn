@@ -274,7 +274,7 @@ public:
 	}
 
 	//! \brief Количество оставшихся точек
-	const &sz_t points_left() const { return _points_left; }
+	const sz_t &points_left() const { return _points_left; }
 
 	//!	\brief Текущее направление прохода
 	bool going_left() const { return _going_left; }

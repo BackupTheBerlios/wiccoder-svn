@@ -80,7 +80,7 @@ public:
 	void quantize(const q_t q = 1);
 
 	//! \brief Возвращает информацию о саббендах
-	const subbands &subbands() const;
+	const subbands &sb() const;
 
 	//! \brief Получение элемента спектра по координатам
 	const wnode &at(const sz_t x, const sz_t y) const;

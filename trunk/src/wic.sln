@@ -1,6 +1,7 @@
 Microsoft Visual Studio Solution File, Format Version 8.00
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cwrap", "cwrap\cwrap.vcproj", "{4D46FB41-70DC-461E-AB7E-4DE86E3A6ADE}"
 	ProjectSection(ProjectDependencies) = postProject
+		{93749B0E-BEBA-452C-AF9E-94E4F6D0622B} = {93749B0E-BEBA-452C-AF9E-94E4F6D0622B}
 		{FA912ACC-27C1-4CFF-B314-95E01E6FB783} = {FA912ACC-27C1-4CFF-B314-95E01E6FB783}
 	EndProjectSection
 EndProject
@@ -11,6 +12,10 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "qatest", "qatest\qatest.vcproj", "{5E145BE1-4ED8-4C48-BB0B-B131C55FDF73}"
 	ProjectSection(ProjectDependencies) = postProject
 		{FA912ACC-27C1-4CFF-B314-95E01E6FB783} = {FA912ACC-27C1-4CFF-B314-95E01E6FB783}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "imgs", "..\imgs\imgs.vcproj", "{93749B0E-BEBA-452C-AF9E-94E4F6D0622B}"
+	ProjectSection(ProjectDependencies) = postProject
 	EndProjectSection
 EndProject
 Global
@@ -33,6 +38,10 @@ Global
 		{5E145BE1-4ED8-4C48-BB0B-B131C55FDF73}.Debug.Build.0 = Debug|Win32
 		{5E145BE1-4ED8-4C48-BB0B-B131C55FDF73}.Release.ActiveCfg = Release|Win32
 		{5E145BE1-4ED8-4C48-BB0B-B131C55FDF73}.Release.Build.0 = Release|Win32
+		{93749B0E-BEBA-452C-AF9E-94E4F6D0622B}.Debug.ActiveCfg = Debug|Win32
+		{93749B0E-BEBA-452C-AF9E-94E4F6D0622B}.Debug.Build.0 = Debug|Win32
+		{93749B0E-BEBA-452C-AF9E-94E4F6D0622B}.Release.ActiveCfg = Release|Win32
+		{93749B0E-BEBA-452C-AF9E-94E4F6D0622B}.Release.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 	EndGlobalSection

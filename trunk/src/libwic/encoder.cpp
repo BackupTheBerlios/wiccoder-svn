@@ -25,12 +25,16 @@ namespace wic {
 ////////////////////////////////////////////////////////////////////////////////
 // encoder class public definitions
 
-/*!	\param[in]
+/*!	\param[in] image Результат вейвлет преобразования изображения для сжатия.
+	\param[in] width Ширина изображения.
+	\param[in] height Высота изображения.
+	\param[in] lvls Количество уровней вейвлет преобразования.
 */
 encoder::encoder(const w_t *const image,
-				 const sz_t width, const sz_t height, const sz_t lvls)
+				 const sz_t width, const sz_t height, const sz_t lvls):
+	_wtree(width, height, lvls)
 {
-	
+	_wtree.load(image);
 }
 
 
