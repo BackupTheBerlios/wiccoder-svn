@@ -51,6 +51,8 @@ namespace wic {
 	также осуществляется посредством метода класса. Значение RD-функции
 	Лагранжа оставляется под усмотрение пользователя класса.
 
+	Класс также хранит информацию о саббендах разложения.
+
 	\sa wnode, subbands
 */
 class wtree {
@@ -78,7 +80,7 @@ public:
 	void quantize(const q_t q = 1);
 
 	//! \brief Возвращает информацию о саббендах
-	const subbands &sb() const;
+	const subbands &subbands() const;
 
 	//! \brief Получение элемента спектра по координатам
 	const wnode &at(const sz_t x, const sz_t y) const;

@@ -27,7 +27,10 @@ namespace wic {
 
 /*!
 */
-encoder::encoder() {
+encoder::encoder(const w_t *const image,
+				 const sz_t width, const sz_t height, const sz_t lvls)
+{
+
 }
 
 

@@ -50,7 +50,7 @@ wtree::wtree(const sz_t width, const sz_t height, const sz_t lvls):
 }
 
 
-/*!
+/*!	Освобождает занимаемую память
 */
 wtree::~wtree() {
 	// Освобождение информации о саббендах
@@ -91,13 +91,15 @@ void wtree::quantize(const q_t q) {
 	for (sz_t i = 0; coefs() > i; ++i) {
 		_nodes[i].wc = w_t(_nodes[i].w / q);
 	}
+
+	_q = q;
 }
 
 
 /*!	\return Константная ссылка на объект wiv::subbands
 	\sa subbands
 */
-const subbands &wtree::sb() const {
+const subbands &wtree::subbands() const {
 	assert(0 != _subbands);
 
 	return (*_subbands);
@@ -140,6 +142,9 @@ p_t wtree::get_pos(const wnode &node) const {
 /*!	\param[in] c Координаты элемента
 */
 p_t wtree::prnt(const p_t &c) {
+	assert(0 <= c.x && c.x < _width);
+	assert(0 <= c.y && c.y < _height);
+
 	return p_t(c.x / 2, c.y / 2);
 }
 
@@ -154,7 +159,8 @@ p_t wtree::child(const p_t &p) {
 ////////////////////////////////////////////////////////////////////////////////
 // wtree class protected definitions
 
-/*!
+/*!	Очищает память, занимаемую деревом коэффициентов. Все значения
+	сбрасываются и устанавливаются в 0.
 */
 void wtree::_reset_trees_content() {
 	memset(_nodes, 0, nodes_sz());
