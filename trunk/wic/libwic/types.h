@@ -27,7 +27,7 @@ namespace wic {
 typedef unsigned char byte_t;
 
 //! \brief Тип действительных вейвлет коэффициентов
-typedef double w_t;
+typedef float w_t;
 
 //! \brief Тип целочисленных вейвлет коэффициентов
 typedef int wk_t;

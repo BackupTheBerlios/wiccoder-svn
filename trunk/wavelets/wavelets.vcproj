@@ -2,8 +2,8 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="7.10"
-	Name="imgs"
-	ProjectGUID="{93749B0E-BEBA-452C-AF9E-94E4F6D0622B}"
+	Name="wavelets"
+	ProjectGUID="{07DA2167-1E9F-4A46-9512-AFABD21DD976}"
 	Keyword="Win32Proj">
 	<Platforms>
 		<Platform
@@ -12,8 +12,8 @@
 	<Configurations>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory="../obj/imgs_d"
-			IntermediateDirectory="../obj/imgs_d"
+			OutputDirectory="../obj/wavelets_d"
+			IntermediateDirectory="../obj/wavelets_d"
 			ConfigurationType="4"
 			CharacterSet="2">
 			<Tool
@@ -22,7 +22,10 @@
 				PreprocessorDefinitions="WIN32;_DEBUG;_LIB"
 				MinimalRebuild="TRUE"
 				BasicRuntimeChecks="3"
+				SmallerTypeCheck="TRUE"
 				RuntimeLibrary="1"
+				BufferSecurityCheck="TRUE"
+				EnableFunctionLevelLinking="TRUE"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="TRUE"
@@ -31,7 +34,7 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="../lib/imgs_d.lib"/>
+				OutputFile="../lib/wavelets_d.lib"/>
 			<Tool
 				Name="VCMIDLTool"/>
 			<Tool
@@ -53,15 +56,23 @@
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
-			OutputDirectory="../obj/imgs"
-			IntermediateDirectory="../obj/imgs"
+			OutputDirectory="../obj/wavelets"
+			IntermediateDirectory="../obj/wavelets"
 			ConfigurationType="4"
 			CharacterSet="2"
 			WholeProgramOptimization="TRUE">
 			<Tool
 				Name="VCCLCompilerTool"
+				Optimization="3"
+				GlobalOptimizations="TRUE"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="TRUE"
+				FavorSizeOrSpeed="1"
+				OmitFramePointers="TRUE"
+				OptimizeForProcessor="3"
 				PreprocessorDefinitions="WIN32;NDEBUG;_LIB"
 				RuntimeLibrary="0"
+				BufferSecurityCheck="FALSE"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="TRUE"
@@ -70,7 +81,7 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="../lib/imgs.lib"/>
+				OutputFile="../lib/wavelets.lib"/>
 			<Tool
 				Name="VCMIDLTool"/>
 			<Tool
@@ -98,47 +109,48 @@
 			Name="src"
 			Filter="cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx"
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}">
-			<File
-				RelativePath=".\bmp_file.cpp">
-			</File>
-			<File
-				RelativePath=".\img.cpp">
-			</File>
-			<File
-				RelativePath=".\img_rgb.cpp">
-			</File>
-			<File
-				RelativePath=".\img_yuv.cpp">
-			</File>
-			<File
-				RelativePath=".\rgb2yuv.cpp">
-			</File>
+			<Filter
+				Name="devis"
+				Filter="">
+				<File
+					RelativePath=".\devis\filter.cpp">
+				</File>
+				<File
+					RelativePath=".\devis\global.cpp">
+				</File>
+				<File
+					RelativePath=".\devis\wavelet.cpp">
+				</File>
+			</Filter>
+			<Filter
+				Name="cdf97"
+				Filter="">
+				<File
+					RelativePath=".\cdf97\cdf97.c">
+				</File>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="include"
 			Filter="h;hpp;hxx;hm;inl;inc;xsd"
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}">
-			<File
-				RelativePath=".\bmp_dump.h">
-			</File>
-			<File
-				RelativePath=".\bmp_file.h">
-			</File>
-			<File
-				RelativePath=".\img.h">
-			</File>
-			<File
-				RelativePath=".\img_rgb.h">
-			</File>
-			<File
-				RelativePath=".\img_yuv.h">
-			</File>
-			<File
-				RelativePath=".\psnr.h">
-			</File>
-			<File
-				RelativePath=".\rgb2yuv.h">
-			</File>
+			<Filter
+				Name="devis"
+				Filter="">
+				<File
+					RelativePath=".\devis\global.h">
+				</File>
+				<File
+					RelativePath=".\devis\wavelet.h">
+				</File>
+			</Filter>
+			<Filter
+				Name="cdf97"
+				Filter="">
+				<File
+					RelativePath=".\cdf97\cdf97.h">
+				</File>
+			</Filter>
 		</Filter>
 	</Files>
 	<Globals>
