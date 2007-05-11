@@ -248,7 +248,7 @@ public:
 		_going_left(src._going_left)
 	{
 	}
-	
+
 	//! \brief Определение виртуального basic_iterator::next()
 	virtual const point_type &next() {
 		if (_going_left) {

@@ -51,6 +51,141 @@ struct wnode {
 	n_t n;
 	//!	\brief Флаг, указывающий, попал коэффициент в подрезанную ветвь или нет
 	bool invalid;
+
+	//! \brief Набор констант для идентификации полей структуры
+	enum wnode_members {
+		member_w,			//!< \brief Соответствует полю w
+		member_wc,			//!< \brief Соответствует полю wc
+		member_wk,			//!< \brief Соответствует полю wk
+		member_j0,			//!< \brief Соответствует полю j0
+		member_j1,			//!< \brief Соответствует полю j1
+		member_n,			//!< \brief Соответствует полю n
+		member_invalid		//!< \brief Соответствует полю invalid
+	};
+
+	//! \brief Шаблон для выбора подходящего типа
+	/*!	Шаблон выбирает тип поля по его целочисленному идентификатору
+	*/
+	template <const wnode_members member>
+	struct type_selector {
+		typedef void result;
+	};
+
+	//! \brief Специализация для поля w
+	template <>
+	struct type_selector<member_w> {
+		typedef w_t result;
+	};
+
+	//! \brief Специализация для поля wc
+	template <>
+	struct type_selector<member_wc> {
+		typedef w_t result;
+	};
+
+	//! \brief Специализация для поля wk
+	template <>
+	struct type_selector<member_wk> {
+		typedef wk_t result;
+	};
+
+	//! \brief Специализация для поля j0
+	template <>
+	struct type_selector<member_j0> {
+		typedef j_t result;
+	};
+
+	//! \brief Специализация для поля j1
+	template <>
+	struct type_selector<member_j1> {
+		typedef j_t result;
+	};
+
+	//! \brief Специализация для поля n
+	template <>
+	struct type_selector<member_n> {
+		typedef n_t result;
+	};
+
+	//! \brief Специализация для поля wc
+	template <>
+	struct type_selector<member_invalid> {
+		typedef bool result;
+	};
+
+	//! \brief Шаблонная структура, которая имеет метод, возвращающий
+	//!	значение поля по его идентификатору
+	/*! \sa type_selector
+	*/
+	template <const wnode_members member>
+	struct field {
+		static typename type_selector<member>::result &get(wnode &node) {
+			return 0;
+		}
+	};
+
+	//! \brief Специализация для поля w
+	template <>
+	struct field<member_w> {
+		static type_selector<member_w>::result &get(wnode &node) {
+			return node.w;
+		}
+	};
+
+	//! \brief Специализация для поля wc
+	template <>
+	struct field<member_wc> {
+		static type_selector<member_wc>::result &get(wnode &node) {
+			return node.wc;
+		}
+	};
+
+	//! \brief Специализация для поля wk
+	template <>
+	struct field<member_wk> {
+		static type_selector<member_wk>::result &get(wnode &node) {
+			return node.wk;
+		}
+	};
+
+	//! \brief Специализация для поля j0
+	template <>
+	struct field<member_j0> {
+		static type_selector<member_j0>::result &get(wnode &node) {
+			return node.j0;
+		}
+	};
+
+	//! \brief Специализация для поля j1
+	template <>
+	struct field<member_j1> {
+		static type_selector<member_j1>::result &get(wnode &node) {
+			return node.j1;
+		}
+	};
+
+	//! \brief Специализация для поля n
+	template <>
+	struct field<member_n> {
+		static type_selector<member_n>::result &get(wnode &node) {
+			return node.n;
+		}
+	};
+
+	//! \brief Специализация для поля j0
+	template <>
+	struct field<member_invalid> {
+		static type_selector<member_invalid>::result &get(wnode &node) {
+			return node.invalid;
+		}
+	};
+
+	template <const wnode_members member>
+	typename type_selector<member>::result &get() {
+		return field<member>::get(*this);
+	}
+
+
 };
 
 

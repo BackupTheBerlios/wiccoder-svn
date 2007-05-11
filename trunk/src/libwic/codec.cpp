@@ -29,6 +29,8 @@ namespace wic {
 bool encode(const encode_in_t &in, encode_out_t &out) {
 	wic::encoder encoder(in.image, in.width, in.height, in.lvls);
 
+	encoder.encode();
+
 	return false;
 }
 

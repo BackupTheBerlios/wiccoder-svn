@@ -47,7 +47,31 @@ encoder::~encoder() {
 /*!
 */
 void encoder::encode() {
-	const sz_t lvl = tree.sb().lvls() + subbands::LVL_PREV;
+	w_t w = 0;
+	wk_t wk = 0;
+	j_t j = 0;
+	n_t n = 0;
+	bool invalid = false;
+	// _wtree.get_safe<wnode::member_wk>(0, 0, w);
+	wnode node;
+	node.w = 32;
+	node.wc = 64;
+	node.wk = 128;
+	node.j0 = 11;
+	node.j1 = 22;
+	node.n = 4;
+	node.invalid = true;
+
+	// w = wnode::field<wnode::member_wk>::get(node);
+
+	w = node.get<wnode::member_w>();
+	w = node.get<wnode::member_wc>();
+	wk = node.get<wnode::member_wk>();
+	j = node.get<wnode::member_j0>();
+	j = node.get<wnode::member_j1>();
+	n = node.get<wnode::member_n>();
+	invalid = node.get<wnode::member_invalid>();
+	//const sz_t lvl = tree.sb().lvls() + subbands::LVL_PREV;
 }
 
 
