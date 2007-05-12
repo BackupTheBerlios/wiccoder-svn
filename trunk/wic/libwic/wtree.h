@@ -108,6 +108,60 @@ public:
 	//! \brief Подрезает дерево коэффициентов
 	void cut(const p_t &p);
 
+	//! \brief Позволяет получить значение элемента, проверяя его
+	//!	существование. Если элемента с такими координатами не существует,
+	//! будет возвращено значение по умолчанию.
+	/*!	\param[in] x Координата \c x элемента
+		\param[in] y Координата \c y элемента
+		\param[in] def Значение по умолчанию, которое вернётся, если
+		элемента с такими координатами не существует
+		\return Значение элемента или значение по умолчанию, если
+		таковой не существует.
+	*/
+	template <const wnode::wnode_members member>
+	typename wnode::type_selector<member>::result get_safe(
+			const sz_t x, const sz_t y,
+			const typename wnode::type_selector<member>::result &def = 0)
+	{
+		if (0 > x || x >= _width) return def;
+		if (0 > y || y >= _height) return def;
+
+		return  _nodes[x + _width * y].get<member>();
+	}
+
+	//! \name Группа функций связанных с подсчётом прогнозных величин
+	//@{
+
+	//! \brief Высчитывает значение прогнозной величины <i>P<sub>i</sub></i>
+	/*!	\param[in] x Координата x центра маски 3x3
+		\param[in] y Координата y центра маски 3x3
+
+		См. формулу (4) из 35.pdf
+	*/
+	template <const wnode::wnode_members member>
+	pi_t calc_pi(const sz_t x, const sz_t y) {
+		const pi_t i1	=	get_safe<member>(x - 1, y) + 
+							get_safe<member>(x + 1, y) +
+						 	get_safe<member>(x    , y - 1) + 
+							get_safe<member>(x    , y + 1);
+
+		const pi_t i2	=	get_safe<member>(x + 1, y + 1) + 
+							get_safe<member>(x + 1, y - 1) +
+						 	get_safe<member>(x - 1, y + 1) + 
+							get_safe<member>(x - 1, y - 1);
+
+		return (4 * get_safe<member>(x, y) + 2 * i1 + i2) / 16;
+	}
+
+	template <const wnode::wnode_members member>
+	pi_t calc_sj(const sz_t x, const sz_t y) {
+		const p_t p = prnt(p_t(x, y));
+
+		return calc_pi<member>(p.x, p.y);
+	}
+
+	//@}
+
 protected:
 	// protected methods -------------------------------------------------------
 

@@ -117,11 +117,17 @@
 			<File
 				RelativePath=".\main.cpp">
 			</File>
+			<File
+				RelativePath=".\test_prediction.cpp">
+			</File>
 		</Filter>
 		<Filter
 			Name="include"
 			Filter="h;hpp;hxx;hm;inl;inc;xsd"
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}">
+			<File
+				RelativePath=".\test_prediction.h">
+			</File>
 		</Filter>
 		<Filter
 			Name="res"

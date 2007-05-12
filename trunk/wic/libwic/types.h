@@ -39,13 +39,21 @@ typedef unsigned char n_t;
 typedef double j_t;
 
 //! \brief “ип размеров (ширина, высота, длинна)
-typedef unsigned int sz_t;
+/*!	—тоит обратить внимание, что данный тип €вл€етс€ целочисленным со
+	<b>знаком</b>. Ќекоторые части алгоритма используют это свойство,
+	поэтому не следует замен€ть этот тип на \c unsigned.
+*/
+typedef int sz_t;
 
 //!	\brief “ип дл€ изменений размеров
 typedef int dsz_t;
 
 //!	\\brief “ип дл€ квантовател€
-typedef double q_t;
+typedef float q_t;
+
+//! \brief “ип дл€ прогнозных величин <i>P<sub>i</sub></i> и
+//!	<i>S<sub>j</sub></i>
+typedef double pi_t;
 
 //!	\brief ÷елочисленные двумерные координаты
 /*!	Ётот тип можно было сделать обычной структурой с двум€ пол€ми.

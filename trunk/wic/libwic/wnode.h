@@ -34,7 +34,25 @@ namespace wic {
 // wnode struct declaration
 
 //! \brief Узел дерева вейвлет коэффициентов
-/*!	\sa wtree
+/*!	Структура поддерживает унифицированный доступ к своим полям через
+	шаблонные члены:
+	\code
+	// узел с некоторыми значениями
+	wic::wnode node;
+	node.w = 12;
+	node.wc = 34;
+	node.j0 = 11;
+
+	// доступ к полям структуры производится так:
+	w_t w = node.get<wnode::member_w>();
+	j_t j = node.get<wnode::member_j0>();
+
+	// или так:
+	w_t wc = wnode::field<wnode::member_wc>::get(node);
+
+	\endcode
+
+	\sa wtree
 */
 struct wnode {
 	//! \brief Значение вейвлет коэффициента в узле
@@ -120,7 +138,7 @@ struct wnode {
 	template <const wnode_members member>
 	struct field {
 		static typename type_selector<member>::result &get(wnode &node) {
-			return 0;
+			return void;
 		}
 	};
 
@@ -180,6 +198,11 @@ struct wnode {
 		}
 	};
 
+	//!	\brief Шаблонная функция возвращающая значение поля по его
+	//!	идентификатору
+	/*!	Ради этой функции собственно и затевалось всё безобразие
+		происходившее выше :^)
+	*/
 	template <const wnode_members member>
 	typename type_selector<member>::result &get() {
 		return field<member>::get(*this);

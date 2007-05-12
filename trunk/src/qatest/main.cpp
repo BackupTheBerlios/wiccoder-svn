@@ -12,64 +12,62 @@
 
 // standard C++ library headers
 #include <iostream>
+#include <list>
 
 // libwic headers
-#include <wic/libwic/subbands.h>
-#include <wic/libwic/iterators.h>
+// none
+
+// qatest headers
+#include "test_prediction.h"
 
 
 ////////////////////////////////////////////////////////////////////////////////
 // public function declaration
 
-//! \brief Тестирует класс subbands
-bool test_subbands();
-
-//! \brief Тестирует итераторы
-bool test_iterators();
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // public function definitions
-bool test_subbands() {
-
-	try {
-		wic::subbands subbands(16, 16, 2);
-		for (wic::sz_t i = 0; subbands.count() > i; ++i) {
-			wic::subbands::subband_t &sb = subbands.get(i);
-			std::cout << i << ": ";
-			std::cout << "(" << sb.x_min << ", " << sb.y_min << ", ";
-			std::cout << sb.x_max << ", " << sb.y_max << ") - ";
-			std::cout << "count: " << sb.count << "; ";
-			std::cout << "npt: " << sb.npt << std::endl;
-		}
-	}
-	catch (const std::exception &e) {
-		std::cout << "Exception: " << e.what() << std::endl;
-
-		return false;
-	}
-
-	return true;
-}
-
-
-bool test_iterators() {
-	for (wic::snake_square_iterator iter(wic::p_t(0, 0), wic::p_t(3, 3));
-		 !iter.end(); iter.next())
-	{
-		std::cout << iter.get().getx() << ", " << iter.get().gety();
-		std::cout << ": #" << iter.points_left();
-		std::cout << ", left = " << iter.going_left() << std::endl;
-	}
-
-	return true;
-}
 
 
 ////////////////////////////////////////////////////////////////////////////////
 // main function definition
 int main(int argc, char **args) {
-	// test_subbands();
-	test_iterators();
-	return -1;
+	// types
+	typedef bool (* test_func_t)();
+	typedef std::list<test_func_t> tests_list_t;
+
+	// list for tests
+	tests_list_t tests_list;
+	int tests_ok	= 0;
+	int tests_bad	= 0;
+
+	// populate list
+	tests_list.push_back(test_wtree_calc_pi);
+	tests_list.push_back(test_wtree_calc_sj);
+
+	// for each item in list
+	for (tests_list_t::const_iterator i = tests_list.begin();
+		 tests_list.end() != i; ++i)
+	{
+		std::cout << std::endl << "> Test: ";
+		const bool ok = (*i)();
+
+		if (ok) {
+			std::cout << "Test ok."<< std::endl << std::endl;
+			++tests_ok;
+		} else {
+			std::cout << "Test failed."<< std::endl << std::endl;
+			++tests_bad;
+		}
+	}
+
+	// print over all results
+	std::cout << "Tests results:" << std::endl;
+	std::cout << "Tests ok: \t" << tests_ok << "/"
+			  << (unsigned int)(tests_list.size()) << std::endl;
+	std::cout << "Tests failed: \t" << tests_bad << "/"
+			  << (unsigned int)(tests_list.size()) << std::endl;
+
+	// exit
+	return ((tests_ok == tests_list.size())? 0: -1);
 }
