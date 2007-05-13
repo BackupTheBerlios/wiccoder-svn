@@ -15,6 +15,7 @@
 // headers
 
 // standard C++ library headers
+#include <new>							// for std::bad_alloc exception class
 #include <assert.h>
 
 // libwic headers
@@ -293,7 +294,109 @@ private:
 
 
 
-}	// wtc namespace
+////////////////////////////////////////////////////////////////////////////////
+// some_iterator class declaration
+//!	\brief Универсальная обёртка для итераторов
+/*!	Этот класс предназначен для унификации кода. Функции должны возвращать
+	объекты этого класса вместо самих итераторов. Если следовать этому подходу,
+	переход на новый тип итераторов будет предельно простым - достаточно
+	переписать функции генерирующие итераторы.
+
+	\attention Не рекомендуется создавать итераторы в коде где они
+	используются. Вместо этого лучше применять функции, генерирующие итераторы.
+
+	\attention Класс имеет встроенный механизм подсчёта количества ссылок на
+	контролируемый объект. Поэтому можно свободно пользоваться копирующим
+	конструктором.
+
+	\sa basic_iterator
+*/
+template <class ival_t>
+class some_iterator {
+public:
+	// public types ------------------------------------------------------------
+
+	//! \brief Тип контролируемого итератора
+	typedef basic_iterator<ival_t> iterator_type;
+
+	//! \brief Тип этого итератора (для удобства)
+	typedef some_iterator<ival_t> self_type;
+
+	// public constants --------------------------------------------------------
+
+	//! \brief Начальное значение для счётчика ссылок
+	static const int INIT_REF_COUNT			= 1;
+
+	// public methods ----------------------------------------------------------
+
+	//! \brief Конструктор
+	/*!	\param[in] iterator Объект итератора над которым берётся шефство
+
+		Функция создаёт счётчик ссылок на итератор и инициализирует его в 1
+	*/
+	some_iterator(iterator_type *const iterator):
+		_iterator(iterator),
+		_ref_count_ptr(new int(INIT_REF_COUNT))
+	{
+		assert(0 != _iterator);
+
+		if (0 == _ref_count_ptr) throw std::bad_alloc();
+	}
+
+	//! \brief Копирующий конструктор
+	/*! \param[in] src Исходный итератор
+
+		Увеличивает значение счётчика ссылок на единицу
+	*/
+	some_iterator(const self_type &src):
+		_iterator(src._iterator),
+		_ref_count_ptr(src._ref_count_ptr)
+	{
+		assert(0 != _iterator);
+		assert(0 != _ref_count_ptr);
+
+		++(*_ref_count_ptr);
+	}
+
+
+	//! \brief Деструктор
+	/*!	Уменьшает значение счётчика ссылок на единицу и если оно
+		становится равным нулю - освобождает контролируемый итератор
+		и счётчик ссылок.
+	*/
+	~some_iterator() {
+		assert(0 != _ref_count_ptr);
+
+		if (0 < --(*_ref_count_ptr)) return;
+
+		if (0 != _iterator) delete _iterator;
+		delete _ref_count_ptr;
+	}
+
+	//! \brief Возвращает указатель на контролируемый итератор
+	iterator_type *operator->() const { return _iterator; }
+
+	//! \brief Возвращает указатель на контролируемый итератор
+	iterator_type *get() const { return _iterator; }
+
+	//! \brief Возвращает ссылку на контролируемый итератор
+	iterator_type &operator()() const { return (*_iterator); }
+
+private:
+	// private data ------------------------------------------------------------
+
+	//! \brief Указатель на контролируемый итератор
+	iterator_type *const _iterator;
+
+	//! \brief Указатель на значение содержащее счётчик ссылок на
+	//!	контролируемый итератор
+	int *const _ref_count_ptr;
+
+};
+
+
+
+}	// wic namespace
 
 
 

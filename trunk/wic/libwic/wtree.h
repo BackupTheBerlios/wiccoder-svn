@@ -22,6 +22,7 @@
 #include <wic/libwic/types.h>
 #include <wic/libwic/wnode.h>
 #include <wic/libwic/subbands.h>
+#include <wic/libwic/iterators.h>
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -57,8 +58,13 @@ namespace wic {
 */
 class wtree {
 public:
-	// public constants --------------------------------------------------------
 	// public types ------------------------------------------------------------
+
+	//! \brief Псевдоним для обёртки для итераторов, использующих тип wic::p_t
+	typedef some_iterator<p_t> coefs_iterator;
+
+	// public constants --------------------------------------------------------
+
 	// public methods ----------------------------------------------------------
 
 	//!	\brief Конструкртор
@@ -67,11 +73,20 @@ public:
 	//!	\brief Деструктор
 	~wtree();
 
-	//! \brief Возвращает количество коэффициентов во всех деревьях
+	//! \name Общая информация о дереве
+	//@{
+
+	//! \brief Возвращает количество коэффициентов во всём дереве
 	sz_t coefs() const { return (_width * _height); }
 
 	//! \brief Возвращает количество байт занимаемых спектром
 	sz_t nodes_sz() const;
+
+	//@}
+
+	//!	\name Работа с целым деревом
+
+	//@{
 
 	//! \brief Загружает спектр из памяти
 	void load(const w_t *const from);
@@ -80,15 +95,25 @@ public:
 	void quantize(const q_t q = 1);
 
 	//! \brief Обновляет дерево, восстанавливая подрезанные вевти,
-	//! приравнивая значения полей \c wq и \c wk к \c w и обнуляя
-	//! остальные поля.
+	//! приравнивая значения полей wnode::wq и wnode::wk к wnode::w
+	//! и обнуляя остальные поля.
 	void refresh();
+
+	//@}
+
+	//!	\name Доступ к информации о саббендах
+	//{@
 
 	//! \brief Возвращает информацию о саббендах
 	subbands &sb();
 
 	//! \brief Возвращает информацию о саббендах
 	const subbands &sb() const;
+
+	//@}
+
+	//! \name Доступ к элементам дерева
+	//@{
 
 	//! \brief Получение элемента спектра по координатам
 	const wnode &at(const sz_t x, const sz_t y) const;
@@ -97,21 +122,16 @@ public:
 	wnode &at(const sz_t x, const sz_t y);
 
 	//! \brief Получение элемента спектра по координатам
-	const wnode &operator()(const sz_t x, const sz_t y) const {
-		return at(x, y);
-	}
+	const wnode &at(const p_t &p) const { return at(p.x, p.y); }
 	
 	//! \brief Получение элемента спектра по координатам
-	wnode &operator()(const sz_t x, const sz_t y) { return at(x, y); }
+	wnode &at(const p_t &p) { return at(p.x, p.y); }
 
 	//! \brief Получение координат элемента
 	p_t get_pos(const wnode &node) const;
 
 	//!	\brief Возвращает координаты родительского элемента
 	p_t prnt(const p_t &c);
-
-	//!	\brief Возвращает координаты дочернего элемента элемента
-	p_t child(const p_t &p);
 
 	//! \brief Подрезает дерево коэффициентов
 	void cut(const p_t &p);
@@ -160,6 +180,8 @@ public:
 
 		return  _nodes[x + _width * y].get<member>();
 	}
+
+	//@}
 
 	//! \name Подсчёт прогнозных величин
 	//@{
@@ -222,11 +244,26 @@ public:
 
 	//@}
 
+	//!	\name Генераторы итераторов
+	//@{
+
+	//! \brief Возвращает итератор по саббенду
+	coefs_iterator iterator_over_subband(const subbands::subband_t &sb);
+
+	//! \brief Возвращает итератор по дочерним коэффициентам
+	coefs_iterator iterator_over_children(const p_t &prnt);
+
+	//@}
+
 protected:
 	// protected methods -------------------------------------------------------
 
 	//! \brief Сбрасывет всю информацию о деревьях в 0
 	void _reset_trees_content();
+
+	//!	\brief Возвращает координаты верхнего левого элемента из группы
+	//!	дочерних элементов
+	p_t _children_top_left(const p_t &prnt);
 
 private:
 	// private data ------------------------------------------------------------

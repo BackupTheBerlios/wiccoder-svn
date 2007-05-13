@@ -34,7 +34,11 @@ encoder::encoder(const w_t *const image,
 				 const sz_t width, const sz_t height, const sz_t lvls):
 	_wtree(width, height, lvls)
 {
+	// загрузка коэффициентов разложения в дерево
 	_wtree.load(image);
+
+	// выделение памяти для арифметического енкодера
+	_aenc.mk_buf(width * height * sizeof(aencoder::tv_t));
 }
 
 
@@ -47,7 +51,11 @@ encoder::~encoder() {
 /*!
 */
 void encoder::encode() {
+	_aenc.begin();
+
 	_encode_step_1();
+
+	_aenc.end();
 }
 
 
@@ -87,6 +95,51 @@ sz_t encoder::_ind_map(const pi_t &p, const bool is_LL) {
 }
 
 
+/*!	\param[in] m Номер модели для кодирования
+	\param[in] wk Значение коэффициента для кодирования
+	\return Битовые затраты, необходимые для кодирования коэффициента с
+	использованием этой модели
+
+	\todo Необходимо учитывать смешение при выборе номера модели, т.к.
+	модели нумеруются с 0 как для коэффициентов, так и для признаков.
+*/
+h_t encoder::_h_spec(const sz_t m, const wk_t &wk) {
+	return _aenc.entropy(wk, m);
+}
+
+
+/*!	\param[in] m Номер модели для кодирования
+	\param[in] n Значение группового признака подрезания ветвей
+	\return Битовые затраты, необходимые для кодирования группового
+	признака подрезания
+
+	\todo Необходимо учитывать смешение при выборе номера модели, т.к.
+	модели нумеруются с 0 как для коэффициентов, так и для признаков.
+*/
+h_t encoder::_h_map(const sz_t m, const n_t &n) {
+	return _aenc.entropy(n, m);
+}
+
+
+/*!	\param[in] p Координаты коэффициента для корректировки
+	\param[in] sb Саббенд, в котором находится коэффициент
+	\return Откорректированное значение коэффициента
+
+	\todo Реализовать эту функцию
+*/
+wk_t &encoder::_coef_fix(const p_t &p, const subbands::subband_t &sb)
+{
+	wnode &node = _wtree.at(p);
+
+	wk_t fixed_wk = 0;
+
+	for (;;) {
+	}
+
+	return node.wk;
+}
+
+
 /*!
 */
 void encoder::_encode_step_1() {
@@ -94,17 +147,16 @@ void encoder::_encode_step_1() {
 	const sz_t lvl = _wtree.sb().lvls() + subbands::LVL_PREV;
 
 	// корректировка проквантованных коэффициентов
-	int i = 1;
-	int ar[4] = {i, i+1, i+2, i+3};
-	// for ()
+	for (sz_t k = 0; subbands::SUBBANDS_ON_LEVEL > k; ++k) {
+		const subbands::subband_t &sb = _wtree.sb().get(lvl, k);
 
-	/*
-	snake_square_iterator iter(p_t(0, 0), p_t(15, 15));
-	for (; !iter.end(); iter.next()) {
-		iter.get()
-	}
-	*/
-	
+		// для всех коэффициентов в саббенде
+		for (wtree::coefs_iterator i = _wtree.iterator_over_subband(sb);
+			!i->end(); i->next())
+		{
+			_coef_fix(i->get(), sb);
+		}
+	}	
 }
 
 

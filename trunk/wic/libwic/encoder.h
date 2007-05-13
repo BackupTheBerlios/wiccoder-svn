@@ -17,6 +17,10 @@
 // standard C++ library headers
 #include <assert.h>
 
+// external library header
+#include <arcoder/aencoder.h>
+#include <arcoder/adecoder.h>
+
 // libwic headers
 #include <wic/libwic/types.h>
 #include <wic/libwic/wtree.h>
@@ -37,8 +41,15 @@ namespace wic {
 */
 class encoder {
 public:
-	// public constants --------------------------------------------------------
 	// public types ------------------------------------------------------------
+
+	//!	\brief Псевдоним для арифметического енкодера
+	typedef wtc::aencoder<wk_t> aencoder;
+
+	//!	\brief Псевдоним для арифметического декодера
+	typedef wtc::adecoder<> adecoder;
+
+	// public constants --------------------------------------------------------
 	// public methods ----------------------------------------------------------
 
 	//!	\brief Конструкртор
@@ -54,7 +65,7 @@ public:
 protected:
 	// protected methods -------------------------------------------------------
 
-	//!	\name Выбор модели по прогнозу
+	//!	\name Выбор модели арифметического кодера по прогнозу
 	//@{
 
 	//! \brief Реализует функцию IndSpec(<i>S<sub>j</sub></i>) из 35.pdf
@@ -62,6 +73,27 @@ protected:
 
 	//! \brief Реализует функцию IndMap(<i>P<sub>i</sub></i>) из 35.pdf
 	sz_t _ind_map(const pi_t &p, const bool is_LL = false);
+
+	//@}
+
+	//!	\name Поддержка арифметического кодирования
+	//@{
+
+	//! \brief Подсчитывает битовые затраты для кодирования коэффициента.
+	//! Реализует функцию <i>H<sub>spec</sub></i>.
+	h_t _h_spec(const sz_t m, const wk_t &wk);
+
+	//! \brief Подсчитывает битовые затраты для кодирования группового
+	//! признака подрезания ветвей. Реализует функцию <i>H<sub>map</sub></i>.
+	h_t _h_map(const sz_t m, const n_t &n);
+
+	//@}
+
+	//!	\name Операции выполняемые при кодировании
+	//@{
+
+	//! \brief Производит корректировку коэффициента
+	wk_t &_coef_fix(const p_t &p, const subbands::subband_t &sb);
 
 	//@}
 
@@ -78,6 +110,9 @@ private:
 
 	//! \brief Рабочее дерево коэффициентов
 	wtree _wtree;
+
+	//! \brief Арифметический енкодер
+	aencoder _aenc;
 };
 
 

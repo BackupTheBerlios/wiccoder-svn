@@ -266,13 +266,17 @@ float arcoder_base::entropy_eval(long ch) const
 		// -log2(P)
 		return Log2[ ((freq()[symbol]<<LOG_RESOLUTION)+(Norm>>1)) / Norm ];
 #else
-	if (symbol==0) // такого символа в текущей основной таблице нет?
+	if (0 == symbol) // такого символа в текущей основной таблице нет?
+	{
 		// -log2(P) - log2(P in escape)
-		return (float)( log( Norm / (double)(freq()[char_to_index()[ESCAPE_SYMBOL()]]) ) / LOG2 )
-				+ log( (double)(escape()->NO_OF_SYMBOLS) ) / LOG2;
+		return (float)(( log( Norm / (double)(freq()[char_to_index()[ESCAPE_SYMBOL()]]) ) / LOG2 )
+				+ log( (double)(escape()->NO_OF_SYMBOLS) ) / LOG2);
+	}
 	else
+	{
 		// -log2(P)
 		return (float)( log( Norm / (double)(freq()[symbol]) ) / LOG2 );
+	}
 #endif //FAST_ENTROPY_EVAL
 }
 

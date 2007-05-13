@@ -8,6 +8,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cwrap", "cwrap\cwrap.vcproj
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libwic", "libwic\libwic.vcproj", "{FA912ACC-27C1-4CFF-B314-95E01E6FB783}"
 	ProjectSection(ProjectDependencies) = postProject
+		{AFEA3738-EB23-450B-9E16-81B1BB1A20A6} = {AFEA3738-EB23-450B-9E16-81B1BB1A20A6}
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "qatest", "qatest\qatest.vcproj", "{5E145BE1-4ED8-4C48-BB0B-B131C55FDF73}"

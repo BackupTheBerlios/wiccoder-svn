@@ -185,10 +185,29 @@ p_t wtree::prnt(const p_t &c) {
 }
 
 
-/*!	param[in] p Координаты элемента
+/*!	\param[in] sb Саббенд по которому будет происходить обход с помощью
+	возвращённого итератора
+	\return Итератор по саббенду
 */
-p_t wtree::child(const p_t &p) {
-	return p_t(p.x * 2, p.y * 2);
+wtree::coefs_iterator wtree::iterator_over_subband(
+	const subbands::subband_t &sb)
+{
+	return new snake_square_iterator(p_t(sb.x_min, sb.y_min),
+									 p_t(sb.x_max, sb.y_max));
+}
+
+
+/*!	\param[in] prnt Координаты родительского коэффициента
+	\return Итератор по дочерним коэффициентам
+*/
+wtree::coefs_iterator wtree::iterator_over_children(const p_t &prnt)
+{
+	// координаты верхнего левого дочернего элемента
+	const p_t c = _children_top_left(prnt);
+
+	// создание итератора
+	return new snake_square_iterator(p_t(c.x    , c.y    ),
+									 p_t(c.x + 1, c.y + 1));
 }
 
 
@@ -200,6 +219,19 @@ p_t wtree::child(const p_t &p) {
 */
 void wtree::_reset_trees_content() {
 	memset(_nodes, 0, nodes_sz());
+}
+
+
+/*!	\param[in] prnt Координаты родительского элемента
+	\return Координаты верхнего левого дочернего элемента из группы
+	дочерних элементов
+
+	\warning Функция не пригодна для использования с координатами
+	родительских элементов из саббенда LL, так как в этом случае дочерние
+	элементы оказываются в разных саббендах.
+*/
+p_t wtree::_children_top_left(const p_t &prnt) {
+	return p_t(2 * prnt.x, 2 * prnt.y);
 }
 
 
