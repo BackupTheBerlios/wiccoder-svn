@@ -71,6 +71,7 @@ subbands::subbands(const sz_t width, const sz_t height, const sz_t lvls) {
 	sb_ll.x_max = x_max;
 	sb_ll.y_max = y_max;
 	sb_ll.count = trees_count;
+	sb_ll.prnt	= 0;
 
 	// подсчёт количества узлов приходяшегося на одно дерево в саббенде
 	for (sz_t i = 0; _count > i; ++i) {
@@ -87,21 +88,21 @@ subbands::~subbands() {
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+// subbands class public definitions
+
 /*!	\param[in] i Номер (индекс) саббенда
-	\return Саббенд с указанным индексом
+	\return Указатель на саббенд с указанным индексом
 
 	Саббенды индексируются по рекурсивному зигзагу. LL саббенд имеет
 	индекс 0, самый большой HH саббенд имеет наибольший индекс.
-
-	Это одна из основных открытых функций для доступа к саббендам,
-	через которую работают все остальные.
 */
-subbands::subband_t &subbands::get(const sz_t i) {
+subbands::subband_t *subbands::_get(const sz_t i) const {
 	assert(0 <= i && i < _count);
 
-	if (0 == i) return _sb[_mcount];
+	if (0 == i) return (_sb + _mcount);
 
-	return _sb[i - SUBBANDS_ON_0_LEVEL];
+	return (_sb + (i - SUBBANDS_ON_0_LEVEL));
 }
 
 
@@ -121,23 +122,20 @@ subbands::subband_t &subbands::get(const sz_t i) {
 	Это вторая из основных открытых функций для доступа к саббендам,
 	через которую работают все остальные.
 */
-subbands::subband_t &subbands::get(const sz_t lvl, const sz_t i) {
-
+subbands::subband_t *subbands::_get(const sz_t lvl, const sz_t i) const
+{
 	assert(0 <= i && i < SUBBANDS_PER_LEVEL);
 	assert(0 <= lvl && lvl <= _lvls);
 
-	if (0 == lvl) return _sb[_mcount];
+	if (0 == lvl) return (_sb + _mcount);
 
 	const sz_t k = (lvl - 1) * SUBBANDS_PER_LEVEL + i;
 
 	assert(0 <= k && k <= _count);
 
-	return _sb[k];
+	return (_sb + k);
 }
 
-
-////////////////////////////////////////////////////////////////////////////////
-// subbands class public definitions
 
 /*!	\param[in] lvl Уровень вейвлет преобразования
 	\param[in] x_min Координата HH саббенда
@@ -153,9 +151,9 @@ void subbands::_mk_lvl(const sz_t lvl,
 	const sz_t count = x_min * y_min;
 
 	// ссылки на HL, LH и HH саббенды этого уровня соответственно
-	subband_t &sb_hl = get(lvl, 0);
-	subband_t &sb_lh = get(lvl, 1);
-	subband_t &sb_hh = get(lvl, 2);
+	subband_t &sb_hl = get(lvl, SUBBAND_HL);
+	subband_t &sb_lh = get(lvl, SUBBAND_LH);
+	subband_t &sb_hh = get(lvl, SUBBAND_HH);
 
 	// саббенд HL
 	sb_hl.x_min = x_min;
@@ -163,6 +161,7 @@ void subbands::_mk_lvl(const sz_t lvl,
 	sb_hl.x_max = x_max;
 	sb_hl.y_max = y_min - 1;
 	sb_hl.count = count;
+	sb_hl.prnt	= _get(lvl + LVL_PREV, SUBBAND_HL);
 
 	// саббенд LH
 	sb_lh.x_min = 0;
@@ -170,6 +169,7 @@ void subbands::_mk_lvl(const sz_t lvl,
 	sb_lh.x_max = x_min - 1;
 	sb_lh.y_max = y_max;
 	sb_lh.count = count;
+	sb_lh.prnt	= _get(lvl + LVL_PREV, SUBBAND_LH);
 
 	// саббенд HH
 	sb_hh.x_min = x_min;
@@ -177,6 +177,7 @@ void subbands::_mk_lvl(const sz_t lvl,
 	sb_hh.x_max = x_max;
 	sb_hh.y_max = y_max;
 	sb_hh.count = count;
+	sb_hh.prnt	= _get(lvl + LVL_PREV, SUBBAND_HH);
 }
 
 

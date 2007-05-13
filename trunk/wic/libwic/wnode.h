@@ -15,7 +15,7 @@
 // headers
 
 // standard C++ library headers
-// none
+#include <math.h>
 
 // libwic headers
 #include <wic/libwic/types.h>
@@ -40,7 +40,7 @@ namespace wic {
 	// узел с некоторыми значениями
 	wic::wnode node;
 	node.w = 12;
-	node.wc = 34;
+	node.wq = 34;
 	node.j0 = 11;
 
 	// доступ к полям структуры производится так:
@@ -48,7 +48,7 @@ namespace wic {
 	j_t j = node.get<wnode::member_j0>();
 
 	// или так:
-	w_t wc = wnode::field<wnode::member_wc>::get(node);
+	w_t wq = wnode::field<wnode::member_wq>::get(node);
 
 	\endcode
 
@@ -58,7 +58,7 @@ struct wnode {
 	//! \brief Значение вейвлет коэффициента в узле
 	w_t w;
 	//! \brief Значение проквантованного вейвлет коэффициента в узле
-	w_t wc;
+	w_t wq;
 	//!	\brief Значение откорректированного коэффициента
 	wk_t wk;
 	//! \brief Значение функции Лагранжа при подрезании ветви
@@ -70,10 +70,16 @@ struct wnode {
 	//!	\brief Флаг, указывающий, попал коэффициент в подрезанную ветвь или нет
 	bool invalid;
 
+	//! \brief Производит округление до ближайшего целого
+	/*!	\param[in] w Число с плавающей запятой
+		\return Округлённое число
+	*/
+	static wk_t round(const w_t &w) { return wk_t(floor(w + 0.5)); }
+
 	//! \brief Набор констант для идентификации полей структуры
 	enum wnode_members {
 		member_w,			//!< \brief Соответствует полю w
-		member_wc,			//!< \brief Соответствует полю wc
+		member_wq,			//!< \brief Соответствует полю wq
 		member_wk,			//!< \brief Соответствует полю wk
 		member_j0,			//!< \brief Соответствует полю j0
 		member_j1,			//!< \brief Соответствует полю j1
@@ -95,9 +101,9 @@ struct wnode {
 		typedef w_t result;
 	};
 
-	//! \brief Специализация для поля wc
+	//! \brief Специализация для поля wq
 	template <>
-	struct type_selector<member_wc> {
+	struct type_selector<member_wq> {
 		typedef w_t result;
 	};
 
@@ -125,7 +131,7 @@ struct wnode {
 		typedef n_t result;
 	};
 
-	//! \brief Специализация для поля wc
+	//! \brief Специализация для поля wq
 	template <>
 	struct type_selector<member_invalid> {
 		typedef bool result;
@@ -150,11 +156,11 @@ struct wnode {
 		}
 	};
 
-	//! \brief Специализация для поля wc
+	//! \brief Специализация для поля wq
 	template <>
-	struct field<member_wc> {
-		static type_selector<member_wc>::result &get(wnode &node) {
-			return node.wc;
+	struct field<member_wq> {
+		static type_selector<member_wq>::result &get(wnode &node) {
+			return node.wq;
 		}
 	};
 

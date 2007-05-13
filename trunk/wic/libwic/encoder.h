@@ -20,6 +20,7 @@
 // libwic headers
 #include <wic/libwic/types.h>
 #include <wic/libwic/wtree.h>
+#include <wic/libwic/iterators.h>
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -53,9 +54,29 @@ public:
 protected:
 	// protected methods -------------------------------------------------------
 
+	//!	\name Выбор модели по прогнозу
+	//@{
+
+	//! \brief Реализует функцию IndSpec(<i>S<sub>j</sub></i>) из 35.pdf
+	sz_t _ind_spec(const pi_t &s, const sz_t lvl);
+
+	//! \brief Реализует функцию IndMap(<i>P<sub>i</sub></i>) из 35.pdf
+	sz_t _ind_map(const pi_t &p, const bool is_LL = false);
+
+	//@}
+
+	//!	\name Шаги кодирования
+	//@{
+
+	//! \brief Шаг 1. Подготовительный.
+	void _encode_step_1();
+
+	//@}
+
 private:
 	// private data ------------------------------------------------------------
 
+	//! \brief Рабочее дерево коэффициентов
 	wtree _wtree;
 };
 

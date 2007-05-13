@@ -45,12 +45,19 @@ public:
 	/*!	Координаты указываются включительно со всех сторон.
 	*/
 	struct subband_t {
-		sz_t	x_min;	//!< \brief x координата левого верхнего коэффициента
-		sz_t	y_min;	//!< \brief y координата левого верхнего коэффициента
-		sz_t	x_max;	//!< \brief x координата правого нижнего коэффициента
-		sz_t	y_max;	//!< \brief y координата правого нижнего коэффициента
-		sz_t	count;	//!< \brief Вершин в саббенде
-		sz_t	npt;	//!< \brief Вершин в одной ветке дерева (nodes per tree)
+		sz_t	x_min;		//!< \brief x координата левого верхнего
+							//!< коэффициента
+		sz_t	y_min;		//!< \brief y координата левого верхнего
+							//!< коэффициента
+		sz_t	x_max;		//!< \brief x координата правого нижнего
+							//!< коэффициента
+		sz_t	y_max;		//!< \brief y координата правого нижнего
+							//!< коэффициента
+		sz_t	count;		//!< \brief Вершин в саббенде
+		sz_t	npt;		//!< \brief Вершин в одной ветке дерева
+							//!< (nodes per tree)
+		subband_t *prnt;	//!< \brief Указатель на родительский саббенд.
+							//!< 0 если это LL саббенд.
 	};
 
 	// public constants --------------------------------------------------------
@@ -97,10 +104,24 @@ public:
 	sz_t lvls() const { return _lvls; }
 
 	//! \brief Возвращает саббенд по его индексу (номеру)
-	subband_t &get(const sz_t i = 0);
+	subband_t &get(const sz_t i = 0) {
+		return *(_get(i));
+	}
+
+	//! \brief Возвращает саббенд по его индексу (номеру)
+	const subband_t &get(const sz_t i = 0) const {
+		return *(_get(i));
+	}
 
 	//! \brief Возвращает нужный саббенд с нужного уровня
-	subband_t &get(const sz_t lvl, const sz_t i);
+	subband_t &get(const sz_t lvl, const sz_t i) {
+		return *(_get(lvl, i));
+	}
+
+	//! \brief Возвращает нужный саббенд с нужного уровня
+	const subband_t &get(const sz_t lvl, const sz_t i) const {
+		return *(_get(lvl, i));
+	}
 
 	//! \brief Возвращает LL саббенд
 	subband_t &get_LL() { return get(); }
@@ -113,6 +134,12 @@ public:
 
 protected:
 	// protected functions -----------------------------------------------------
+
+	//! \brief Возвращает указатель на саббенд по его индексу (номеру)
+	subband_t *_get(const sz_t i = 0) const;
+
+	//! \brief Возвращает указатель на нужный саббенд с нужного уровня
+	subband_t *_get(const sz_t lvl, const sz_t i) const;
 
 	//! \brief Заполняет данные о уровне вейвлет преобразования
 	inline void _mk_lvl(const sz_t lvl,

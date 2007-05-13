@@ -79,6 +79,14 @@ public:
 	//! \brief Производит квантование
 	void quantize(const q_t q = 1);
 
+	//! \brief Обновляет дерево, восстанавливая подрезанные вевти,
+	//! приравнивая значения полей \c wq и \c wk к \c w и обнуляя
+	//! остальные поля.
+	void refresh();
+
+	//! \brief Возвращает информацию о саббендах
+	subbands &sb();
+
 	//! \brief Возвращает информацию о саббендах
 	const subbands &sb() const;
 
@@ -129,35 +137,87 @@ public:
 		return  _nodes[x + _width * y].get<member>();
 	}
 
-	//! \name Группа функций связанных с подсчётом прогнозных величин
+	//! \brief Позволяет получить значение элемента, проверяя его
+	//!	нахождение в выбранном саббенде. Если элемент с такими
+	//!	координатами находится за пределами саббенда, будет возвращено
+	//!	значение по умолчанию.
+	/*!	\param[in] x Координата \c x элемента
+		\param[in] y Координата \c y элемента
+		\param[in] sb Саббенд в котором должен находится элемент.
+		\param[in] def Значение по умолчанию, которое вернётся, если
+		элемента с такими координатами не существует
+		\return Значение элемента или значение по умолчанию, если
+		таковой не существует.
+	*/
+	template <const wnode::wnode_members member>
+	typename wnode::type_selector<member>::result get_safe(
+			const sz_t x, const sz_t y,
+			const subbands::subband_t &sb,
+			const typename wnode::type_selector<member>::result &def = 0)
+	{
+		if (sb.x_min > x || x > sb.x_max) return def;
+		if (sb.y_min > y || y > sb.y_max) return def;
+
+		return  _nodes[x + _width * y].get<member>();
+	}
+
+	//! \name Подсчёт прогнозных величин
 	//@{
 
 	//! \brief Высчитывает значение прогнозной величины <i>P<sub>i</sub></i>
 	/*!	\param[in] x Координата x центра маски 3x3
 		\param[in] y Координата y центра маски 3x3
+		\param[in] sb Ограничивающий саббенд
 
 		См. формулу (4) из 35.pdf
 	*/
 	template <const wnode::wnode_members member>
-	pi_t calc_pi(const sz_t x, const sz_t y) {
-		const pi_t i1	=	get_safe<member>(x - 1, y) + 
-							get_safe<member>(x + 1, y) +
-						 	get_safe<member>(x    , y - 1) + 
-							get_safe<member>(x    , y + 1);
+	pi_t calc_pi(const sz_t x, const sz_t y,
+				 const subbands::subband_t &sb)
+	{
+		const pi_t i1	=	get_safe<member>(x - 1, y,     sb) + 
+							get_safe<member>(x + 1, y,     sb) +
+						 	get_safe<member>(x    , y - 1, sb) + 
+							get_safe<member>(x    , y + 1, sb);
 
-		const pi_t i2	=	get_safe<member>(x + 1, y + 1) + 
-							get_safe<member>(x + 1, y - 1) +
-						 	get_safe<member>(x - 1, y + 1) + 
-							get_safe<member>(x - 1, y - 1);
+		const pi_t i2	=	get_safe<member>(x + 1, y + 1, sb) + 
+							get_safe<member>(x + 1, y - 1, sb) +
+						 	get_safe<member>(x - 1, y + 1, sb) + 
+							get_safe<member>(x - 1, y - 1, sb);
 
-		return (4 * get_safe<member>(x, y) + 2 * i1 + i2) / 16;
+		return pi_t(4 * get_safe<member>(x, y, sb) + 2 * i1 + i2) / 16;
 	}
 
-	template <const wnode::wnode_members member>
-	pi_t calc_sj(const sz_t x, const sz_t y) {
-		const p_t p = prnt(p_t(x, y));
+	//! \brief Высчитывает значение прогнозной величины <i>S<sub>j</sub></i>
+	/*!	\param[in] x Координата x "центра" маски 2x2
+		\param[in] y Координата y "центра" маски 2x2
+		\param[in] going_left \c true если выполняется проход влево,
+		иначе \c false. В зависимости от этого параметра осуществляется выбор
+		формы маски.
+		\param[in] sb Ограничивающий саббенд
 
-		return calc_pi<member>(p.x, p.y);
+		См. формулу (6) из 35.pdf
+	*/
+	template <const wnode::wnode_members member>
+	pi_t calc_sj(const sz_t x, const sz_t y, const bool going_left,
+				 const subbands::subband_t &sb)
+	{
+		// смещение для верхних коэффициентов
+		static const dsz_t	top		= (-1);
+		// смещение для боковых коэффициентов
+		       const dsz_t	side	= (going_left)? (+1): (-1);
+
+		// подсчёт взвешанной суммы
+		const pi_t sum = 0.4 * pi_t(get_safe<member>(x + side, y + top, sb)) +
+							   pi_t(get_safe<member>(x + side, y      , sb)) +
+							   pi_t(get_safe<member>(x       , y + top, sb));
+
+		// родительский коэффициент
+		const p_t p = prnt(p_t(x, y));
+		const subbands::subband_t &prnt_sb = *(sb.prnt);
+
+		return (0.36 * pi_t(calc_pi<member>(p.x, p.y, prnt_sb)) +
+				1.06 * sum);
 	}
 
 	//@}

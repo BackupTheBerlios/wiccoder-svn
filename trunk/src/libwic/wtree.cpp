@@ -75,13 +75,15 @@ sz_t wtree::nodes_sz() const {
 void wtree::load(const w_t *const from) {
 	assert(0 != from);
 
-	_reset_trees_content();
+	// _reset_trees_content();
 
 	for (sz_t i = 0; coefs() > i; ++i) {
 		_nodes[i].w = from[i];
 	}
 
 	quantize();
+
+	refresh();
 }
 
 
@@ -91,10 +93,42 @@ void wtree::load(const w_t *const from) {
 */
 void wtree::quantize(const q_t q) {
 	for (sz_t i = 0; coefs() > i; ++i) {
-		_nodes[i].wc = w_t(_nodes[i].w / q);
+		_nodes[i].wq = w_t(_nodes[i].w / q);
 	}
 
 	_q = q;
+}
+
+
+/*!
+*/
+void wtree::refresh()
+{
+	// для каждого элемента из дерева
+	for (sz_t i = 0; coefs() > i; ++i) {
+		// ссылка на очередной элемент
+		wnode &node = _nodes[i];
+
+		// восстанавливаем значение откорректированного коэффициента
+		node.wk			= wnode::round(node.wq);
+		// значение функций лагранжа не известно
+		node.j0			= 0;
+		node.j1			= 0;
+		// ничего не подрезано
+		node.n			= 0;
+		// узел хороший
+		node.invalid	= false;
+	}
+}
+
+
+/*!	\return Константная ссылка на объект wiv::subbands
+	\sa subbands
+*/
+subbands &wtree::sb() {
+	assert(0 != _subbands);
+
+	return (*_subbands);
 }
 
 
