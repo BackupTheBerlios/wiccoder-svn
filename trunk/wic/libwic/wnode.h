@@ -58,9 +58,9 @@ struct wnode {
 	//! \brief Значение вейвлет коэффициента в узле
 	w_t w;
 	//! \brief Значение проквантованного вейвлет коэффициента в узле
-	w_t wq;
+	wk_t wq;
 	//!	\brief Значение откорректированного коэффициента
-	wk_t wk;
+	wk_t wc;
 	//! \brief Значение функции Лагранжа при подрезании ветви
 	j_t j0;
 	//! \brief Значение функции Лагранжа при сохранении ветви
@@ -74,13 +74,31 @@ struct wnode {
 	/*!	\param[in] w Число с плавающей запятой
 		\return Округлённое число
 	*/
-	static wk_t round(const w_t &w) { return wk_t(floor(w + 0.5)); }
+	inline static wk_t round(const w_t &w) { return wk_t(floor(w + 0.5)); }
+
+	//! \brief Производит квантование
+	/*!	\param[in] w Значение вейвлет коэффициента для квантования
+		\param[in] q Квантователь
+		\return Проквантованное значение коэффициента
+	*/
+	inline static wk_t quantize(const w_t &w, const q_t &q) {
+		return round(w / q);
+	}
+
+	//! \brief Производит деквантование
+	/*!	\param[in] wk Проквантованное значение вейвлет коэффициента
+		\param[in] q Квантователь
+		\return Восстановленное (деквантованное) значение коэффициента
+	*/
+	inline static w_t dequantize(const wk_t &wk, const q_t &q) {
+		return w_t(wk * q);
+	}
 
 	//! \brief Набор констант для идентификации полей структуры
 	enum wnode_members {
 		member_w,			//!< \brief Соответствует полю w
 		member_wq,			//!< \brief Соответствует полю wq
-		member_wk,			//!< \brief Соответствует полю wk
+		member_wc,			//!< \brief Соответствует полю wc
 		member_j0,			//!< \brief Соответствует полю j0
 		member_j1,			//!< \brief Соответствует полю j1
 		member_n,			//!< \brief Соответствует полю n
@@ -104,12 +122,12 @@ struct wnode {
 	//! \brief Специализация для поля wq
 	template <>
 	struct type_selector<member_wq> {
-		typedef w_t result;
+		typedef wk_t result;
 	};
 
-	//! \brief Специализация для поля wk
+	//! \brief Специализация для поля wc
 	template <>
-	struct type_selector<member_wk> {
+	struct type_selector<member_wc> {
 		typedef wk_t result;
 	};
 
@@ -131,7 +149,7 @@ struct wnode {
 		typedef n_t result;
 	};
 
-	//! \brief Специализация для поля wq
+	//! \brief Специализация для поля invalid
 	template <>
 	struct type_selector<member_invalid> {
 		typedef bool result;
@@ -164,11 +182,11 @@ struct wnode {
 		}
 	};
 
-	//! \brief Специализация для поля wk
+	//! \brief Специализация для поля wc
 	template <>
-	struct field<member_wk> {
-		static type_selector<member_wk>::result &get(wnode &node) {
-			return node.wk;
+	struct field<member_wc> {
+		static type_selector<member_wc>::result &get(wnode &node) {
+			return node.wc;
 		}
 	};
 
@@ -196,7 +214,7 @@ struct wnode {
 		}
 	};
 
-	//! \brief Специализация для поля j0
+	//! \brief Специализация для поля invalid
 	template <>
 	struct field<member_invalid> {
 		static type_selector<member_invalid>::result &get(wnode &node) {
@@ -213,7 +231,6 @@ struct wnode {
 	typename type_selector<member>::result &get() {
 		return field<member>::get(*this);
 	}
-
 
 };
 

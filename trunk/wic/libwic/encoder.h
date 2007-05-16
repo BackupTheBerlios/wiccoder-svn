@@ -47,7 +47,7 @@ public:
 	typedef wtc::aencoder<wk_t> aencoder;
 
 	//!	\brief Псевдоним для арифметического декодера
-	typedef wtc::adecoder<> adecoder;
+	typedef wtc::adecoder<wk_t> adecoder;
 
 	// public constants --------------------------------------------------------
 	// public methods ----------------------------------------------------------
@@ -92,8 +92,17 @@ protected:
 	//!	\name Операции выполняемые при кодировании
 	//@{
 
+	//! \brief По координате элемента определяет направление перемещения
+	/*!	\param[in] p Координаты элемента
+		\return \c true, если 
+	*/
+	bool _going_left(const p_t &p);
+
+	h_t _calc_h_spec(const p_t &p, const subbands::subband_t &sb);
+
 	//! \brief Производит корректировку коэффициента
-	wk_t &_coef_fix(const p_t &p, const subbands::subband_t &sb);
+	wk_t _coef_fix(const p_t &p, const lambda_t &lambda,
+				   const subbands::subband_t &sb);
 
 	//@}
 
