@@ -250,5 +250,27 @@ p_t wtree::_children_top_left(const p_t &prnt) {
 }
 
 
+/*!	\param[in] x x координата элемента (не используется в текущей реализации)
+	\param[in] y y координата элемента
+	\return \c true, если предполагаемое направление обхода - влево,
+	иначе - \c false.
+
+	Функция предполагает, что используется обход "змейка", при котором
+	действуют следующие правила:
+	- проход вправо осуществляется по чётным строкам
+	- проход влево осуществляется по нечётным строкам
+
+	Используется в
+	calc_sj(const sz_t x, const sz_t y, const subbands::subband_t &sb)
+	для автоматического распознавания направления обхода.
+*/
+bool wtree::_going_left(const sz_t x, const sz_t y) {
+	// this is to prevent gcc warning, that variable x not used
+	(void)x;
+
+	return (0 != y % 2);
+}
+
+
 
 }	// end of namespace wic

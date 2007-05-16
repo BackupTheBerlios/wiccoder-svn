@@ -121,36 +121,6 @@ h_t encoder::_h_map(const sz_t m, const n_t &n) {
 }
 
 
-/*!	\param[in] p Координаты коэффициента для корректировки
-	\param[in] lambda Параметр <i>lambda</i> используемый для
-	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
-	собой баланс между ошибкой и битовыми затратами.
-	\param[in] sb Саббенд, в котором находится коэффициент
-	\return Откорректированное значение коэффициента
-
-	\todo Реализовать эту функцию
-*/
-wk_t encoder::_coef_fix(const p_t &p, const lambda_t &lambda,
-						const subbands::subband_t &sb)
-{
-	const wnode &node = _wtree.at(p);
-
-	const wk_t &wq = node.wq;
-
-	const wk_t wk_vals[4] = {wq, wq+1, wq-1, 0};
-	wk_t wc = 0;
-
-	for (int i = 0; 4 > i; ++i) {
-		const wk_t &k = wk_vals[i];
-		const w_t wr = wnode::dequantize(k, _wtree.q());
-		const w_t dw = (wr - node.w);
-		(dw * dw) + lambda * _h_spec(_ind_spec(_wtree.calc_sj(p.x, p.y, true, sb) , sb.lvl),  k);
-	}
-
-	return wc;
-}
-
-
 /*!
 	\todo Научить some_iterator говорить направление движения
 	(snake_square_iterator::going_left())
@@ -168,7 +138,7 @@ void encoder::_encode_step_1() {
 		for (wtree::coefs_iterator i = _wtree.iterator_over_subband(sb);
 			!i->end(); i->next())
 		{
-			_coef_fix(i->get(), 0, sb);
+			_coef_fix<wnode::member_wc>(i->get(), sb, 0);
 		}
 	}	
 }

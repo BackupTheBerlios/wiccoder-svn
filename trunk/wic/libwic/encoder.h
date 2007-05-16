@@ -28,6 +28,17 @@
 
 
 ////////////////////////////////////////////////////////////////////////////////
+// defines
+
+//!	\brief Если этот макрос определён, в функции encoder::_coef_fix для
+//!	корректировки будут использоваться 4 значения: w, w + 1, w - 1 и 0. Если
+//!	макрос не определён, будет проверенно только 3 значения: w, w +/- 1, 0.
+//!	Знак операции выбирается в зависимости от значения коэффициента - плюс для
+//! отрицательных и минус для положительных коэффициентов
+#define COEF_FIX_USE_4_POINTS
+
+
+////////////////////////////////////////////////////////////////////////////////
 // wic namespace
 namespace wic {
 
@@ -71,6 +82,20 @@ protected:
 	//! \brief Реализует функцию IndSpec(<i>S<sub>j</sub></i>) из 35.pdf
 	sz_t _ind_spec(const pi_t &s, const sz_t lvl);
 
+	//! \brief Реализует функцию IndSpec(<i>S<sub>j</sub></i>) из 35.pdf.
+	/*!	\param[in] p Координаты элементы
+		\param[in] sb Саббенд, в котором находится элемент
+		\return Номер выбираемой модели
+
+		Функция использует координаты элемента в качестве входных
+		параметров. С помощью параметра шаблона возможно выбирать
+		поле элемента, которое будет использоваться в вычислениях.
+	*/
+	template <const wnode::wnode_members member>
+	sz_t _ind_spec(const p_t &p, const subbands::subband_t &sb) {
+		return _ind_spec(_wtree.calc_sj<member>(p.x, p.y, sb), sb.lvl);
+	}
+
 	//! \brief Реализует функцию IndMap(<i>P<sub>i</sub></i>) из 35.pdf
 	sz_t _ind_map(const pi_t &p, const bool is_LL = false);
 
@@ -92,17 +117,56 @@ protected:
 	//!	\name Операции выполняемые при кодировании
 	//@{
 
-	//! \brief По координате элемента определяет направление перемещения
-	/*!	\param[in] p Координаты элемента
-		\return \c true, если 
-	*/
-	bool _going_left(const p_t &p);
-
-	h_t _calc_h_spec(const p_t &p, const subbands::subband_t &sb);
-
 	//! \brief Производит корректировку коэффициента
-	wk_t _coef_fix(const p_t &p, const lambda_t &lambda,
-				   const subbands::subband_t &sb);
+	/*!	\param[in] p Координаты коэффициента для корректировки
+		\param[in] sb Саббенд, в котором находится коэффициент
+		\param[in] lambda Параметр <i>lambda</i> используемый для
+		вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
+		собой баланс между ошибкой и битовыми затратами.
+		\return Значение откорректированного коэффициента
+
+		Параметр шаблона позволяет выбирать поле элемента для корректировки.
+
+		\todo Реализовать эту функцию
+	*/
+	template <const wnode::wnode_members member>
+	typename wnode::type_selector<member>::result _coef_fix(
+			const p_t &p, const subbands::subband_t &sb,
+			const lambda_t &lambda)
+	{
+		// types
+		typedef wnode::type_selector<member>::result member_t;
+
+		// get reference to node
+		const wnode &node = _wtree.at(p);
+
+		// Коэффициент для корректировки
+		const member_t &w = node.get<member>();
+
+		// Квантователь
+		const q_t q = _wtree.q();
+
+		// Подбираемые значения
+		#ifdef COEF_FIX_USE_4_POINTS
+			static const sz_t vals_count	= 4;
+			const member_t w_vals[vals_count] = {w, w + 1, w - 1, 0};
+		#else
+			static const sz_t vals_count	= 3;
+			const dsz_t w_drift = (0 <= w)? -1; +1;
+			const member_t w_vals[vals_count] = {w, w + w_drift, 0};
+		#endif
+
+		member_t k_optim = w_vals[0];
+
+		for (int i = 1; vals_count > i; ++i) {
+			const member_t &k = w_vals[i];
+			const w_t wr = wnode::dequantize(k, _wtree.q());
+			const w_t dw = (wr - node.w);
+			(dw * dw) + lambda * _h_spec(_ind_spec<member>(p, sb),  k);
+		}
+
+		return k_optim;
+	}
 
 	//@}
 

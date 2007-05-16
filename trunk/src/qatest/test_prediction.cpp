@@ -198,13 +198,22 @@ bool test_wtree_calc_sj()
 	const pi_t good_at_03_12	=  5.0740;
 
 	const pi_t calc_at_09_01	= wtree.calc_sj<wic::wnode::member_w>(
-										9,  1,  true, wtree.sb().get(3, 0));
+										9,  1,  wtree.sb().get(3, 0), true);
 	const pi_t calc_at_07_07	= wtree.calc_sj<wic::wnode::member_w>(
-										7,  7,  true, wtree.sb().get(2, 2));
+										7,  7,  wtree.sb().get(2, 2), true);
 	const pi_t calc_at_06_06	= wtree.calc_sj<wic::wnode::member_w>(
-										6,  6,  false, wtree.sb().get(2, 2));
+										6,  6,  wtree.sb().get(2, 2), false);
 	const pi_t calc_at_03_12	= wtree.calc_sj<wic::wnode::member_w>(
-										3,  12, false, wtree.sb().get(3, 1));
+										3,  12, wtree.sb().get(3, 1), false);
+
+	const pi_t calc_at_09_01a	= wtree.calc_sj<wic::wnode::member_w>(
+										9,  1,  wtree.sb().get(3, 0));
+	const pi_t calc_at_07_07a	= wtree.calc_sj<wic::wnode::member_w>(
+										7,  7,  wtree.sb().get(2, 2));
+	const pi_t calc_at_06_06a	= wtree.calc_sj<wic::wnode::member_w>(
+										6,  6,  wtree.sb().get(2, 2));
+	const pi_t calc_at_03_12a	= wtree.calc_sj<wic::wnode::member_w>(
+										3,  12, wtree.sb().get(3, 1));
 
 	// free memory
 	delete[] image_wt;
@@ -216,6 +225,11 @@ bool test_wtree_calc_sj()
 	if (!qa_dbl_compare(good_at_07_07, calc_at_07_07, "(7, 7)")) ok = false;
 	if (!qa_dbl_compare(good_at_06_06, calc_at_06_06, "(6, 6)")) ok = false;
 	if (!qa_dbl_compare(good_at_03_12, calc_at_03_12, "(3, 12)")) ok = false;
+
+	if (!qa_dbl_compare(good_at_09_01, calc_at_09_01a, "(9, 1)a")) ok = false;
+	if (!qa_dbl_compare(good_at_07_07, calc_at_07_07a, "(7, 7)a")) ok = false;
+	if (!qa_dbl_compare(good_at_06_06, calc_at_06_06a, "(6, 6)a")) ok = false;
+	if (!qa_dbl_compare(good_at_03_12, calc_at_03_12a, "(3, 12)a")) ok = false;
 
 	return ok;
 }

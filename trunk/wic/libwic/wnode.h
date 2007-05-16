@@ -232,6 +232,15 @@ struct wnode {
 		return field<member>::get(*this);
 	}
 
+	//!	\brief Шаблонная функция возвращающая значение поля по его
+	//!	идентификатору
+	/*!	Константная версия предыдущей функции
+	*/
+	template <const wnode_members member>
+	const typename type_selector<member>::result &get() const {
+		return field<member>::get(*(const_cast<wnode *>(this)));
+	}
+
 };
 
 

@@ -67,11 +67,16 @@ public:
 
 	// public methods ----------------------------------------------------------
 
+	//!	\name Конструкторы и деструкторы
+	//@{
+
 	//!	\brief Конструкртор
 	wtree(const sz_t width, const sz_t height, const sz_t lvls);
 
 	//!	\brief Деструктор
 	~wtree();
+
+	//@}
 
 	//! \name Общая информация о дереве
 	//@{
@@ -219,16 +224,17 @@ public:
 	//! \brief Высчитывает значение прогнозной величины <i>S<sub>j</sub></i>
 	/*!	\param[in] x Координата x "центра" маски 2x2
 		\param[in] y Координата y "центра" маски 2x2
+		\param[in] sb Ограничивающий саббенд
 		\param[in] going_left \c true если выполняется проход влево,
 		иначе \c false. В зависимости от этого параметра осуществляется выбор
 		формы маски.
-		\param[in] sb Ограничивающий саббенд
 
 		См. формулу (6) из 35.pdf
 	*/
 	template <const wnode::wnode_members member>
-	pi_t calc_sj(const sz_t x, const sz_t y, const bool going_left,
-				 const subbands::subband_t &sb)
+	pi_t calc_sj(const sz_t x, const sz_t y,
+				 const subbands::subband_t &sb,
+				 const bool going_left)
 	{
 		// смещение для верхних коэффициентов
 		static const dsz_t	top		= (-1);
@@ -248,6 +254,23 @@ public:
 				1.06 * sum);
 	}
 
+	//! \brief Высчитывает значение прогнозной величины <i>S<sub>j</sub></i>
+	/*!	\param[in] x Координата x "центра" маски 2x2
+		\param[in] y Координата y "центра" маски 2x2
+		\param[in] sb Ограничивающий саббенд
+
+		Автоматически определяет направление обхода, используя для этого
+		функцию _going_left().
+
+		См. формулу (6) из 35.pdf
+	*/
+	template <const wnode::wnode_members member>
+	pi_t calc_sj(const sz_t x, const sz_t y,
+				 const subbands::subband_t &sb)
+	{
+		return calc_sj<member>(x, y, sb, _going_left(x, y));
+	}
+
 	//@}
 
 	//!	\name Генераторы итераторов
@@ -264,12 +287,26 @@ public:
 protected:
 	// protected methods -------------------------------------------------------
 
+	//!	\name Функции работающие с целым деревом
+	//@{
+
 	//! \brief Сбрасывет всю информацию о деревьях в 0
 	void _reset_trees_content();
+
+	//@}
+
+	//!	\name Функции для работы с отдельными коэффициентами
+	//@{
 
 	//!	\brief Возвращает координаты верхнего левого элемента из группы
 	//!	дочерних элементов
 	p_t _children_top_left(const p_t &prnt);
+
+	//!	\brief Из координат элемента получает предполагаемое направление
+	//!	обхода
+	bool _going_left(const sz_t x, const sz_t y);
+
+	//@}
 
 private:
 	// private data ------------------------------------------------------------
