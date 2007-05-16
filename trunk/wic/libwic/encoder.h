@@ -128,6 +128,8 @@ protected:
 		Параметр шаблона позволяет выбирать поле элемента для корректировки.
 
 		\todo Реализовать эту функцию
+		\todo Решить, нужно ли, чтобы она была шаблонной
+		\todo Написать вспомогательную фукцию для подсчёта RD критерия
 	*/
 	template <const wnode::wnode_members member>
 	typename wnode::type_selector<member>::result _coef_fix(
@@ -157,6 +159,7 @@ protected:
 		#endif
 
 		member_t k_optim = w_vals[0];
+		j_t j_optim = _calc_j(p, sb, k, q, lambda);
 
 		for (int i = 1; vals_count > i; ++i) {
 			const member_t &k = w_vals[i];
