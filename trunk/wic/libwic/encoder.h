@@ -141,6 +141,15 @@ protected:
 	wk_t _coef_fix(const p_t &p, const subbands::subband_t &sb,
 				   const lambda_t &lambda);
 
+	j_t _calc_j0_value(const p_t &p)
+	{
+		return 0;
+	}
+	j_t _calc_j1_value(const p_t &p, const wk_t &k)
+	{
+		return 0;
+	}
+
 	//@}
 
 	//!	\name Шаги кодирования

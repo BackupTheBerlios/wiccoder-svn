@@ -198,7 +198,9 @@ wk_t encoder::_coef_fix(const p_t &p, const subbands::subband_t &sb,
 	собой баланс между ошибкой и битовыми затратами.
 
 	На первом шаге кодирования выполняется корректировка коэффициентов
-	на самом последнем (с наибольшей площадью) уровне разложения.
+	на самом последнем (с наибольшей площадью) уровне разложения и
+	последующей расчёт <i>RD-функций Лагранжа</i> для вариантов сохранения
+	и подрезания листьев дерева.
 
 	\todo Реализовать эту функцию
 */
@@ -228,7 +230,10 @@ void encoder::_encode_step_1(const lambda_t &lambda)
 		for (wtree::coefs_iterator i = _wtree.iterator_over_subband(sb_i);
 			!i->end(); i->next())
 		{
-			i->get();
+			const p_t &p = i->get();
+			wnode &node = _wtree.at(p);
+			node.j0 = _calc_j0_value(p);
+			node.j1 = _calc_j1_value(p, node.wc);
 		}
 	}
 }
