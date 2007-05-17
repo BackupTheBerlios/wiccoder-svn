@@ -53,7 +53,7 @@ encoder::~encoder() {
 void encoder::encode() {
 	_aenc.begin();
 
-	_encode_step_1();
+	_encode_step_1(0);
 
 	_aenc.end();
 }
@@ -121,12 +121,89 @@ h_t encoder::_h_map(const sz_t m, const n_t &n) {
 }
 
 
-/*!
-	\todo Научить some_iterator говорить направление движения
-	(snake_square_iterator::going_left())
+/*!	\param[in] p Предполагаемые координаты элемента (коэффициента)
+	\param[in] k Откорректированное (или просто проквантованное) значение
+	коэффициента
+	\param[in] lambda Параметр <i>lambda</i>, отвечает за <i>Rate/Distortion</i>
+	баланс при вычислении <i>RD</i> функции. Чем это значение больше, тем
+	больший вклад в значение <i>RD</i> функции будут вносить битовые затраты
+	на кодирование коэффициента арифметическим кодером.
+	\param[in] model Номер модели арифметического кодера, которая будет
+	использована для кодирования коэффициента
+	\return Значения <i>RD</i> функции <i>Лагрнанжа</i>
+
+	\todo Написать тест для этой функции
+	\todo Написать набор функций для работы с номерами моделей арифметического
+	кодера.
+*/
+j_t encoder::_calc_rd_iteration(const p_t &p, const wk_t &k,
+								const lambda_t &lambda, const sz_t &model)
+{
+	const wnode &node = _wtree.at(p);
+
+	const w_t dw = (wnode::dequantize(k, _wtree.q()) - node.w);
+
+	return (dw*dw + lambda * _h_spec(model, k));
+}
+
+
+/*!	\param[in] p Координаты коэффициента для корректировки
+	\param[in] sb Саббенд, в котором находится коэффициент
+	\param[in] lambda Параметр <i>lambda</i> используемый для
+	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
+	собой баланс между ошибкой и битовыми затратами.
+	\return Значение откорректированного коэффициента
+
+	Параметр шаблона позволяет выбирать поле элемента для корректировки.
+
+	\todo Написать тест для этой функции
+*/
+wk_t encoder::_coef_fix(const p_t &p, const subbands::subband_t &sb,
+						const lambda_t &lambda)
+{
+	// выбор модели и оригинального значения коэффициента
+	const sz_t	model	= _ind_spec<wnode::member_wc>(p, sb);
+	const wk_t	&wq		= _wtree.at(p).wq;
+
+	// Определение набора подбираемых значений
+	#ifdef COEF_FIX_USE_4_POINTS
+		static const sz_t vals_count	= 4;
+		const wk_t w_vals[vals_count] = {0, wq, wq + 1, wq - 1};
+	#else
+		static const sz_t vals_count	= 3;
+		const wk_t w_drift = (0 <= w)? -1; +1;
+		const wk_t w_vals[vals_count] = {0, wq, wq + w_drift};
+	#endif
+
+	// начальные значения для поиска минимума RD функции
+	wk_t k_optim = w_vals[0];
+	j_t j_optim = _calc_rd_iteration(p, k_optim, lambda, model);
+
+	// поиск минимального значения RD функции
+	for (int i = 1; vals_count > i; ++i) {
+		const wk_t &k = w_vals[i];
+		const j_t j = _calc_rd_iteration(p, k, lambda, model);
+		if (j < j_optim) {
+			j_optim = j;
+			k_optim = k;
+		}
+	}
+
+	return k_optim;
+}
+
+
+/*!	\param[in] lambda Параметр <i>lambda</i> используемый для
+	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
+	собой баланс между ошибкой и битовыми затратами.
+
+	На первом шаге кодирования выполняется корректировка коэффициентов
+	на самом последнем (с наибольшей площадью) уровне разложения.
+
 	\todo Реализовать эту функцию
 */
-void encoder::_encode_step_1() {
+void encoder::_encode_step_1(const lambda_t &lambda)
+{
 	// просматриваются все узлы предпоследнего уровня
 	const sz_t lvl = _wtree.sb().lvls() + subbands::LVL_PREV;
 
@@ -138,7 +215,7 @@ void encoder::_encode_step_1() {
 		for (wtree::coefs_iterator i = _wtree.iterator_over_subband(sb);
 			!i->end(); i->next())
 		{
-			_coef_fix<wnode::member_wc>(i->get(), sb, 0);
+			_coef_fix(i->get(), sb, 0);
 		}
 	}	
 }

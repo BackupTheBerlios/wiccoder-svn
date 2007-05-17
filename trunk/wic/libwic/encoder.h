@@ -63,6 +63,9 @@ public:
 	// public constants --------------------------------------------------------
 	// public methods ----------------------------------------------------------
 
+	//!	\name Конструкторы и деструкторы
+	//@{
+
 	//!	\brief Конструкртор
 	encoder(const w_t *const image,
 			const sz_t width, const sz_t height, const sz_t lvls);
@@ -70,8 +73,15 @@ public:
 	//!	\brief Деструктор
 	~encoder();
 
+	//@}
+
+	//!	\name Функции кодированя
+	//@{
+
 	//!	\brief Функция осуществляющая непосредственное кодирование изображения
 	void encode();
+
+	//@}
 
 protected:
 	// protected methods -------------------------------------------------------
@@ -88,8 +98,12 @@ protected:
 		\return Номер выбираемой модели
 
 		Функция использует координаты элемента в качестве входных
-		параметров. С помощью параметра шаблона возможно выбирать
-		поле элемента, которое будет использоваться в вычислениях.
+		параметров.
+
+		С помощью параметра шаблона возможно выбирать поле элемента,
+		которое будет использоваться при вычислении прогнозов. Так как,
+		во времдя декодирования нам известны только откорректированные
+		коэффициенты, наиболее вероятным полем является wnode::member_wc.
 	*/
 	template <const wnode::wnode_members member>
 	sz_t _ind_spec(const p_t &p, const subbands::subband_t &sb) {
@@ -117,59 +131,15 @@ protected:
 	//!	\name Операции выполняемые при кодировании
 	//@{
 
-	//! \brief Производит корректировку коэффициента
-	/*!	\param[in] p Координаты коэффициента для корректировки
-		\param[in] sb Саббенд, в котором находится коэффициент
-		\param[in] lambda Параметр <i>lambda</i> используемый для
-		вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
-		собой баланс между ошибкой и битовыми затратами.
-		\return Значение откорректированного коэффициента
+	//!	\brief Подсчитывает значение <i>RD</i> функции <i>Лагранжа</i>
+	//! для значения коэффициента при кодировании его арифметическим кодером,
+	//!	если бы он находился на определённых координатах.
+	j_t _calc_rd_iteration(const p_t &p, const wk_t &k,
+						   const lambda_t &lambda, const sz_t &model);
 
-		Параметр шаблона позволяет выбирать поле элемента для корректировки.
-
-		\todo Реализовать эту функцию
-		\todo Решить, нужно ли, чтобы она была шаблонной
-		\todo Написать вспомогательную фукцию для подсчёта RD критерия
-	*/
-	template <const wnode::wnode_members member>
-	typename wnode::type_selector<member>::result _coef_fix(
-			const p_t &p, const subbands::subband_t &sb,
-			const lambda_t &lambda)
-	{
-		// types
-		typedef wnode::type_selector<member>::result member_t;
-
-		// get reference to node
-		const wnode &node = _wtree.at(p);
-
-		// Коэффициент для корректировки
-		const member_t &w = node.get<member>();
-
-		// Квантователь
-		const q_t q = _wtree.q();
-
-		// Подбираемые значения
-		#ifdef COEF_FIX_USE_4_POINTS
-			static const sz_t vals_count	= 4;
-			const member_t w_vals[vals_count] = {w, w + 1, w - 1, 0};
-		#else
-			static const sz_t vals_count	= 3;
-			const dsz_t w_drift = (0 <= w)? -1; +1;
-			const member_t w_vals[vals_count] = {w, w + w_drift, 0};
-		#endif
-
-		member_t k_optim = w_vals[0];
-		j_t j_optim = _calc_j(p, sb, k, q, lambda);
-
-		for (int i = 1; vals_count > i; ++i) {
-			const member_t &k = w_vals[i];
-			const w_t wr = wnode::dequantize(k, _wtree.q());
-			const w_t dw = (wr - node.w);
-			(dw * dw) + lambda * _h_spec(_ind_spec<member>(p, sb),  k);
-		}
-
-		return k_optim;
-	}
+	//! \brief Ищет оптимальное откорректированное значение для коэффициента
+	wk_t _coef_fix(const p_t &p, const subbands::subband_t &sb,
+				   const lambda_t &lambda);
 
 	//@}
 
@@ -177,7 +147,7 @@ protected:
 	//@{
 
 	//! \brief Шаг 1. Подготовительный.
-	void _encode_step_1();
+	void _encode_step_1(const lambda_t &lambda);
 
 	//@}
 

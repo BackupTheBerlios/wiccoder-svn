@@ -91,7 +91,7 @@ public:
 	/*!	\return  вантователь, который был использован дл€ квантовани€
 		всего дерева c помощью wtree::quantize
 	*/
-	q_t q() const { return _q; }
+	const q_t &q() const { return _q; }
 
 	//@}
 
