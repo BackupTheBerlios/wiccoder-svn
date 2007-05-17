@@ -205,19 +205,32 @@ wk_t encoder::_coef_fix(const p_t &p, const subbands::subband_t &sb,
 void encoder::_encode_step_1(const lambda_t &lambda)
 {
 	// ïğîñìàòğèâàşòñÿ âñå óçëû ïğåäïîñëåäíåãî óğîâíÿ
-	const sz_t lvl = _wtree.sb().lvls() + subbands::LVL_PREV;
+	const sz_t lvl_j = _wtree.sb().lvls();
+	const sz_t lvl_i = _wtree.sb().lvls() + subbands::LVL_PREV;
 
-	// êîğğåêòèğîâêà ïğîêâàíòîâàííûõ êîıôôèöèåíòîâ
-	for (sz_t k = 0; subbands::SUBBANDS_ON_LEVEL > k; ++k) {
-		const subbands::subband_t &sb = _wtree.sb().get(lvl, k);
+	// öèêë ïî ñàááåíäàì
+	for (sz_t k = 0; subbands::SUBBANDS_ON_LEVEL > k; ++k)
+	{
+		// êîğğåêòèğîâêà ïğîêâàíòîâàííûõ êîıôôèöèåíòîâ
+		const subbands::subband_t &sb_j = _wtree.sb().get(lvl_j, k);
 
-		// äëÿ âñåõ êîıôôèöèåíòîâ â ñàááåíäå
-		for (wtree::coefs_iterator i = _wtree.iterator_over_subband(sb);
+		for (wtree::coefs_iterator i = _wtree.iterator_over_subband(sb_j);
 			!i->end(); i->next())
 		{
-			_coef_fix(i->get(), sb, 0);
+			const p_t &p = i->get();
+			_wtree.at(p).wc = _coef_fix(p, sb_j, lambda);
 		}
-	}	
+
+		// ğàñ÷åò RD-ôóíêöèé Ëàãğàíæà äëÿ âàğèàíòîâ ñîõğàíåíèÿ è
+		// ïîäğåçàíèÿ ëèñòüåâ
+		const subbands::subband_t &sb_i = _wtree.sb().get(lvl_i, k);
+
+		for (wtree::coefs_iterator i = _wtree.iterator_over_subband(sb_i);
+			!i->end(); i->next())
+		{
+			i->get();
+		}
+	}
 }
 
 
