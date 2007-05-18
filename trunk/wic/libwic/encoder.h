@@ -141,13 +141,43 @@ protected:
 	wk_t _coef_fix(const p_t &p, const subbands::subband_t &sb,
 				   const lambda_t &lambda);
 
+	//! \brief Расчитывает <i>RD</i> функцию <i>Лагранжа</i> для варианта
+	//!	подрезания ветвей
+	/*!	\todo Написать тест для этой функции
+	*/
 	j_t _calc_j0_value(const p_t &p)
 	{
-		return 0;
+		j_t j0 = 0;
+
+		for (wtree::coefs_iterator i = _wtree.iterator_over_children(p);
+			 !i->end(); i->next())
+		{
+			const wnode &node = _wtree.at(i->get());
+			j0 += (node.wc * node.wc + node.j0);
+		}
+
+		return j0;
 	}
-	j_t _calc_j1_value(const p_t &p, const wk_t &k)
+
+	//! \brief Расчитывает <i>RD</i> функцию <i>Лагранжа</i> для варианта
+	//!	сохранения и подрезания ветвей
+	/*!	\todo Написать тест для этой функции
+	*/
+	j_t _calc_j1_value(const p_t &p, const subbands::subband_t &sb,
+					   const lambda_t &lambda)
 	{
-		return 0;
+		const sz_t model = _ind_spec<wnode::member_wc>(p, sb);
+
+		j_t j1 = 0;
+
+		for (wtree::coefs_iterator i = _wtree.iterator_over_children(p);
+			 !i->end(); i->next())
+		{
+			const wnode &node = _wtree.at(i->get());
+			j1 += _calc_rd_iteration(i->get(), node.wc, lambda, model);
+		}
+
+		return j1;
 	}
 
 	//@}
