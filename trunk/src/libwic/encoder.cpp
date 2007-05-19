@@ -232,8 +232,8 @@ void encoder::_encode_step_1(const lambda_t &lambda)
 		{
 			const p_t &p = i->get();
 			wnode &node = _wtree.at(p);
-			node.j0 = _calc_j0_value(p);
-			node.j1 = _calc_j1_value(p, sb_i, lambda);
+			node.j0 = _calc_j0_value<false>(p);
+			node.j1 = _calc_j1_value(p, sb_j, lambda);
 		}
 	}
 }
