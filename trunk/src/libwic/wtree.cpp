@@ -226,6 +226,18 @@ wtree::coefs_iterator wtree::iterator_over_children(const p_t &prnt)
 }
 
 
+/*!	\todo Реализовать эту функцию
+*/
+wtree::coefs_iterator wtree::iterator_over_leafs(const p_t &root,
+												 const subbands::subband_t &sb)
+{
+	const p_t c = _leafs_top_left(root, sb.lvl, sb.i);
+
+	return new snake_square_iterator(p_t(c.x, c.y),
+									 p_t(c.x + sb.tree_w, c.y + sb.tree_h));
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 // wtree class protected definitions
 
@@ -247,6 +259,42 @@ void wtree::_reset_trees_content() {
 */
 p_t wtree::_children_top_left(const p_t &prnt) {
 	return p_t(2 * prnt.x, 2 * prnt.y);
+}
+
+
+/*!	\param[in] root Координаты корневого элемента дерева
+	\param[in] lvl Уровень на котором находится требуемый блок листьев
+	\param[in] i Индекс саббенда на уровне (аналогично subbands::_get())
+	\return Координаты верхнего левого элемента блока листьев данного
+	дерева.
+
+	\todo Написать тест для этой функции
+	\todo Написать более подробное описание
+*/
+p_t wtree::_leafs_top_left(const p_t &root, const sz_t lvl, const sz_t i)
+{
+	// будем часто обращаться к LL саббенду
+	const subbands::subband_t &sb_LL = sb().get_LL();
+
+	// удостоверимся, что корневой элемент из LL саббенда
+	assert(sb_LL.x_min <= root.x && root.x <= sb_LL.x_max);
+	assert(sb_LL.y_min <= root.y && root.y <= sb_LL.y_max);
+
+	// если нулевой уровень, то независимо от индекса саббенда возвращаем
+	// корневой элемент
+	if (0 == lvl) return root;
+
+	// находим координаты элемента из саббенда нулевого уровня с нужным
+	// индексом
+	const subbands::subband_t &sb_1 =  sb().get(subbands::LVL_1, i);
+
+	const p_t leaf_1(sb_1.x_min + root.x, sb_1.y_min + root.y);
+
+	// определяем множитель, на который необходимо домножить координаты
+	// для перехода на требуемый уровень (это будет 2^(lvl - 1))
+	const sz_t factor = 1 << (lvl - 1);
+
+	return p_t(factor * leaf_1.x, factor * leaf_1.y);
 }
 
 

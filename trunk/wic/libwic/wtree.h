@@ -282,6 +282,10 @@ public:
 	//! \brief Возвращает итератор по дочерним коэффициентам
 	coefs_iterator iterator_over_children(const p_t &prnt);
 
+	//! \brief Возвращает итератор по дочерним коэффициентам
+	coefs_iterator iterator_over_leafs(const p_t &root,
+									   const subbands::subband_t &sb);
+
 	//@}
 
 protected:
@@ -301,6 +305,10 @@ protected:
 	//!	\brief Возвращает координаты верхнего левого элемента из группы
 	//!	дочерних элементов
 	p_t _children_top_left(const p_t &prnt);
+
+	//! \brief Определяет координаты верхнего левого эдемента блока листьев
+	//!	дерева
+	p_t _leafs_top_left(const p_t &root, const sz_t lvl, const sz_t i);
 
 	//!	\brief Из координат элемента получает предполагаемое направление
 	//!	обхода

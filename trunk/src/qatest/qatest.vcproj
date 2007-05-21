@@ -120,6 +120,9 @@
 			<File
 				RelativePath=".\test_prediction.cpp">
 			</File>
+			<File
+				RelativePath=".\test_wtree_commons.cpp">
+			</File>
 		</Filter>
 		<Filter
 			Name="include"
@@ -127,6 +130,9 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}">
 			<File
 				RelativePath=".\test_prediction.h">
+			</File>
+			<File
+				RelativePath=".\test_wtree_commons.h">
 			</File>
 		</Filter>
 		<Filter

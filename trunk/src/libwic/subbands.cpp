@@ -73,6 +73,7 @@ subbands::subbands(const sz_t width, const sz_t height, const sz_t lvls) {
 	sb_ll.count = trees_count;
 	sb_ll.prnt	= 0;
 	sb_ll.lvl	= 0;
+	sb_ll.i		= 0;
 
 	// подсчЄт количества узлов приход€шегос€ на одно дерево в саббенде
 	for (sz_t i = 0; _count > i; ++i) {
@@ -164,6 +165,7 @@ void subbands::_mk_lvl(const sz_t lvl,
 	sb_hl.count = count;
 	sb_hl.prnt	= _get(lvl + LVL_PREV, SUBBAND_HL);
 	sb_hl.lvl	= lvl;
+	sb_hl.i		= SUBBAND_HL;
 
 	// саббенд LH
 	sb_lh.x_min = 0;
@@ -173,6 +175,7 @@ void subbands::_mk_lvl(const sz_t lvl,
 	sb_lh.count = count;
 	sb_lh.prnt	= _get(lvl + LVL_PREV, SUBBAND_LH);
 	sb_lh.lvl	= lvl;
+	sb_lh.i		= SUBBAND_LH;
 
 	// саббенд HH
 	sb_hh.x_min = x_min;
@@ -182,6 +185,7 @@ void subbands::_mk_lvl(const sz_t lvl,
 	sb_hh.count = count;
 	sb_hh.prnt	= _get(lvl + LVL_PREV, SUBBAND_HH);
 	sb_hh.lvl	= lvl;
+	sb_hh.i		= SUBBAND_HH;
 }
 
 

@@ -238,6 +238,11 @@ void encoder::_encode_step_1(const lambda_t &lambda)
 	}
 }
 
+/*!	
+*/
+void _encode_tree_step_1(const lambda_t &lambda){
+}
+
 
 
 }	// end of namespace wic

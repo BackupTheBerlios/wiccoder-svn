@@ -228,6 +228,9 @@ protected:
 	//! \brief Шаг 1. Подготовительный.
 	void _encode_step_1(const lambda_t &lambda);
 
+	//! \brief Шаг 1. Подготовительный.
+	void _encode_tree_step_1(const lambda_t &lambda);
+
 	//@}
 
 private:
