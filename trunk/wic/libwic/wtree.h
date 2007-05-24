@@ -221,6 +221,49 @@ public:
 		return pi_t(4 * get_safe<member>(x, y, sb) + 2 * i1 + i2) / 16;
 	}
 
+	//!	\brief Вычисляет среднее по дочерним элементам значения прогнозной
+	//!	величины <i>P<sub>i</sub></i>
+	/*!	\param[in] prnt Координаты родительского элемента, дочерние от
+		которого будут использоваться для вычисления прогнозной величины.
+		\param[in] children_sb Саббенд в котором располагаются дочерние
+		элементы.
+		\return Среднее по дочерним элементам значения прогнозной величины
+		<i>P<sub>i</sub></i>
+
+		Функция применима только для родительских элементов не из <i>LL</i>
+		саббенда.
+
+		Шаблонный параметр <i>member</i> позволяет выбирать поле элемента
+		для расчёта прогноза. Обычно это будет wnode::member_wc.
+
+		Для более подробной информации смотри <i>Шаг 2.1</i> и формулу
+		<i>(5)</i> в <i>35.pdf</i>.
+
+		\attention Следует обратить особое внимание на то, что параметр
+		<i>children_sb</i> представляет собой именно саббенд, в котором
+		располагаются дочерние элементы, а не саббенд, в котором находится
+		сам родительский элемент с координатами <i>prnt</i>
+
+		\todo Необходимо протестировать эту функцию
+	*/
+	template <const wnode::wnode_members member>
+	pi_t calc_pi_avg(const p_t &prnt, const subbands::subband_t &children_sb)
+	{
+		assert(prnt.x > sb().get_LL().x_max);
+		assert(prnt.y > sb().get_LL().y_max);
+
+		pi_t pi = 0;
+
+		for (coefs_iterator i = iterator_over_children(prnt);
+			!i->end(); i->next())
+		{
+			const p_t &c = i->get();
+			pi += calc_pi<member>(c.x, c.y, children_sb);
+		}
+
+		return (pi / 4);
+	}
+
 	//! \brief Высчитывает значение прогнозной величины <i>S<sub>j</sub></i>
 	/*!	\param[in] x Координата x "центра" маски 2x2
 		\param[in] y Координата y "центра" маски 2x2
@@ -273,6 +316,23 @@ public:
 
 	//@}
 
+	//!	\name Функции для работы с групповыми признаками подрезания
+	//@{
+
+	/*
+	//!	\brief 
+	n_t n_get_max();
+
+	//!	\brief 
+	n_t n_get_max();
+
+	//!	\brief 
+	n_t n_test();
+	*/
+
+	//@}
+
+
 	//!	\name Генераторы итераторов
 	//@{
 
@@ -282,9 +342,13 @@ public:
 	//! \brief Возвращает итератор по дочерним коэффициентам
 	coefs_iterator iterator_over_children(const p_t &prnt);
 
-	//! \brief Возвращает итератор по дочерним коэффициентам
+	//! \brief Возвращает итератор по дочерним коэффициентам (листьям)
 	coefs_iterator iterator_over_leafs(const p_t &root,
 									   const subbands::subband_t &sb);
+
+	//! \brief Возвращает итератор по дочерним коэффициентам (листьям)
+	coefs_iterator iterator_over_leafs(const p_t &root,
+									   const sz_t lvl, const sz_t i);
 
 	//@}
 

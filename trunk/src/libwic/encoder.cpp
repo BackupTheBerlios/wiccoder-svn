@@ -53,7 +53,15 @@ encoder::~encoder() {
 void encoder::encode() {
 	_aenc.begin();
 
-	_encode_step_1(0);
+	const subbands &sb = _wtree.sb();
+
+	for (wtree::coefs_iterator i = _wtree.iterator_over_subband(sb.get_LL());
+		 !i->end(); i->next())
+	{
+		const p_t &root = i->get();
+		_encode_step_1(root, 0);
+		_encode_step_2(root, 0);
+	}
 
 	_aenc.end();
 }
@@ -193,7 +201,8 @@ wk_t encoder::_coef_fix(const p_t &p, const subbands::subband_t &sb,
 }
 
 
-/*!	\param[in] lambda Параметр <i>lambda</i> используемый для
+/*!	\param[in] root Координаты корневого элемента рассматриваемого дерева
+	\param[in] lambda Параметр <i>lambda</i> используемый для
 	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
 	собой баланс между ошибкой и битовыми затратами.
 
@@ -201,10 +210,8 @@ wk_t encoder::_coef_fix(const p_t &p, const subbands::subband_t &sb,
 	на самом последнем (с наибольшей площадью) уровне разложения и
 	последующей расчёт <i>RD-функций Лагранжа</i> для вариантов сохранения
 	и подрезания листьев дерева.
-
-	\todo Реализовать эту функцию
 */
-void encoder::_encode_step_1(const lambda_t &lambda)
+void encoder::_encode_step_1(const p_t &root, const lambda_t &lambda)
 {
 	// просматриваются все узлы предпоследнего уровня
 	const sz_t lvl_j = _wtree.sb().lvls();
@@ -216,7 +223,7 @@ void encoder::_encode_step_1(const lambda_t &lambda)
 		// корректировка проквантованных коэффициентов
 		const subbands::subband_t &sb_j = _wtree.sb().get(lvl_j, k);
 
-		for (wtree::coefs_iterator i = _wtree.iterator_over_subband(sb_j);
+		for (wtree::coefs_iterator i = _wtree.iterator_over_leafs(root, sb_j);
 			!i->end(); i->next())
 		{
 			const p_t &p = i->get();
@@ -227,7 +234,7 @@ void encoder::_encode_step_1(const lambda_t &lambda)
 		// подрезания листьев
 		const subbands::subband_t &sb_i = _wtree.sb().get(lvl_i, k);
 
-		for (wtree::coefs_iterator i = _wtree.iterator_over_subband(sb_i);
+		for (wtree::coefs_iterator i = _wtree.iterator_over_leafs(root, sb_i);
 			!i->end(); i->next())
 		{
 			const p_t &p = i->get();
@@ -238,11 +245,13 @@ void encoder::_encode_step_1(const lambda_t &lambda)
 	}
 }
 
-/*!	
-*/
-void _encode_tree_step_1(const lambda_t &lambda){
-}
 
+//! \brief Шаг 2. Просмотр текущего уровня с попыткой подрезания ветвей.
+void encoder::_encode_step_2(const p_t &root, const lambda_t &lambda)
+{
+	// Шаг 2.1. Определение оптимальной топологии ветвей
+	_wtree.calc_pi_avg<wnode::member_wc>(root, _wtree.sb().get_LL());
+}
 
 
 }	// end of namespace wic

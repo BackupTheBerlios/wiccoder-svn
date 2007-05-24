@@ -62,7 +62,9 @@ subbands::subbands(const sz_t width, const sz_t height, const sz_t lvls) {
 	}
 
 	// количество деревьев в разложении
-	const sz_t trees_count = (x_max + 1) * (y_max + 1);
+	_LL_width	= (x_max + 1);
+	_LL_height	= (y_max + 1);
+	const sz_t trees_count = _LL_width * _LL_height;
 
 	// заполнени€ информации о LL саббенде
 	subband_t &sb_ll = subbands::get_LL();
@@ -77,8 +79,10 @@ subbands::subbands(const sz_t width, const sz_t height, const sz_t lvls) {
 
 	// подсчЄт количества узлов приход€шегос€ на одно дерево в саббенде
 	for (sz_t i = 0; _count > i; ++i) {
-		subband_t &sb = subbands::get(i);
-		sb.npt = sb.count / trees_count;
+		subband_t &sb	= subbands::get(i);
+		sb.tree_w		= (sb.x_max - sb.x_min + 1) / _LL_width;
+		sb.tree_h		= (sb.y_max - sb.y_min + 1) / _LL_height;
+		sb.npt			= sb.tree_w * sb.tree_h;
 	}
 }
 

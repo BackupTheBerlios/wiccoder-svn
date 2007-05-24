@@ -153,6 +153,9 @@ public:
 	//! \brief Возвращает LL саббенд
 	subband_t &get_LL() { return get(); }
 
+	//! \brief Возвращает LL саббенд
+	const subband_t &get_LL() const { return get(); }
+
 	//! \brief Количество саббендов без LL саббенда
 	sz_t mcount() const { return _mcount; }
 
@@ -194,8 +197,15 @@ private:
 	//! \brief Общее количество саббендов
 	sz_t _count;
 
-	sz_t _h_trees;
-	sz_t _g_trees;
+	//!	\brief Ширина <i>LL</i> саббенда (в элементах). Равна количеству
+	//!	вершин деревьев в любой горизонтальной линии элементов из <i>LL</i>
+	//!	саббенда.
+	sz_t _LL_width;
+
+	//!	\brief Высота <i>LL</i> саббенда (в элементах). Равна количеству
+	//!	вершин деревьев в любой вертикальной линии элементов из <i>LL</i>
+	//!	саббенда.
+	sz_t _LL_height;
 };
 
 

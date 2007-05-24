@@ -226,7 +226,13 @@ wtree::coefs_iterator wtree::iterator_over_children(const p_t &prnt)
 }
 
 
-/*!	\todo Реализовать эту функцию
+/*!	\param[in] root Координаты корневого элемента
+	\param[in] sb Саббенд, листья из которого будут рассматриваться во время
+	процесса итерации.
+	\return Итератор по листьям
+
+	\todo Написать функцию получения саббенда в котором находится коэффициент
+	\todo Эту функцию необходимо протестировать
 */
 wtree::coefs_iterator wtree::iterator_over_leafs(const p_t &root,
 												 const subbands::subband_t &sb)
@@ -235,6 +241,20 @@ wtree::coefs_iterator wtree::iterator_over_leafs(const p_t &root,
 
 	return new snake_square_iterator(p_t(c.x, c.y),
 									 p_t(c.x + sb.tree_w, c.y + sb.tree_h));
+}
+
+
+/*!	\param[in] root Координаты корневого элемента
+	\param[in] lvl Уровень, листья с которого будут рассматриваться во время
+	процесса итерации
+	\param[in] i Индекс саббенда внутри уровня, листья из которого буду
+	рассматриваться
+	\return Итератор по листьям
+*/
+wtree::coefs_iterator wtree::iterator_over_leafs(const p_t &root,
+												 const sz_t lvl, const sz_t i)
+{
+	return iterator_over_leafs(root, sb().get(lvl, i));
 }
 
 
