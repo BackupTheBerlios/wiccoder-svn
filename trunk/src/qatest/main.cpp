@@ -12,6 +12,7 @@
 
 // standard C++ library headers
 #include <iostream>
+#include <iomanip>
 #include <list>
 
 // libwic headers
@@ -67,10 +68,12 @@ int main(int argc, char **args) {
 
 	// print over all results
 	std::cout << "Tests results:" << std::endl;
-	std::cout << "Tests ok: \t" << tests_ok << "/"
+	std::cout << "ok:      " << tests_ok << " / "
 			  << (unsigned int)(tests_list.size()) << std::endl;
-	std::cout << "Tests failed: \t" << tests_bad << "/"
+	std::cout << "failed:  " << tests_bad << " / "
 			  << (unsigned int)(tests_list.size()) << std::endl;
+
+	std::cout << std::endl;
 
 	// exit
 	return ((tests_ok == tests_list.size())? 0: -1);
