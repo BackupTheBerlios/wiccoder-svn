@@ -250,7 +250,7 @@ void encoder::_encode_step_1(const p_t &root, const lambda_t &lambda)
 void encoder::_encode_step_2(const p_t &root, const lambda_t &lambda)
 {
 	// Шаг 2.1. Определение оптимальной топологии ветвей
-	_wtree.calc_pi_avg<wnode::member_wc>(root, _wtree.sb().get_LL());
+	_optimize_branch_topology(root, 0, 0, 0);
 }
 
 

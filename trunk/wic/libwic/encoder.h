@@ -226,20 +226,28 @@ protected:
 		начало ветви.
 		\param[in] lvl
 		\param[in] i
+		\param[in] lambda
 		\return Групповой признак подрезания ветвей
 
 		Алгоритм оптимизации топологии подробно описан в <i>35.pdf</i>
 	*/
 	n_t _optimize_branch_topology(const p_t &branch, const sz_t lvl,
-								  const sz_t i)
+								  const sz_t i, const lambda_t &lambda)
 	{
 		const sz_t lvl_j = lvl + subbands::LVL_NEXT;
 		const subbands::subband_t &sb = _wtree.sb().get(lvl_j, i);
-		const pi_t p_avg = _wtree.calc_pi_avg<wnode::member_wc>(branch, sb);
 
 		// подсчёт прогнозной величины Pi
-		for (n_t n = 0; n > 0; ++n)
+		const pi_t pi_avg = _wtree.calc_pi_avg<wnode::member_wc>(branch, sb);
+
+		const sz_t model = _ind_map(pi_avg, (lvl == subbands::LVL_0));
+
+		// поиск наиболее оптимальной топологии
+		for (wtree::n_iterator i = _wtree.iterator_through_n(lvl);
+			 !i->end(); i->next())
 		{
+			const n_t &n = i->get();
+			const j_t j = lambda * _h_map(model, n);
 		}
 
 		return 0;
