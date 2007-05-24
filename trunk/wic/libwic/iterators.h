@@ -55,6 +55,12 @@ class basic_iterator {
 
 	//! \brief Переходит к следующиму значению
 	/*!	\return Новое значение итератора значение итератора
+
+		Значение итератора может быть неверным (или не существующим), если
+		достигнут конец последовательности итераций и
+		basic_iterator::end() возвращает <i>true</i>. Таким образом, после
+		каждого вызова basic_iterator::next() необходимо проверять
+		условие завершения последовательности итераций.
 	*/
 	virtual const ival_t &next() = 0;
 
@@ -290,6 +296,46 @@ private:
 	//!	\brief Текущее направление перемещения.
 	bool _going_left;
 
+};
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// n_cutdown_iterator class declaration
+//!	\brief
+/*!	
+*/
+class n_cutdown_iterator: public basic_iterator<n_t>
+{
+public:
+	// public methods ----------------------------------------------------------
+
+	//!	\brief 
+	n_cutdown_iterator(const sz_t lvl): _n(0), _end(false) {
+	}
+
+	//! \brief Определение виртуального basic_iterator::get()
+	virtual const n_t &get() const { return _n; }
+
+	//! \brief Определение виртуального basic_iterator::next()
+	virtual const n_t &next() {
+		(0 != _n)? --_n: _end = true;
+
+		return _n;
+	}
+
+	//! \brief Определение виртуального basic_iterator::end()
+	virtual const bool end() const { return _end; }
+
+protected:
+private:
+	// private data ------------------------------------------------------------
+
+	//!	\brief Текущее значение группового признака подрезания ветвей
+	n_t _n;
+
+	//!	\brief 
+	bool _end;
 };
 
 

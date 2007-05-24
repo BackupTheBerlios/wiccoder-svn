@@ -20,6 +20,7 @@
 // qatest headers
 #include "test_prediction.h"
 #include "test_wtree_commons.h"
+#include "test_wtree_iterators.h"
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -46,6 +47,7 @@ int main(int argc, char **args) {
 	tests_list.push_back(test_wtree_calc_pi);
 	tests_list.push_back(test_wtree_calc_sj);
 	tests_list.push_back(test_wtree_leafs_top_left);
+	tests_list.push_back(test_n_cutdown_iterator);
 
 	// for each item in list
 	for (tests_list_t::const_iterator i = tests_list.begin();

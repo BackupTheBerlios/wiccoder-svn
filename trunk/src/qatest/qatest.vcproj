@@ -123,6 +123,9 @@
 			<File
 				RelativePath=".\test_wtree_commons.cpp">
 			</File>
+			<File
+				RelativePath=".\test_wtree_iterators.cpp">
+			</File>
 		</Filter>
 		<Filter
 			Name="include"
@@ -133,6 +136,9 @@
 			</File>
 			<File
 				RelativePath=".\test_wtree_commons.h">
+			</File>
+			<File
+				RelativePath=".\test_wtree_iterators.h">
 			</File>
 		</Filter>
 		<Filter

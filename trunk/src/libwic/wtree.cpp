@@ -288,7 +288,6 @@ p_t wtree::_children_top_left(const p_t &prnt) {
 	\return Координаты верхнего левого элемента блока листьев данного
 	дерева.
 
-	\todo Написать тест для этой функции
 	\todo Написать более подробное описание
 */
 p_t wtree::_leafs_top_left(const p_t &root, const sz_t lvl, const sz_t i)

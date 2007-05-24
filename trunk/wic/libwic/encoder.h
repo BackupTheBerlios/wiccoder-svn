@@ -224,21 +224,25 @@ protected:
 	//!	дочерних ветвей.
 	/*!	\param[in] branch Координаты родительского элемента, дающего
 		начало ветви.
-		\return Групповой признак подрезания
+		\param[in] lvl
+		\param[in] i
+		\return Групповой признак подрезания ветвей
 
 		Алгоритм оптимизации топологии подробно описан в <i>35.pdf</i>
 	*/
-	n_t _optimize_branch_topology(const p_t &branch)
+	n_t _optimize_branch_topology(const p_t &branch, const sz_t lvl,
+								  const sz_t i)
 	{
-		/*
+		const sz_t lvl_j = lvl + subbands::LVL_NEXT;
+		const subbands::subband_t &sb = _wtree.sb().get(lvl_j, i);
+		const pi_t p_avg = _wtree.calc_pi_avg<wnode::member_wc>(branch, sb);
+
 		// подсчёт прогнозной величины Pi
-		for (wtree::coefs_iterator i = _wtree.iterator_over_leafs(root, sb_i);
-			!i->end(); i->next())
+		for (n_t n = 0; n > 0; ++n)
 		{
 		}
 
-		for (n_t n = 0; n > i;)
-		*/
+		return 0;
 	}
 
 	//@}
