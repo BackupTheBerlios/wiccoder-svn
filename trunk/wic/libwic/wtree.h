@@ -326,10 +326,11 @@ public:
 	//!	подрезания
 	n_iterator iterator_through_n(const sz_t lvl);
 
-	/*
-	//!	\brief 
-	bool n_get_max(n, p);
+	//!	\brief Конструирует групповой признак подрезания ветвей, в котором
+	//!	все элементы кроме одного подрезаны.
+	n_t child_n_mask(const p_t &p, const p_t &branch);
 
+	/*
 	//!	\brief 
 	n_t n_get_max();
 
@@ -377,7 +378,7 @@ protected:
 	//!	дочерних элементов
 	p_t _children_top_left(const p_t &prnt);
 
-	//! \brief Определяет координаты верхнего левого эдемента блока листьев
+	//! \brief Определяет координаты верхнего левого элемента блока листьев
 	//!	дерева
 	p_t _leafs_top_left(const p_t &root, const sz_t lvl, const sz_t i);
 

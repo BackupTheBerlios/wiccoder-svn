@@ -210,6 +210,26 @@ wtree::n_iterator wtree::iterator_through_n(const sz_t lvl) {
 }
 
 
+/*!	\param[in] p Координаты элемента, который будет оставлен неподрезанным
+	в групповом признаке подрезания ветвей.
+	\param[in] prnt Координаты родительского элемента, дающего начало ветки.
+	\return Групповой признак подрезания ветвей, сконструированный так, что
+	только одна ветвь (которой принадлежит элемент с координатами <i>p</i>)
+	осталась неподрезанной.
+
+	\todo Необходимо протестировать эту функцию
+	\todo Сделать поддержку элементов ил LL саббенда
+*/
+n_t wtree::child_n_mask(const p_t &p, const p_t &branch)
+{
+	const p_t ctl = _children_top_left(branch);
+
+	const sz_t shift = (p.x - ctl.x) + 2*(p.y - ctl.y);
+
+	return n_t(1 << shift);
+}
+
+
 /*!	\param[in] sb Саббенд по которому будет происходить обход с помощью
 	возвращённого итератора
 	\return Итератор по саббенду
@@ -225,7 +245,8 @@ wtree::coefs_iterator wtree::iterator_over_subband(
 /*!	\param[in] prnt Координаты родительского коэффициента
 	\return Итератор по дочерним коэффициентам
 
-	\todo Написать более точное описание
+	\note Данная функция не применима для родительских коэффициентов из
+	нулевого саббенда.
 */
 wtree::coefs_iterator wtree::iterator_over_children(const p_t &prnt)
 {
@@ -315,7 +336,7 @@ p_t wtree::_leafs_top_left(const p_t &root, const sz_t lvl, const sz_t i)
 	// корневой элемент
 	if (0 == lvl) return root;
 
-	// находим координаты элемента из саббенда нулевого уровня с нужным
+	// находим координаты элемента из саббенда первого уровня с нужным
 	// индексом
 	const subbands::subband_t &sb_1 =  sb().get(subbands::LVL_1, i);
 

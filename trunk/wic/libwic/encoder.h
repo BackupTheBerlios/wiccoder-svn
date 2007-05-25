@@ -243,21 +243,35 @@ protected:
 		const sz_t model = _ind_map(pi_avg, (lvl == subbands::LVL_0));
 
 		// поиск наиболее оптимальной топологии
+		j_t j_optim	= 0;
+		n_t n_optim = 0;
+
 		for (wtree::n_iterator i = _wtree.iterator_through_n(lvl);
 			 !i->end(); i->next())
 		{
 			const n_t &n = i->get();
 
-			for (wtree::coefs_iterator j = wtree::iterator_over_children(branch);
-				 !j->end(); j->next())
+			j_t j_sum = 0;
+
+			for (wtree::coefs_iterator k =
+					_wtree.iterator_over_children(branch);
+				 !k->end(); k->next())
 			{
-				const p_t &p = j->get();
+				const p_t &p = k->get();
+				const wnode &node = _wtree.at(p);
+				const n_t n_j_mask = _wtree.child_n_mask(p, branch);
+				j_sum += (0 != (n_j_mask & n))? node.j1: node.j0;
 			}
 
-			const j_t j = lambda * _h_map(model, n);
+			const j_t j = (j_sum + lambda * _h_map(model, n));
+
+			if (j < j_optim) {
+				j_optim = j;
+				n_optim = n;
+			}
 		}
 
-		return 0;
+		return n_optim;
 	}
 
 	//@}
