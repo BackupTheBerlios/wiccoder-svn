@@ -92,12 +92,12 @@ sz_t encoder::_ind_spec(const pi_t &s, const sz_t lvl) {
 	\param[in] is_LL берётся ли коэффициент из саббенда LL
 	\return Номер выбираемой модели
 */
-sz_t encoder::_ind_map(const pi_t &p, const bool is_LL) {
+sz_t encoder::_ind_map(const pi_t &pi, const bool is_LL) {
 	if (is_LL) return 0;
 
-	if (4.0 <= p) return 4;
-	if (1.1 <= p) return 3;
-	if (0.3 <= p) return 2;
+	if (4.0 <= pi) return 4;
+	if (1.1 <= pi) return 3;
+	if (0.3 <= pi) return 2;
 
 	return 1;
 }

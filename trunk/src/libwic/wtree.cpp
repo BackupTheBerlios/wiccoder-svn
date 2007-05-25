@@ -224,6 +224,8 @@ wtree::coefs_iterator wtree::iterator_over_subband(
 
 /*!	\param[in] prnt Координаты родительского коэффициента
 	\return Итератор по дочерним коэффициентам
+
+	\todo Написать более точное описание
 */
 wtree::coefs_iterator wtree::iterator_over_children(const p_t &prnt)
 {

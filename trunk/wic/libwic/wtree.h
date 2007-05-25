@@ -328,7 +328,7 @@ public:
 
 	/*
 	//!	\brief 
-	n_t n_get_max();
+	bool n_get_max(n, p);
 
 	//!	\brief 
 	n_t n_get_max();

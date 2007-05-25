@@ -111,7 +111,7 @@ protected:
 	}
 
 	//! \brief Реализует функцию IndMap(<i>P<sub>i</sub></i>) из 35.pdf
-	sz_t _ind_map(const pi_t &p, const bool is_LL = false);
+	sz_t _ind_map(const pi_t &pi, const bool is_LL = false);
 
 	//@}
 
@@ -247,6 +247,13 @@ protected:
 			 !i->end(); i->next())
 		{
 			const n_t &n = i->get();
+
+			for (wtree::coefs_iterator j = wtree::iterator_over_children(branch);
+				 !j->end(); j->next())
+			{
+				const p_t &p = j->get();
+			}
+
 			const j_t j = lambda * _h_map(model, n);
 		}
 
