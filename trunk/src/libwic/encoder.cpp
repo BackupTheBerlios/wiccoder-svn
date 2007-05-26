@@ -88,7 +88,7 @@ sz_t encoder::_ind_spec(const pi_t &s, const sz_t lvl) {
 }
 
 
-/*!	\param[in] p Значение прогнозной величины <i>P<sub>i</sub></i>
+/*!	\param[in] pi Значение прогнозной величины <i>P<sub>i</sub></i>
 	\param[in] is_LL берётся ли коэффициент из саббенда LL
 	\return Номер выбираемой модели
 */

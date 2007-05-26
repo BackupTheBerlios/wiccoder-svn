@@ -259,8 +259,8 @@ protected:
 			{
 				const p_t &p = k->get();
 				const wnode &node = _wtree.at(p);
-				const n_t n_j_mask = _wtree.child_n_mask(p, branch);
-				j_sum += (0 != (n_j_mask & n))? node.j1: node.j0;
+				const n_t mask = _wtree.child_n_mask(p, branch);
+				j_sum += (_wtree.test_n_mask(n, mask))? node.j1: node.j0;
 			}
 
 			const j_t j = (j_sum + lambda * _h_map(model, n));

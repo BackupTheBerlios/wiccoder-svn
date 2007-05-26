@@ -108,11 +108,19 @@ public:
 
     // public functions --------------------------------------------------------
 
+	//!	\name Конструкторы и деструкторы
+	//@{
+
 	//! \brief Конструктор
 	subbands(const sz_t width, const sz_t height, const sz_t lvls);
 
 	//! \brief Деструктор
 	~subbands();
+
+	//@}
+
+	//!	\name Общая информация о спектре
+	//@{
 
 	//! \brief Ширина изображения
 	sz_t width() const { return _width; }
@@ -129,6 +137,11 @@ public:
 		функциях get() номер уровня равный <i>%lvls()</i>.
 	*/
 	sz_t lvls() const { return _lvls; }
+
+	//@}
+
+	//!	\name Информация о саббендах
+	//@{
 
 	//! \brief Возвращает саббенд по его индексу (номеру)
 	subband_t &get(const sz_t i = 0) {
@@ -161,6 +174,45 @@ public:
 
 	//! \brief Общее количество саббендов
 	sz_t count() const { return _count; }
+
+	//@}
+
+	//!	\name Вспомогательные функции
+	//@{
+
+	//!	\brief Проверяет вхождение элемента в саббенд
+	/*!	\param[in] p Координаты элемента
+		\param[in] sb Саббенд
+		\return <i>true</i> если элемент с координатами <i>%p</i> входит
+		в саббенд <i>%sb</i>, иначе <i>false</i>
+
+		\todo Необходимо протестировать эту функцию
+	*/
+	inline bool test(const p_t &p, const subband_t &sb) {
+		return (sb.x_min <= p.x && p.x <= sb.x_max &&
+				sb.y_min <= p.y && p.y <= sb.y_max);
+	}
+
+	//!	\brief Проверяет вхождение элемента в <i>LL</i> саббенд
+	/*!	\param[in] p Координаты элемента
+		\return <i>true</i> если элемент с координатами <i>%p</i> входит
+		в <i>LL</i> саббенд, иначе <i>false</i>
+
+		Функция аналогична subbands::test(), но требует выполнения в два раза
+		меньшего числа сравнений (в отладочной версии также проверяется выход за
+		пределы спектра).
+
+		\todo Необходимо протестировать эту функцию
+	*/
+	inline bool test_LL(const p_t &p) {
+		const subband_t &sb = get_LL();
+
+		assert(sb.x_min <= p.x && sb.y_min <= p.y);
+
+		return (p.x <= sb.x_max && p.y <= sb.y_max);
+	}
+
+	//@}
 
 protected:
 	// protected functions -----------------------------------------------------
