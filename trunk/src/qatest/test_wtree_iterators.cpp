@@ -105,5 +105,43 @@ bool test_n_cutdown_iterator()
 	}
 	std::cout << std::endl;
 
-	return true;
+	return ok;
+}
+
+/*!
+*/
+bool test_snake_square_iterator()
+{
+	// Что тестируется
+	std::cout << "wic::snake_square_iterator class" << std::endl;
+
+	using namespace wic;
+
+	bool ok = true;
+
+	// Тестируем перемещение по квадрату 3х3.
+	// Левый верхний угол (1, 1), правый нижний - (3, 3)
+	std::vector<p_t> i1_good, i1_calc;
+	i1_good.push_back(p_t(1, 1));
+	i1_good.push_back(p_t(2, 1));
+	i1_good.push_back(p_t(3, 1));
+	i1_good.push_back(p_t(3, 2));
+	i1_good.push_back(p_t(2, 2));
+	i1_good.push_back(p_t(1, 2));
+	i1_good.push_back(p_t(1, 3));
+	i1_good.push_back(p_t(2, 3));
+	i1_good.push_back(p_t(3, 3));
+	for (wic::snake_square_iterator i1(p_t(1, 1), p_t(3,3)); !i1.end(); i1.next()) {
+		i1_calc.push_back(i1.get());
+	}
+
+	if (i1_good == i1_calc) {
+		std::cout << "ok.";
+	} else {
+		std::cout << "failed.";
+		ok = false;
+	}
+	std::cout << std::endl;
+
+	return ok;
 }

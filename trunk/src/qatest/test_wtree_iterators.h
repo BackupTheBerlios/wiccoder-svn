@@ -34,6 +34,9 @@
 //! \brief Тестирует класс wic::n_cutdown_iterator
 bool test_n_cutdown_iterator();
 
+//! \brief Тестирует класс wic::snake_square_iterator
+bool test_snake_square_iterator();
+
 
 
 #endif	// QATEST_TEST_WTREE_ITERATORS_INCLUDED
