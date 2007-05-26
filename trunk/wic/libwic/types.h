@@ -81,8 +81,6 @@ struct p_t {
 	*/
 	p_t(const size_type &x, const size_type &y): x(x), y(y) {}
 
-	bool operator == (const p_t& other) const { return ((x == other.x) && (y == other.y)); }
-
 	//! \brief Возвращает значение координаты x
 	const size_type &getx() const { return x; }
 

@@ -31,17 +31,11 @@
 ////////////////////////////////////////////////////////////////////////////////
 // public function definitions
 
-struct a1_t {
-	int a;
-	int b;
-};
 
 ////////////////////////////////////////////////////////////////////////////////
 // main function definition
 int main(int argc, char **args) {
-	a1_t a1, b2;
-	if (a1 == b2) {
-	}
+
 	// types
 	typedef bool (* test_func_t)();
 	typedef std::list<test_func_t> tests_list_t;
