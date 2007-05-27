@@ -169,3 +169,36 @@ bool test_snake_square_iterator()
 
 	return ok;
 }
+
+/*!
+*/
+bool test_LL_children_iterator()
+{
+	// Что тестируется
+	std::cout << "wic::LL_children_iterator class" << std::endl;
+
+	using namespace wic;
+
+	bool ok = true;
+
+	// LL саббэнд имеет размер 5х5. Ожидается обход по
+	// дочерним саббэндам этого же уровня разложения в след. порядке:
+	// правый верхний, левый нижний, правый нижний
+	std::vector<p_t> i1_good, i1_calc;
+	i1_good.push_back(p_t(7, 4));
+	i1_good.push_back(p_t(2, 9));
+	i1_good.push_back(p_t(7, 9));
+	for (wic::LL_children_iterator i1(5, 5, p_t(2, 4)); !i1.end(); i1.next()) {
+		i1_calc.push_back(i1.get());
+	}
+
+	if (i1_good == i1_calc) {
+		std::cout << "ok.";
+	} else {
+		std::cout << "failed.";
+		ok = false;
+	}
+	std::cout << std::endl;
+
+	return ok;
+}
