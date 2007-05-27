@@ -89,7 +89,7 @@ sz_t encoder::_ind_spec(const pi_t &s, const sz_t lvl) {
 
 
 /*!	\param[in] pi Значение прогнозной величины <i>P<sub>i</sub></i>
-	\param[in] is_LL берётся ли коэффициент из саббенда LL
+	\param[in] is_LL Берётся ли коэффициент из саббенда LL
 	\return Номер выбираемой модели
 */
 sz_t encoder::_ind_map(const pi_t &pi, const bool is_LL) {
@@ -250,7 +250,7 @@ void encoder::_encode_step_1(const p_t &root, const lambda_t &lambda)
 void encoder::_encode_step_2(const p_t &root, const lambda_t &lambda)
 {
 	// Шаг 2.1. Определение оптимальной топологии ветвей
-	_optimize_branch_topology(root, 0, 0, 0);
+	_optimize_branch_topology(root, _wtree.sb().get_LL(), 0);
 }
 
 

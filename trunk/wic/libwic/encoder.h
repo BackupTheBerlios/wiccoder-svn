@@ -84,6 +84,12 @@ public:
 	//@}
 
 protected:
+	// protected types ---------------------------------------------------------
+	struct _optimize_branch_topology_t {
+		n_t n;
+		j_t j;
+	};
+
 	// protected methods -------------------------------------------------------
 
 	//!	\name Выбор модели арифметического кодера по прогнозу
@@ -224,29 +230,40 @@ protected:
 	//!	дочерних ветвей.
 	/*!	\param[in] branch Координаты родительского элемента, дающего
 		начало ветви.
-		\param[in] lvl
-		\param[in] i
-		\param[in] lambda
+		\param[in] sb Саббенд, содержащий элемент <i>branch</i>
+		\param[in] lambda Параметр <i>lambda</i> который участвует в
+		вычислении <i>RD</i> функции и представляет собой баланс между
+		<i>R (rate)</i> и <i>D (distortion)</i> частями функции
+		<i>Лагранжа</i>.
 		\return Групповой признак подрезания ветвей
 
 		Алгоритм оптимизации топологии подробно описан в <i>35.pdf</i>
+
+		\note Функция не применима для ветвей, берущих начало в <i>LL</i>
+		саббенде. Другими словами параметр, <i>sb</i> не может представлять
+		собой <i>LL</i> саббенд.
 	*/
-	n_t _optimize_branch_topology(const p_t &branch, const sz_t lvl,
-								  const sz_t i, const lambda_t &lambda)
+	n_t _optimize_branch_topology(const p_t &branch,
+								  const subbands::subband_t &sb,
+								  const lambda_t &lambda)
 	{
-		const sz_t lvl_j = lvl + subbands::LVL_NEXT;
-		const subbands::subband_t &sb = _wtree.sb().get(lvl_j, i);
+		assert(subbands::LVL_0 != sb.lvl);
+
+		// получение дочернего саббенда
+		const sz_t lvl_j = sb.lvl + subbands::LVL_NEXT;
+		const subbands::subband_t &sb_j = _wtree.sb().get(lvl_j, sb.i);
 
 		// подсчёт прогнозной величины Pi
-		const pi_t pi_avg = _wtree.calc_pi_avg<wnode::member_wc>(branch, sb);
+		const pi_t pi_avg = _wtree.calc_pi_avg<wnode::member_wc>(branch, sb_j);
 
-		const sz_t model = _ind_map(pi_avg, (lvl == subbands::LVL_0));
+		// выбор модели для кодирования групповых признаков подрезания
+		const sz_t model = _ind_map(pi_avg);
 
 		// поиск наиболее оптимальной топологии
 		j_t j_optim	= 0;
 		n_t n_optim = 0;
 
-		for (wtree::n_iterator i = _wtree.iterator_through_n(lvl);
+		for (wtree::n_iterator i = _wtree.iterator_through_n(sb.lvl);
 			 !i->end(); i->next())
 		{
 			const n_t &n = i->get();

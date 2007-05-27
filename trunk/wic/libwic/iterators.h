@@ -17,6 +17,7 @@
 // standard C++ library headers
 #include <new>							// for std::bad_alloc exception class
 #include <assert.h>
+#include <vector>
 
 // libwic headers
 #include <wic/libwic/types.h>
@@ -85,6 +86,8 @@ class basic_iterator {
 	- тип \c size_type, обозначающий тип, используемый для координат
 	- метод size_type getx() возвращающий координату x
 	- метод size_type gety() возвращающий координату y
+
+	\todo Переименовать basic_square_iterator в basic_2d_iterator
 */
 template <class point_t>
 class basic_square_iterator: public basic_iterator<point_t> {
@@ -295,6 +298,78 @@ private:
 
 	//!	\brief Текущее направление перемещения.
 	bool _going_left;
+
+};
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// snake_square_iterator class declaration
+//!	\brief Итератор по дочерним элементам элемента из <i>LL</i> саббенда.
+/*! Итератор по 3ём дочерним элементам элемента из <i>LL</i> саббенда.
+
+	\note На данный момент реализация этого класса ужасна. Она использует
+	динамически заполняемый std::vector и её быстродействие оставляет желать
+	лучшего. Но так-как количество коэффициентов в <i>LL</i> саббенде обычно
+	не так велико, оставим пока всё как есть.
+
+	\todo Придумать более достойную реализацию этого класса
+	\todo Этот класс необходимо протестировать
+*/
+class LL_children_iterator: public basic_iterator<p_t> {
+public:
+	// public constants --------------------------------------------------------
+
+	//! \brief Количество дочерних элементов
+	static const sz_t LL_CHILDREN_COUNT		= 3;
+
+	// public methods ----------------------------------------------------------
+
+	//! \brief Конструктор
+	/*! \param[in] LL_w Ширина <i>LL</i> саббенда (в элементах)
+		\param[in] LL_h Высота <i>LL</i> саббенда (в элементах)
+		\param[in] p Координаты родительского элемента
+	*/
+	LL_children_iterator(const sz_t &LL_w, const sz_t &LL_h,
+						 const p_t &p):
+		_i(LL_CHILDREN_COUNT - 1)
+	{
+		_children.reserve(LL_CHILDREN_COUNT);
+		_children.push_back(p_t(p.x + LL_w, p.y + LL_h));
+		_children.push_back(p_t(p.x       , p.y + LL_h));
+		_children.push_back(p_t(p.x + LL_w, p.y));
+	}
+
+	//! \brief Определение виртуального basic_iterator::get()
+	virtual const p_t &get() const { return _children[_i]; }
+
+	//! \brief Определение виртуального basic_iterator::next()
+	virtual const p_t &next() {
+		if (0 < _i) --_i;
+
+		return get();
+	}
+
+	//! \brief Определение виртуального basic_iterator::end()
+	virtual const bool end() const {
+		return (0 == _i);
+	}
+
+protected:
+	// protected types ---------------------------------------------------------
+
+	//!	\brief Тип для массива координат дочерних элементов
+	typedef std::vector<p_t> _children_t;
+
+private:
+	// private data ------------------------------------------------------------
+
+	//!	\brief Индекс текущего дочернего элемента в массиве координат дочерних
+	//!	элементов.
+	_children_t::size_type _i;
+
+	//!	\brief Массиве координат дочерних элементов.
+	_children_t _children;
 
 };
 
