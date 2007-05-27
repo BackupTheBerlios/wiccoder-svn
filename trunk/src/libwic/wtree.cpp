@@ -221,14 +221,6 @@ wtree::n_iterator wtree::iterator_through_n(const sz_t lvl) {
 */
 n_t wtree::child_n_mask(const p_t &p, const p_t &branch)
 {
-	/* Поддержка ветвей из LL саббенда
-	if (sb().test_LL(branch)) {
-		if (p.x == branch.x) return (1 << 0);
-		if (p.y == branch.y) return (1 << 1);
-		return (1 << 2);
-	}
-	*/
-
 	const p_t ctl = _children_top_left(branch);
 
 	const sz_t shift = (p.x - ctl.x) + 2*(p.y - ctl.y);
@@ -268,23 +260,6 @@ wtree::coefs_iterator wtree::iterator_over_subband(
 {
 	return new snake_square_iterator(p_t(sb.x_min, sb.y_min),
 									 p_t(sb.x_max, sb.y_max));
-}
-
-
-/*!	\param[in] prnt Координаты родительского коэффициента
-	\return Итератор по дочерним коэффициентам
-
-	\note Данная функция не применима для родительских коэффициентов из
-	нулевого саббенда.
-*/
-wtree::coefs_iterator wtree::iterator_over_children(const p_t &prnt)
-{
-	// координаты верхнего левого дочернего элемента
-	const p_t c = _children_top_left(prnt);
-
-	// создание итератора
-	return new snake_square_iterator(p_t(c.x    , c.y    ),
-									 p_t(c.x + 1, c.y + 1));
 }
 
 

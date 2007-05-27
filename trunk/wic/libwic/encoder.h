@@ -85,8 +85,13 @@ public:
 
 protected:
 	// protected types ---------------------------------------------------------
-	struct _optimize_branch_topology_t {
+
+	//! \brief Тип описывающий топологию подрезанной ветви
+	struct _branch_topology_t {
+		//!	\brief Групповой признак подрезания ветвей
 		n_t n;
+		//!	\brief Значение функции Лагранжа, при выполнении подрезания
+		//!	ветвей, соответсвенно полю <i>n</i>
 		j_t j;
 	};
 
@@ -226,6 +231,77 @@ protected:
 		return j1;
 	}
 
+	//!	\brief Производит подсчёт функции Лагранжа для ветви при
+	//!	определённой её топологии (ветвь не из <i>LL</i> саббенда)
+	/*!	\param[in] branch Координаты элемента, находящегося в вершине
+		ветви
+		\param[in] n Групповой признак подрезания, характеризующий
+		топологию ветви
+		\return Значение функции Лагранжа при топологии описанной в
+		<i>n</i>
+	*/
+	j_t _topology_calc_j(const p_t &branch, const n_t n) {
+		j_t j = 0;
+
+		for (wtree::coefs_iterator i =
+			 _wtree.iterator_over_children(branch);
+			 !i->end(); i->next())
+		{
+			const p_t &p = i->get();
+			const wnode &node = _wtree.at(p);
+			const n_t mask = _wtree.child_n_mask(p, branch);
+			j += (_wtree.test_n_mask(n, mask))? node.j1: node.j0;
+		}
+
+		return j;
+	}
+
+	//!	\brief Производит подсчёт функции Лагранжа для ветви при
+	//!	определённой её топологии (ветвь из <i>LL</i> саббенда)
+	/*!	\param[in] branch Координаты элемента, находящегося в вершине
+		ветви
+		\param[in] n Групповой признак подрезания, характеризующий
+		топологию ветви
+		\return Значение функции Лагранжа при топологии описанной в
+		<i>n</i>
+	*/
+	j_t _topology_calc_j_LL(const p_t &branch, const n_t n) {
+		// начальное значение для функции Лагранжа
+		j_t j = 0;
+
+		// выбор набора функций
+		if (_wtree.sb().test_LL(branch)) {
+			for (wtree::coefs_iterator i =
+				 _wtree.iterator_over_LL_children(branch);
+				 !i->end(); i->next())
+			{
+				const p_t &p = i->get();
+				const wnode &node = _wtree.at(p);
+				const n_t mask = _wtree.child_n_mask_LL(p);
+				j += (_wtree.test_n_mask(n, mask))? node.j1: node.j0;
+			}
+		} else {
+			
+		}
+
+		return j;
+	}
+
+	//!	\brief Производит подсчёт функции Лагранжа для ветви при
+	//!	определённой её топологии (ветвь из любого саббенда)
+	/*!	\param[in] branch Координаты элемента, находящегося в вершине
+		ветви
+		\param[in] n Групповой признак подрезания, характеризующий
+		топологию ветви
+		\return Значение функции Лагранжа при топологии описанной в
+		<i>n</i>
+	*/
+	j_t _topology_calc_j_uni(const p_t &branch, const n_t n) {
+		return (_wtree.sb().test_LL(branch))
+				? _topology_calc_j(branch, n)
+				: _topology_calc_j_LL(branch, n);
+	}
+
 	//!	\brief Производит оптимизацию топологии ветви, путём подрезания
 	//!	дочерних ветвей.
 	/*!	\param[in] branch Координаты родительского элемента, дающего
@@ -239,13 +315,12 @@ protected:
 
 		Алгоритм оптимизации топологии подробно описан в <i>35.pdf</i>
 
-		\note Функция не применима для ветвей, берущих начало в <i>LL</i>
-		саббенде. Другими словами параметр, <i>sb</i> не может представлять
-		собой <i>LL</i> саббенд.
+		\note Функция применима для всех ветвей (как берущих начало в
+		<i>LL</i> саббенде, так и для всех остальных).
 	*/
-	n_t _optimize_branch_topology(const p_t &branch,
-								  const subbands::subband_t &sb,
-								  const lambda_t &lambda)
+	_branch_topology_t _optimize_branch_topology(const p_t &branch,
+												 const subbands::subband_t &sb,
+												 const lambda_t &lambda)
 	{
 		assert(subbands::LVL_0 != sb.lvl);
 
@@ -260,35 +335,30 @@ protected:
 		const sz_t model = _ind_map(pi_avg);
 
 		// поиск наиболее оптимальной топологии
-		j_t j_optim	= 0;
-		n_t n_optim = 0;
+		wtree::n_iterator i = _wtree.iterator_through_n(sb.lvl);
 
-		for (wtree::n_iterator i = _wtree.iterator_through_n(sb.lvl);
-			 !i->end(); i->next())
+		// первая итерация цикла поиска
+		_branch_topology_t optim_topology;
+		optim_topology.n	= i->get();
+		optim_topology.j	= _topology_calc_j_uni(branch,
+												   optim_topology.n);
+
+		// последующие итерации
+		for (i->next(); !i->end(); i->next())
 		{
 			const n_t &n = i->get();
 
-			j_t j_sum = 0;
-
-			for (wtree::coefs_iterator k =
-					_wtree.iterator_over_children(branch);
-				 !k->end(); k->next())
-			{
-				const p_t &p = k->get();
-				const wnode &node = _wtree.at(p);
-				const n_t mask = _wtree.child_n_mask(p, branch);
-				j_sum += (_wtree.test_n_mask(n, mask))? node.j1: node.j0;
-			}
+			const j_t j_sum = _topology_calc_j_uni(branch, n);
 
 			const j_t j = (j_sum + lambda * _h_map(model, n));
 
-			if (j < j_optim) {
-				j_optim = j;
-				n_optim = n;
+			if (j < optim_topology.j) {
+				optim_topology.j = j;
+				optim_topology.n = n;
 			}
 		}
 
-		return n_optim;
+		return optim_topology;
 	}
 
 	//@}

@@ -80,8 +80,10 @@ subbands::subbands(const sz_t width, const sz_t height, const sz_t lvls) {
 	// подсчЄт количества узлов приход€шегос€ на одно дерево в саббенде
 	for (sz_t i = 0; _count > i; ++i) {
 		subband_t &sb	= subbands::get(i);
-		sb.tree_w		= (sb.x_max - sb.x_min + 1) / _LL_width;
-		sb.tree_h		= (sb.y_max - sb.y_min + 1) / _LL_height;
+		sb.width		= (sb.x_max - sb.x_min + 1);
+		sb.height		= (sb.y_max - sb.y_min + 1);
+		sb.tree_w		= sb.width / _LL_width;
+		sb.tree_h		= sb.height / _LL_height;
 		sb.npt			= sb.tree_w * sb.tree_h;
 	}
 }

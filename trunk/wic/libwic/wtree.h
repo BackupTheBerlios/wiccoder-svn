@@ -355,8 +355,52 @@ public:
 	//! \brief Возвращает итератор по саббенду
 	coefs_iterator iterator_over_subband(const subbands::subband_t &sb);
 
-	//! \brief Возвращает итератор по дочерним коэффициентам
-	coefs_iterator iterator_over_children(const p_t &prnt);
+	//! \brief Возвращает итератор по дочерним элементам (родительский
+	//!	элемент не из <i>LL</i> саббенда)
+	/*!	\param[in] prnt Координаты родительского элемента
+		\return Итератор по дочерним элементам
+
+		\note Данная функция не применима для родительских коэффициентов из
+		<i>LL</i> саббенда.
+
+		\sa _iterator_over_children()
+	*/
+	wtree::coefs_iterator iterator_over_children(const p_t &prnt)
+	{
+		return _iterator_over_children(prnt);
+	}
+
+	//! \brief Возвращает итератор по дочерним элементам (родительский
+	//!	элемент из <i>LL</i> саббенда)
+	/*!	\param[in] prnt Координаты родительского элемента
+		\return Итератор по дочерним элементам
+
+		\note Данная функция не применима для родительских коэффициентов не из
+		<i>LL</i> саббенда.
+
+		\sa _iterator_over_LL_children()
+	*/
+	wtree::coefs_iterator iterator_over_LL_children(const p_t &prnt)
+	{
+		return _iterator_over_LL_children(prnt);
+	}
+
+	//! \brief Возвращает итератор по дочерним элементам (родительский
+	//!	элемент из любого саббенда)
+	/*!	\param[in] prnt Координаты родительского элемента
+		\return Итератор по дочерним элементам
+
+		\note Следует помнить, что если родительский элемент из <i>LL</i>
+		саббенда, дочерние элементы лежат в разных саббендах.
+
+		\sa _iterator_over_children(), _iterator_over_LL_children()
+	*/
+	wtree::coefs_iterator iterator_over_children_uni(const p_t &prnt)
+	{
+		return (sb().test_LL(prnt))
+				? _iterator_over_LL_children(prnt)
+				: _iterator_over_children(prnt);
+	}
 
 	//! \brief Возвращает итератор по дочерним коэффициентам (листьям)
 	coefs_iterator iterator_over_leafs(const p_t &root,
@@ -393,6 +437,52 @@ protected:
 	//!	\brief Из координат элемента получает предполагаемое направление
 	//!	обхода
 	bool _going_left(const sz_t x, const sz_t y);
+
+	//@}
+
+	//!	\name Генераторы итераторов
+	//@{
+
+	//! \brief Возвращает итератор по дочерним элементам (родительский элемент
+	//!	не из <i>LL</i> саббенда)
+	/*!	\param[in] prnt Координаты родительского элемента
+		\return Указатель на итератор по дочерним элементам
+
+		\note Данная функция не применима для родительских элементов из
+		<i>LL</i> саббенда.
+
+		\attention Необходимо использовать оператор <i>delete</i> для
+		освобождения памяти, занимаемой возвращённым итератором.
+	*/
+	basic_iterator<p_t> *_iterator_over_children(const p_t &prnt)
+	{
+		// координаты верхнего левого дочернего элемента
+		const p_t c = _children_top_left(prnt);
+
+		// создание итератора
+		return new snake_square_iterator(p_t(c.x    , c.y    ),
+										 p_t(c.x + 1, c.y + 1));
+	}
+
+	//! \brief Возвращает итератор по дочерним элементам (родительский элемент
+	//!	не <i>LL</i> саббенда)
+	/*!	\param[in] prnt Координаты родительского элемента
+		\return Указатель на итератор по дочерним элементам
+
+		\note Данная функция не применима для родительских элементов не из
+		<i>LL</i> саббенда.
+
+		\attention Необходимо использовать оператор <i>delete</i> для
+		освобождения памяти, занимаемой возвращённым итератором.
+	*/
+	basic_iterator<p_t> *_iterator_over_LL_children(const p_t &prnt)
+	{
+		const subbands::subband_t &sb_LL = sb().get_LL();
+
+		assert(sb().test(prnt, sb_LL));
+
+		return new LL_children_iterator(sb_LL.width, sb_LL.height, prnt);
+	}
 
 	//@}
 

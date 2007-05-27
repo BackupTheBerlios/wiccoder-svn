@@ -332,7 +332,7 @@ public:
 	*/
 	LL_children_iterator(const sz_t &LL_w, const sz_t &LL_h,
 						 const p_t &p):
-		_i(LL_CHILDREN_COUNT - 1)
+		_i(LL_CHILDREN_COUNT - 1), _end(false)
 	{
 		_children.reserve(LL_CHILDREN_COUNT);
 		_children.push_back(p_t(p.x + LL_w, p.y + LL_h));
@@ -345,14 +345,14 @@ public:
 
 	//! \brief Определение виртуального basic_iterator::next()
 	virtual const p_t &next() {
-		if (0 < _i) --_i;
+		(0 < _i)? (--_i): (_end = true);
 
 		return get();
 	}
 
 	//! \brief Определение виртуального basic_iterator::end()
 	virtual const bool end() const {
-		return (0 == _i);
+		return _end;
 	}
 
 protected:
@@ -370,6 +370,9 @@ private:
 
 	//!	\brief Массиве координат дочерних элементов.
 	_children_t _children;
+
+	//!	\brief Признак завершения последовательности итераций
+	bool _end;
 
 };
 
