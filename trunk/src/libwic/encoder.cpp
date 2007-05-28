@@ -253,6 +253,7 @@ void encoder::_encode_step_2(const p_t &root, const lambda_t &lambda)
 	/*
 	const _branch_topology_t optim_topology =
 		_optimize_branch_topology(branch, sb, lambda);
+	_wtree.cut_leafs(branch, optim_topology.n);
 	*/
 }
 
