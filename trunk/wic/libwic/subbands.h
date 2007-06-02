@@ -177,6 +177,9 @@ public:
 	//! \brief Общее количество саббендов
 	sz_t count() const { return _count; }
 
+	//!	\brief Возвращает количество саббендов на уровне
+	sz_t subbands_on_lvl(const sz_t lvl) const;
+
 	//@}
 
 	//!	\name Вспомогательные функции

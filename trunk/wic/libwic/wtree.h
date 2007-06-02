@@ -84,6 +84,12 @@ public:
 	//! \name Общая информация о дереве
 	//@{
 
+	//!	\brief Возвращает ширину спектра (в элементах)
+	sz_t width() const { return _width; }
+
+	//!	\brief Возвращает высоту спектра (в элементах)
+	sz_t height() const { return _height; }
+
 	//! \brief Возвращает количество коэффициентов во всём дереве
 	sz_t coefs() const { return (_width * _height); }
 

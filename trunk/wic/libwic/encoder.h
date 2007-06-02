@@ -152,6 +152,25 @@ protected:
 	wk_t _coef_fix(const p_t &p, const subbands::subband_t &sb,
 				   const lambda_t &lambda);
 
+	//! \brief Выполняет корректировку группы дочерних элементов
+	//!	(шаги 1.1 и 2.3 в алгоритме)
+	void _coefs_fix(const p_t &p, const subbands::subband_t &sb_j,
+					const lambda_t &lambda);
+
+	//!	\brief Расчитывает значения <i>RD-функции Лагранжа</i> для вариантов
+	//!	сохранения и подрезания ветвей. Осуществляет подготовку для просмотра
+	//!	следующего (фактически, предыдущего) уровня дерева. Версия для самого
+	//!	последнего уровня разложения (с наибольшей площадью)
+	void _prepare_j(const p_t &p, const subbands::subband_t &sb,
+					const lambda_t &lambda);
+
+	//!	\brief Расчитывает значения <i>RD-функции Лагранжа</i> для вариантов
+	//!	сохранения и подрезания ветвей. Осуществляет подготовку для просмотра
+	//!	следующего (фактически, предыдущего) уровня дерева. Версия для всех
+	//!	уровней разложения, кроме самого последнего (с наибольшей площадью)
+	void _prepare_j(const p_t &p, const subbands::subband_t &sb,
+					const j_t &j, const lambda_t &lambda);
+
 	//! \brief Расчитывает <i>RD</i> функцию <i>Лагранжа</i> для варианта
 	//!	подрезания ветвей
 	/*!	\param[in] p Координаты элемента для которого будет расчитываться
@@ -176,6 +195,8 @@ protected:
 		низких уровней. Это делается путём прибавления значения поля wnode::j0
 		к ошибке при подрезании коэффициентов.
 
+		\note Функция не применима для элементов из <i>LL</i> саббенда.
+
 		\todo Необходимо написать тест для этой функции.
 	*/
 	template <const bool use_node_j0>
@@ -198,38 +219,11 @@ protected:
 		return j0;
 	}
 
-	//! \brief Расчитывает <i>RD</i> функцию <i>Лагранжа</i> для варианта
-	//!	сохранения ветвей
-	/*!	\param[in] p Координаты элемента для которого будет расчитываться
-		\param[in] sb Саббенд, в котором находятся коэффициенты из
-		сохраняемой ветви. Другими словами, этот саббенд дочерний для того,
-		в котором находится элемент с координатами <i>p</i>.
-		\param[in] lambda Параметр <i>lambda</i> который участвует в
-		вычислении <i>RD</i> функции и представляет собой баланс между
-		<i>R (rate)</i> и <i>D (distortion)</i> частями функции
-		<i>Лагранжа</i>.
-		\return Значение <i>RD</i> функцию <i>Лагранжа</i>.
-
-		\note !!!
-		\sa _calc_j0_value()
-		\todo Необходимо написать тест для этой функции.
-	*/
+	//! \brief Расчитывает <i>RDфункцию Лагранжа</i> для варианта
+	//!	сохранения ветвей (без учёта истории подрезания и сохранения
+	//!	ветвей)
 	j_t _calc_j1_value(const p_t &p, const subbands::subband_t &sb,
-					   const lambda_t &lambda)
-	{
-		const sz_t model = _ind_spec<wnode::member_wc>(p, sb);
-
-		j_t j1 = 0;
-
-		for (wtree::coefs_iterator i = _wtree.iterator_over_children(p);
-			 !i->end(); i->next())
-		{
-			const wnode &node = _wtree.at(i->get());
-			j1 += _calc_rd_iteration(i->get(), node.wc, lambda, model);
-		}
-
-		return j1;
-	}
+					   const lambda_t &lambda);
 
 	//!	\brief Производит подсчёт функции Лагранжа для ветви при
 	//!	определённой её топологии (ветвь не из <i>LL</i> саббенда)
@@ -244,7 +238,7 @@ protected:
 		j_t j = 0;
 
 		for (wtree::coefs_iterator i =
-			 _wtree.iterator_over_children(branch);
+					_wtree.iterator_over_children(branch);
 			 !i->end(); i->next())
 		{
 			const p_t &p = i->get();
@@ -269,19 +263,14 @@ protected:
 		// начальное значение для функции Лагранжа
 		j_t j = 0;
 
-		// выбор набора функций
-		if (_wtree.sb().test_LL(branch)) {
-			for (wtree::coefs_iterator i =
-				 _wtree.iterator_over_LL_children(branch);
-				 !i->end(); i->next())
-			{
-				const p_t &p = i->get();
-				const wnode &node = _wtree.at(p);
-				const n_t mask = _wtree.child_n_mask_LL(p);
-				j += (_wtree.test_n_mask(n, mask))? node.j1: node.j0;
-			}
-		} else {
-			
+		for (wtree::coefs_iterator i =
+					_wtree.iterator_over_LL_children(branch);
+			 !i->end(); i->next())
+		{
+			const p_t &p = i->get();
+			const wnode &node = _wtree.at(p);
+			const n_t mask = _wtree.child_n_mask_LL(p);
+			j += (_wtree.test_n_mask(n, mask))? node.j1: node.j0;
 		}
 
 		return j;

@@ -155,14 +155,43 @@ j_t encoder::_calc_rd_iteration(const p_t &p, const wk_t &k,
 }
 
 
+/*!	\param[in] p Координаты элемента для которого будет расчитываться
+	\param[in] sb Саббенд, в котором находятся коэффициенты из сохраняемой
+	ветви. Другими словами, этот саббенд дочерний для того, в котором
+	находится элемент с координатами <i>p</i>.
+	\param[in] lambda Параметр <i>lambda</i> который участвует в вычислении
+	<i>RD</i> функции и представляет собой баланс между <i>R (rate)</i> и
+	<i>D (distortion)</i> частями <i>функции Лагранжа</i>.
+	\return Значение <i>RD функции Лагранжа</i>.
+
+	\sa _calc_j0_value()
+
+	\todo Необходимо написать тест для этой функции.
+*/
+j_t encoder::_calc_j1_value(const p_t &p, const subbands::subband_t &sb,
+							const lambda_t &lambda)
+{
+	const sz_t model = _ind_spec<wnode::member_wc>(p, sb);
+
+	j_t j1 = 0;
+
+	for (wtree::coefs_iterator i = _wtree.iterator_over_children(p);
+		 !i->end(); i->next())
+	{
+		const wnode &node = _wtree.at(i->get());
+		j1 += _calc_rd_iteration(i->get(), node.wc, lambda, model);
+	}
+
+	return j1;
+}
+
+
 /*!	\param[in] p Координаты коэффициента для корректировки
 	\param[in] sb Саббенд, в котором находится коэффициент
 	\param[in] lambda Параметр <i>lambda</i> используемый для
 	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
 	собой баланс между ошибкой и битовыми затратами.
 	\return Значение откорректированного коэффициента
-
-	Параметр шаблона позволяет выбирать поле элемента для корректировки.
 
 	\todo Написать тест для этой функции
 */
@@ -197,7 +226,77 @@ wk_t encoder::_coef_fix(const p_t &p, const subbands::subband_t &sb,
 		}
 	}
 
+	// возврат откорректированного значения коэффициента
 	return k_optim;
+}
+
+
+/*!	\param[in] root Координаты родительского элемента
+	\param[in] sb_j Саббенд, в котором находятся дочерние элементы
+	\param[in] lambda Параметр <i>lambda</i> используемый для
+	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
+	собой баланс между ошибкой и битовыми затратами.
+
+	\note Функция применима только для родительских элементов не из
+	<i>LL</i> саббенда.
+*/
+void encoder::_coefs_fix(const p_t &p, const subbands::subband_t &sb_j,
+						 const lambda_t &lambda)
+{
+	// цикл по дочерним элементам
+	for (wtree::coefs_iterator i = _wtree.iterator_over_children(p);
+		 !i->end(); i->next())
+	{
+		const p_t &p = i->get();
+		wnode &node = _wtree.at(p);
+		node.wc = _coef_fix(p, sb_j, lambda);
+	}
+}
+
+
+/*!	\param[in] p Координаты элемента, для которого выполняется подготовка
+	значений <i>J</i> (<i>RD функция Лагранжа</i>) 
+	\param[in] sb_j Саббенд в котором находятся дочерние элементы
+	\param[in] lambda Параметр <i>lambda</i> используемый для
+	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
+	собой баланс между ошибкой и битовыми затратами.
+
+	Функция обычно выполняется при переходе с уровня <i>lvl</i>, на
+	уровень <i>lvl + subbands::LVL_PREV</i>.
+
+	\todo <b>Крайне необходимо протестировать эту функцию</b>
+*/
+void encoder::_prepare_j(const p_t &p, const subbands::subband_t &sb_j,
+						 const lambda_t &lambda)
+{
+	wnode &node = _wtree.at(p);
+
+	node.j0 = _calc_j0_value<false>(p);
+	node.j1 = _calc_j1_value(p, sb_j, lambda);
+}
+
+
+/*!	\param[in] p Координаты элемента, для которого выполняется подготовка
+	значений <i>J</i> (<i>RD функция Лагранжа</i>) 
+	\param[in] sb_j Саббенд в котором находятся дочерние элементы
+	\param[in] j Значение функции Лагранжа, полученное при подборе
+	оптимальной топологии ветвей
+	\param[in] lambda Параметр <i>lambda</i> используемый для
+	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
+	собой баланс между ошибкой и битовыми затратами.
+
+	Функция обычно выполняется при переходе с уровня <i>lvl</i>, на
+	уровень <i>lvl + subbands::LVL_PREV</i>.
+
+	\todo <b>Крайне необходимо протестировать эту функцию</b>
+*/
+void encoder::_prepare_j(const p_t &p, const subbands::subband_t &sb_j,
+						 const j_t &j, const lambda_t &lambda)
+{
+	wnode &node = _wtree.at(p);
+
+	node.j0 = _calc_j0_value<true>(p);
+	node.j1 = j + _calc_j1_value(p, sb_j, lambda);
 }
 
 
@@ -208,39 +307,41 @@ wk_t encoder::_coef_fix(const p_t &p, const subbands::subband_t &sb,
 
 	На первом шаге кодирования выполняется корректировка коэффициентов
 	на самом последнем (с наибольшей площадью) уровне разложения и
-	последующей расчёт <i>RD-функций Лагранжа</i> для вариантов сохранения
-	и подрезания листьев дерева.
+	последующий расчёт <i>RD-функций Лагранжа</i> для вариантов сохранения
+	и подрезания оконечных листьев дерева.
 */
 void encoder::_encode_step_1(const p_t &root, const lambda_t &lambda)
 {
 	// просматриваются все узлы предпоследнего уровня
-	const sz_t lvl_j = _wtree.sb().lvls();
 	const sz_t lvl_i = _wtree.sb().lvls() + subbands::LVL_PREV;
+	const sz_t lvl_j = _wtree.sb().lvls();
 
 	// цикл по саббендам
 	for (sz_t k = 0; subbands::SUBBANDS_ON_LEVEL > k; ++k)
 	{
-		// корректировка проквантованных коэффициентов
+		const subbands::subband_t &sb_i = _wtree.sb().get(lvl_i, k);
 		const subbands::subband_t &sb_j = _wtree.sb().get(lvl_j, k);
 
-		for (wtree::coefs_iterator i = _wtree.iterator_over_leafs(root, sb_j);
-			!i->end(); i->next())
-		{
-			const p_t &p = i->get();
-			_wtree.at(p).wc = _coef_fix(p, sb_j, lambda);
-		}
-
-		// расчет RD-функций Лагранжа для вариантов сохранения и
-		// подрезания листьев
-		const subbands::subband_t &sb_i = _wtree.sb().get(lvl_i, k);
-
+		// цикл по элементам из предпоследнего уровня дерева
 		for (wtree::coefs_iterator i = _wtree.iterator_over_leafs(root, sb_i);
 			!i->end(); i->next())
 		{
+			// родительский элемент из предпоследнего уровня
 			const p_t &p = i->get();
-			wnode &node = _wtree.at(p);
-			node.j0 = _calc_j0_value<false>(p);
-			node.j1 = _calc_j1_value(p, sb_j, lambda);
+			wnode &pnode = _wtree.at(p);
+
+			// Шаг 1.1. Корректировка проквантованных коэффициентов
+			for (wtree::coefs_iterator j = _wtree.iterator_over_children(p);
+				 !j->end(); j->next())
+			{
+				// корректировка дочернего элемента
+				const p_t &c = j->get();
+				_wtree.at(p).wc = _coef_fix(p, sb_j, lambda);
+			}
+
+			// Шаг 1.2. Расчет RD-функций Лагранжа для вариантов сохранения и
+			// подрезания листьев
+			_prepare_j(p, sb_j, lambda);
 		}
 	}
 }
@@ -249,13 +350,47 @@ void encoder::_encode_step_1(const p_t &root, const lambda_t &lambda)
 //! \brief Шаг 2. Просмотр текущего уровня с попыткой подрезания ветвей.
 void encoder::_encode_step_2(const p_t &root, const lambda_t &lambda)
 {
-	// Шаг 2.1. Определение оптимальной топологии ветвей
-	/*
-	const _branch_topology_t optim_topology =
-		_optimize_branch_topology(branch, sb, lambda);
-	_wtree.cut_leafs(branch, optim_topology.n);
-	*/
+	// цикл по уровням
+	for (sz_t lvl_j = _wtree.sb().lvls() + subbands::LVL_PREV;
+		 0 < lvl_j; --lvl_j)
+	{
+		const sz_t lvl_i = lvl_j - subbands::LVL_PREV;
+
+		// цикл по саббендам
+		for (sz_t k = 0; subbands::SUBBANDS_ON_LEVEL > k; ++k) {
+
+			// получение ссылок на саббенды
+			const subbands::subband_t &sb_i = _wtree.sb().get(lvl_i, k);
+			const subbands::subband_t &sb_j = _wtree.sb().get(lvl_j, k);
+
+			// цикл по родительским элементам
+			for (wtree::coefs_iterator i =
+						_wtree.iterator_over_leafs(root, sb_i);
+				 !i->end(); i->next())
+			{
+				const p_t &p = i->get();
+
+				// Шаг 2.1. Определение оптимальной топологии ветвей
+				const _branch_topology_t optim_topology =
+						_optimize_branch_topology(p, sb_i, lambda);
+
+				// Шаг 2.2. Изменение топологии дерева
+				_wtree.cut_leafs(p, optim_topology.n);
+
+				// Шаг 2.3. Корректировка проквантованных коэффициентов
+				_coefs_fix(p, sb_j, lambda);
+
+				// Шаг 2.4. Подготовка для просмотра следующего уровня
+				_prepare_j(p, sb_j, optim_topology.j, lambda);
+			}
+		}
+
+		// на всякий случай, если какой-нить фрик сделает sz_t беззнаковым
+		// типом :^)
+		// if (0 == lvl) break;
+	}
 }
+
 
 
 }	// end of namespace wic

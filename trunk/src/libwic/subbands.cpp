@@ -96,8 +96,21 @@ subbands::~subbands() {
 }
 
 
+/*!	\param[in] lvl Номер уровня, количество саббендов на котором необходимо
+	узнать.
+*/
+sz_t subbands::subbands_on_lvl(const sz_t lvl) const
+{
+	assert(0 <= lvl && lvl <= _lvls);
+
+	if (LVL_0 == lvl) return SUBBANDS_ON_0_LEVEL;
+
+	return SUBBANDS_PER_LEVEL;
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
-// subbands class public definitions
+// subbands class protected definitions
 
 /*!	\param[in] i Номер (индекс) саббенда
 	\return Указатель на саббенд с указанным индексом

@@ -296,14 +296,16 @@ wtree::coefs_iterator wtree::iterator_over_subband(
 
 	\todo Написать функцию получения саббенда в котором находится коэффициент
 	\todo Эту функцию необходимо протестировать
+
+	\sa _leafs_top_left()
 */
 wtree::coefs_iterator wtree::iterator_over_leafs(const p_t &root,
 												 const subbands::subband_t &sb)
 {
-	const p_t c = _leafs_top_left(root, sb.lvl, sb.i);
+	const p_t b(_leafs_top_left(root, sb.lvl, sb.i));
+	const p_t e(b.x + sb.tree_w - 1, b.y + sb.tree_h - 1);
 
-	return new snake_square_iterator(p_t(c.x, c.y),
-									 p_t(c.x + sb.tree_w, c.y + sb.tree_h));
+	return new snake_square_iterator(b, e);
 }
 
 
@@ -313,6 +315,8 @@ wtree::coefs_iterator wtree::iterator_over_leafs(const p_t &root,
 	\param[in] i Индекс саббенда внутри уровня, листья из которого буду
 	рассматриваться
 	\return Итератор по листьям
+
+	\sa _leafs_top_left()
 */
 wtree::coefs_iterator wtree::iterator_over_leafs(const p_t &root,
 												 const sz_t lvl, const sz_t i)
@@ -350,6 +354,9 @@ p_t wtree::_children_top_left(const p_t &prnt) {
 	\param[in] i Индекс саббенда на уровне (аналогично subbands::_get())
 	\return Координаты верхнего левого элемента блока листьев данного
 	дерева.
+
+	\note Эта функция корректно работает для любого значения параметра
+	<i>lvl</i>.
 
 	\todo Написать более подробное описание
 */
