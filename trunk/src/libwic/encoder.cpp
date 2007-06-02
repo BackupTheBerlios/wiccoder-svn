@@ -328,16 +328,9 @@ void encoder::_encode_step_1(const p_t &root, const lambda_t &lambda)
 		{
 			// родительский элемент из предпоследнего уровня
 			const p_t &p = i->get();
-			wnode &pnode = _wtree.at(p);
 
 			// Шаг 1.1. Корректировка проквантованных коэффициентов
-			for (wtree::coefs_iterator j = _wtree.iterator_over_children(p);
-				 !j->end(); j->next())
-			{
-				// корректировка дочернего элемента
-				const p_t &c = j->get();
-				_wtree.at(p).wc = _coef_fix(p, sb_j, lambda);
-			}
+			_coefs_fix(p, sb_j, lambda);
 
 			// Шаг 1.2. Расчет RD-функций Лагранжа для вариантов сохранения и
 			// подрезания листьев
@@ -347,14 +340,17 @@ void encoder::_encode_step_1(const p_t &root, const lambda_t &lambda)
 }
 
 
-//! \brief Шаг 2. Просмотр текущего уровня с попыткой подрезания ветвей.
+/*!	
+*/
 void encoder::_encode_step_2(const p_t &root, const lambda_t &lambda)
 {
+	// Шаги 2.1 - 2.5 ----------------------------------------------------------
+
 	// цикл по уровням
-	for (sz_t lvl_j = _wtree.sb().lvls() + subbands::LVL_PREV;
-		 0 < lvl_j; --lvl_j)
+	for (sz_t lvl_i = _wtree.sb().lvls() + 2*subbands::LVL_PREV;
+		 0 < lvl_i; --lvl_i)
 	{
-		const sz_t lvl_i = lvl_j - subbands::LVL_PREV;
+		const sz_t lvl_j = lvl_i + subbands::LVL_NEXT;
 
 		// цикл по саббендам
 		for (sz_t k = 0; subbands::SUBBANDS_ON_LEVEL > k; ++k) {
@@ -389,6 +385,24 @@ void encoder::_encode_step_2(const p_t &root, const lambda_t &lambda)
 		// типом :^)
 		// if (0 == lvl) break;
 	}
+}
+
+
+/*!
+*/
+void encoder::_encode_step_3(const p_t &root, const lambda_t &lambda)
+{
+	const subbands::subband_t &sb_LL = _wtree.sb().get_LL();
+
+	// Шаг 2.6. Определение оптимальной топологии ветвей
+	const _branch_topology_t optim_topology =
+			_optimize_branch_topology(root, sb_LL, lambda);
+
+	// Шаг 2.7. Изменение топологии дерева
+	_wtree.cut_leafs(root, optim_topology.n);
+
+	// шаг 3. Вычисление RD-функции Лагранжа для всего дерева
+	_prepare_j(root, sb_LL, optim_topology.j, lambda);
 }
 
 

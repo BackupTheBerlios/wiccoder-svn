@@ -361,6 +361,9 @@ protected:
 	//! \brief Шаг 2. Просмотр текущего уровня с попыткой подрезания ветвей.
 	void _encode_step_2(const p_t &root, const lambda_t &lambda);
 
+	//! \brief Шаг 3. Вычисление <i>RD-функции Лагранжа</i> для всего дерева
+	void _encode_step_3(const p_t &root, const lambda_t &lambda);
+
 	//@}
 
 private:
