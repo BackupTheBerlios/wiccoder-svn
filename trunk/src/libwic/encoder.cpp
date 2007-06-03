@@ -81,8 +81,8 @@ void encoder::encode() {
 	<i>pi</i>.
 */
 sz_t encoder::_ind_spec(const pi_t &s, const sz_t lvl) {
-	if (0 == lvl) return 0;
-	if (1 == lvl) return 1;
+	if (subbands::LVL_0 == lvl) return 0;
+	if (subbands::LVL_1 == lvl) return 1;
 
 	if (26.0  <= s) return 1;
 	if ( 9.8  <= s) return 2;
@@ -94,15 +94,16 @@ sz_t encoder::_ind_spec(const pi_t &s, const sz_t lvl) {
 
 
 /*!	\param[in] pi Значение прогнозной величины <i>P<sub>i</sub></i>
-	\param[in] is_LL Берётся ли коэффициент из саббенда LL
+	\param[in] lvl Номер уровня разложения, из которого был взят групповой
+	признак подрезания ветвей
 	\return Номер выбираемой модели
 
 	\note Стоит заметить, что если параметр <i>is_LL</i> равен <i>true</i>
 	функция всегда возвращает нулевую модель, независимо от параметра
 	<i>pi</i>.
 */
-sz_t encoder::_ind_map(const pi_t &pi, const bool is_LL) {
-	if (is_LL) return 0;
+sz_t encoder::_ind_map(const pi_t &pi, const sz_t lvl) {
+	if (subbands::LVL_0 == lvl) return 0;
 
 	if (4.0 <= pi) return 4;
 	if (1.1 <= pi) return 3;
@@ -148,6 +149,8 @@ h_t encoder::_h_map(const sz_t m, const n_t &n) {
 	\param[in] model Номер модели арифметического кодера, которая будет
 	использована для кодирования коэффициента
 	\return Значения <i>RD-функции Лагрнанжа</i>
+
+	\note Функция применима для элементов из любых саббендов.
 */
 j_t encoder::_calc_rd_iteration(const p_t &p, const wk_t &k,
 								const lambda_t &lambda, const sz_t &model)
@@ -264,6 +267,8 @@ void encoder::_coefs_fix_uni(const p_t &p, const subbands::subband_t &sb_j,
 	<i>D (distortion)</i> частями <i>функции Лагранжа</i>.
 	\return Значение <i>RD функции Лагранжа</i>.
 
+	\note Функция не применима для элементов из <i>LL</i> саббенда.
+
 	\sa _calc_j0_value()
 
 	\todo Необходимо написать тест для этой функции.
@@ -271,6 +276,7 @@ void encoder::_coefs_fix_uni(const p_t &p, const subbands::subband_t &sb_j,
 j_t encoder::_calc_j1_value(const p_t &p, const subbands::subband_t &sb,
 							const lambda_t &lambda)
 {
+	// получение номера модели для кодирования коэффициентов
 	const sz_t model = _ind_spec<wnode::member_wc>(p, sb);
 
 	j_t j1 = 0;
@@ -296,7 +302,7 @@ j_t encoder::_calc_j1_value(const p_t &p, const subbands::subband_t &sb,
 	Функция обычно выполняется при переходе с уровня <i>lvl</i>, на
 	уровень <i>lvl + subbands::LVL_PREV</i>.
 
-	\todo <b>Крайне необходимо протестировать эту функцию</b>
+	\note Функция не применима для элементов из <i>LL</i> саббенда.
 */
 void encoder::_prepare_j(const p_t &p, const subbands::subband_t &sb_j,
 						 const lambda_t &lambda)
@@ -320,7 +326,7 @@ void encoder::_prepare_j(const p_t &p, const subbands::subband_t &sb_j,
 	Функция обычно выполняется при переходе с уровня <i>lvl</i>, на
 	уровень <i>lvl + subbands::LVL_PREV</i>.
 
-	\todo <b>Крайне необходимо протестировать эту функцию</b>
+	\note Функция не применима для элементов из <i>LL</i> саббенда.
 */
 void encoder::_prepare_j(const p_t &p, const subbands::subband_t &sb_j,
 						 const j_t &j, const lambda_t &lambda)
@@ -329,6 +335,117 @@ void encoder::_prepare_j(const p_t &p, const subbands::subband_t &sb_j,
 
 	node.j0 = _calc_j0_value<true>(p);
 	node.j1 = j + _calc_j1_value(p, sb_j, lambda);
+}
+
+
+/*!	\param[in] branch Координаты элемента, находящегося в вершине
+	ветви
+	\param[in] n Групповой признак подрезания, характеризующий
+	топологию ветви
+	\return Значение функции Лагранжа при топологии описанной в
+	<i>n</i>
+*/
+j_t encoder::_topology_calc_j(const p_t &branch, const n_t n)
+{
+	j_t j = 0;
+
+	for (wtree::coefs_iterator i =
+				_wtree.iterator_over_children(branch);
+		 !i->end(); i->next())
+	{
+		const p_t &p = i->get();
+		const wnode &node = _wtree.at(p);
+		const n_t mask = _wtree.child_n_mask(p, branch);
+		j += (_wtree.test_n_mask(n, mask))? node.j1: node.j0;
+	}
+
+	return j;
+}
+
+
+//!	определённой её топологии (ветвь из <i>LL</i> саббенда)
+/*!	\param[in] branch Координаты элемента, находящегося в вершине
+	ветви
+	\param[in] n Групповой признак подрезания, характеризующий
+	топологию ветви
+	\return Значение функции Лагранжа при топологии описанной в
+	<i>n</i>
+*/
+j_t encoder::_topology_calc_j_LL(const p_t &branch, const n_t n)
+{
+	// начальное значение для функции Лагранжа
+	j_t j = 0;
+
+	for (wtree::coefs_iterator i =
+				_wtree.iterator_over_LL_children(branch);
+		 !i->end(); i->next())
+	{
+		const p_t &p = i->get();
+		const wnode &node = _wtree.at(p);
+		const n_t mask = _wtree.child_n_mask_LL(p);
+		j += (_wtree.test_n_mask(n, mask))? node.j1: node.j0;
+	}
+
+	return j;
+}
+
+
+/*!	\param[in] branch Координаты родительского элемента, дающего
+	начало ветви.
+	\param[in] sb Саббенд, содержащий элемент <i>branch</i>
+	\param[in] lambda Параметр <i>lambda</i> который участвует в
+	вычислении <i>RD</i> функции и представляет собой баланс между
+	<i>R (rate)</i> и <i>D (distortion)</i> частями функции
+	<i>Лагранжа</i>.
+	\return Групповой признак подрезания ветвей
+
+	Алгоритм оптимизации топологии подробно описан в <i>35.pdf</i>
+
+	\note Функция применима для всех ветвей (как берущих начало в
+	<i>LL</i> саббенде, так и для всех остальных).
+*/
+encoder::_branch_topology_t
+encoder::_optimize_branch_topology(const p_t &branch,
+								   const subbands::subband_t &sb,
+								   const lambda_t &lambda)
+{
+	assert(subbands::LVL_0 != sb.lvl);
+
+	// получение дочернего саббенда
+	const sz_t lvl_j = sb.lvl + subbands::LVL_NEXT;
+	const subbands::subband_t &sb_j = _wtree.sb().get(lvl_j, sb.i);
+
+	// подсчёт прогнозной величины Pi
+	const pi_t pi_avg = _wtree.calc_pi_avg<wnode::member_wc>(branch, sb_j);
+
+	// выбор модели для кодирования групповых признаков подрезания
+	const sz_t model = _ind_map(pi_avg, sb.lvl);
+
+	// поиск наиболее оптимальной топологии
+	wtree::n_iterator i = _wtree.iterator_through_n(sb.lvl);
+
+	// первая итерация цикла поиска
+	_branch_topology_t optim_topology;
+	optim_topology.n	= i->get();
+	optim_topology.j	= _topology_calc_j_uni(branch,
+											   optim_topology.n);
+
+	// последующие итерации
+	for (i->next(); !i->end(); i->next())
+	{
+		const n_t &n = i->get();
+
+		const j_t j_sum = _topology_calc_j_uni(branch, n);
+
+		const j_t j = (j_sum + lambda * _h_map(model, n));
+
+		if (j < optim_topology.j) {
+			optim_topology.j = j;
+			optim_topology.n = n;
+		}
+	}
+
+	return optim_topology;
 }
 
 
@@ -421,6 +538,7 @@ void encoder::_encode_step_2(const p_t &root, const lambda_t &lambda)
 
 
 /*!
+	\todo Доделать Шаг 3 в оптимизации
 */
 void encoder::_encode_step_3(const p_t &root, const lambda_t &lambda)
 {
@@ -434,7 +552,9 @@ void encoder::_encode_step_3(const p_t &root, const lambda_t &lambda)
 	_wtree.cut_leafs(root, optim_topology.n);
 
 	// шаг 3. Вычисление RD-функции Лагранжа для всего дерева
-	_prepare_j(root, sb_LL, optim_topology.j, lambda);
+	// _calc_rd_iteration(root, 
+	// const j_t = optim_topology.j + 0;
+	// _prepare_j(root, sb_LL, optim_topology.j, lambda);
 }
 
 

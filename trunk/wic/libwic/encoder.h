@@ -124,7 +124,7 @@ protected:
 	}
 
 	//! \brief Реализует функцию IndMap(<i>P<sub>i</sub></i>) из 35.pdf
-	sz_t _ind_map(const pi_t &pi, const bool is_LL = false);
+	sz_t _ind_map(const pi_t &pi, const sz_t lvl);
 
 	//@}
 
@@ -175,18 +175,18 @@ protected:
 		значение <i>RD-функции Лагранжа</i>.
 		\return Значение <i>RD-функции Лагранжа</i>.
 
-		Стоит заметить, что функция производит расчёт <i>RD</i> функции
-		<i>Лагранжа</i>, рассматривая подрезание ветви, начиная с дочерних
+		Стоит заметить, что функция производит расчёт <i>RD-функции
+		Лагранжа</i>, рассматривая подрезание ветви, начиная с дочерних
 		элементов. Другими словами, сам элемент с координатами <i>p</i>
 		никак не учитвается. Если установить параметр шаблона
 		<i>use_node_j0</i> в <i>true</i>, то будут также учтены дочерние
 		дочерних элементов (и так далее, рекурсивно до конца дерева), но
-		для этого необходимо, чтобы поля wnode::j0 имели верные актуальные
+		для этого необходимо, чтобы поля wnode::j0 имели верные и актуальные
 		значения.
 
 		При подрезании вевти мы избавляемся от необходимости её кодировать,
 		поэтому битовые затраты на кодирование подрезанной ветви всегда равны
-		0. Следовательно, значением <i>RD</i> функцию <i>Лагранжа</i> является
+		0. Следовательно, значением <i>RD-функции Лагранжа</i> является
 		квадрат ошибки, которую мы получим при подрезании ветви. Параметр
 		шаблона <i>use_node_j0</i> позволяет указать, следует ли при подсчёте
 		ошибки учитывать ошибки полученные при убирании элементов с более
@@ -195,7 +195,9 @@ protected:
 
 		\note Функция не применима для элементов из <i>LL</i> саббенда.
 
-		\todo Необходимо написать тест для этой функции.
+		\todo <b>Необходимо написать тест для этой функции</b>
+		\todo Наверное всё-же стоит что-то сделать с этим шаблонным параметром,
+		который не так уж и необходим.
 	*/
 	template <const bool use_node_j0>
 	j_t _calc_j0_value(const p_t &p)
@@ -244,54 +246,11 @@ protected:
 
 	//!	\brief Производит подсчёт функции Лагранжа для ветви при
 	//!	определённой её топологии (ветвь не из <i>LL</i> саббенда)
-	/*!	\param[in] branch Координаты элемента, находящегося в вершине
-		ветви
-		\param[in] n Групповой признак подрезания, характеризующий
-		топологию ветви
-		\return Значение функции Лагранжа при топологии описанной в
-		<i>n</i>
-	*/
-	j_t _topology_calc_j(const p_t &branch, const n_t n) {
-		j_t j = 0;
-
-		for (wtree::coefs_iterator i =
-					_wtree.iterator_over_children(branch);
-			 !i->end(); i->next())
-		{
-			const p_t &p = i->get();
-			const wnode &node = _wtree.at(p);
-			const n_t mask = _wtree.child_n_mask(p, branch);
-			j += (_wtree.test_n_mask(n, mask))? node.j1: node.j0;
-		}
-
-		return j;
-	}
+	j_t _topology_calc_j(const p_t &branch, const n_t n);
 
 	//!	\brief Производит подсчёт функции Лагранжа для ветви при
 	//!	определённой её топологии (ветвь из <i>LL</i> саббенда)
-	/*!	\param[in] branch Координаты элемента, находящегося в вершине
-		ветви
-		\param[in] n Групповой признак подрезания, характеризующий
-		топологию ветви
-		\return Значение функции Лагранжа при топологии описанной в
-		<i>n</i>
-	*/
-	j_t _topology_calc_j_LL(const p_t &branch, const n_t n) {
-		// начальное значение для функции Лагранжа
-		j_t j = 0;
-
-		for (wtree::coefs_iterator i =
-					_wtree.iterator_over_LL_children(branch);
-			 !i->end(); i->next())
-		{
-			const p_t &p = i->get();
-			const wnode &node = _wtree.at(p);
-			const n_t mask = _wtree.child_n_mask_LL(p);
-			j += (_wtree.test_n_mask(n, mask))? node.j1: node.j0;
-		}
-
-		return j;
-	}
+	j_t _topology_calc_j_LL(const p_t &branch, const n_t n);
 
 	//!	\brief Производит подсчёт функции Лагранжа для ветви при
 	//!	определённой её топологии (ветвь из любого саббенда)
@@ -302,7 +261,8 @@ protected:
 		\return Значение функции Лагранжа при топологии описанной в
 		<i>n</i>
 	*/
-	j_t _topology_calc_j_uni(const p_t &branch, const n_t n) {
+	inline j_t _topology_calc_j_uni(const p_t &branch, const n_t n)
+	{
 		return (_wtree.sb().test_LL(branch))
 				? _topology_calc_j(branch, n)
 				: _topology_calc_j_LL(branch, n);
@@ -324,48 +284,10 @@ protected:
 		\note Функция применима для всех ветвей (как берущих начало в
 		<i>LL</i> саббенде, так и для всех остальных).
 	*/
-	_branch_topology_t _optimize_branch_topology(const p_t &branch,
-												 const subbands::subband_t &sb,
-												 const lambda_t &lambda)
-	{
-		assert(subbands::LVL_0 != sb.lvl);
-
-		// получение дочернего саббенда
-		const sz_t lvl_j = sb.lvl + subbands::LVL_NEXT;
-		const subbands::subband_t &sb_j = _wtree.sb().get(lvl_j, sb.i);
-
-		// подсчёт прогнозной величины Pi
-		const pi_t pi_avg = _wtree.calc_pi_avg<wnode::member_wc>(branch, sb_j);
-
-		// выбор модели для кодирования групповых признаков подрезания
-		const sz_t model = _ind_map(pi_avg);
-
-		// поиск наиболее оптимальной топологии
-		wtree::n_iterator i = _wtree.iterator_through_n(sb.lvl);
-
-		// первая итерация цикла поиска
-		_branch_topology_t optim_topology;
-		optim_topology.n	= i->get();
-		optim_topology.j	= _topology_calc_j_uni(branch,
-												   optim_topology.n);
-
-		// последующие итерации
-		for (i->next(); !i->end(); i->next())
-		{
-			const n_t &n = i->get();
-
-			const j_t j_sum = _topology_calc_j_uni(branch, n);
-
-			const j_t j = (j_sum + lambda * _h_map(model, n));
-
-			if (j < optim_topology.j) {
-				optim_topology.j = j;
-				optim_topology.n = n;
-			}
-		}
-
-		return optim_topology;
-	}
+	_branch_topology_t
+	_optimize_branch_topology(const p_t &branch,
+							  const subbands::subband_t &sb,
+							  const lambda_t &lambda);
 
 	//@}
 

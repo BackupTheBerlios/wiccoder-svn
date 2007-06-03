@@ -260,7 +260,8 @@ public:
 		<i>P<sub>i</sub></i>
 
 		Функция применима только для родительских элементов не из <i>LL</i>
-		саббенда.
+		саббенда. Тем не менее, функция возвращает 0 для координат из
+		<i>LL</i> саббенда.
 
 		Шаблонный параметр <i>member</i> позволяет выбирать поле элемента
 		для расчёта прогноза. Обычно это будет wnode::member_wc.
@@ -278,8 +279,8 @@ public:
 	template <const wnode::wnode_members member>
 	pi_t calc_pi_avg(const p_t &prnt, const subbands::subband_t &children_sb)
 	{
-		assert(prnt.x > sb().get_LL().x_max ||
-			   prnt.y > sb().get_LL().y_max);
+		// проверка на LL саббенд
+		if (sb().test_LL(prnt)) return 0;
 
 		pi_t pi = 0;
 
