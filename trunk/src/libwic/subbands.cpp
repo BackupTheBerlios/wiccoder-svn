@@ -148,12 +148,12 @@ subbands::subband_t *subbands::_get(const sz_t i) const {
 */
 subbands::subband_t *subbands::_get(const sz_t lvl, const sz_t i) const
 {
-	assert(0 <= i && i < SUBBANDS_PER_LEVEL);
+	assert(0 <= i && i < SUBBANDS_ON_LEVEL);
 	assert(0 <= lvl && lvl <= _lvls);
 
 	if (0 == lvl) return (_sb + _mcount);
 
-	const sz_t k = (lvl - 1) * SUBBANDS_PER_LEVEL + i;
+	const sz_t k = (lvl - 1) * SUBBANDS_ON_LEVEL + i;
 
 	assert(0 <= k && k <= _count);
 
