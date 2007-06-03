@@ -34,6 +34,9 @@
 //! \brief Тестирует функцию wtree::_leafs_top_left()
 bool test_wtree_leafs_top_left();
 
+//! \brief тестирует функцию wtree::child_n_mask()
+bool test_child_n_mask();
+
 //! \brief Тестирует функции wtree::prnt() и wtree::prnt_uni()
 bool test_wtree_prnt();
 

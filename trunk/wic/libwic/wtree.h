@@ -273,8 +273,6 @@ public:
 		<i>children_sb</i> представляет собой именно саббенд, в котором
 		располагаются дочерние элементы, а не саббенд, в котором находится
 		сам родительский элемент с координатами <i>prnt</i>
-
-		\todo Необходимо протестировать эту функцию
 	*/
 	template <const wnode::wnode_members member>
 	pi_t calc_pi_avg(const p_t &prnt, const subbands::subband_t &children_sb)

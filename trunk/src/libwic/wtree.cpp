@@ -255,8 +255,6 @@ wtree::n_iterator wtree::iterator_through_n(const sz_t lvl) {
 	\return Групповой признак подрезания ветвей, сконструированный так, что
 	только одна ветвь (которой принадлежит элемент с координатами <i>p</i>)
 	осталась неподрезанной.
-
-	\todo Необходимо протестировать эту функцию
 */
 n_t wtree::child_n_mask(const p_t &p, const p_t &branch)
 {

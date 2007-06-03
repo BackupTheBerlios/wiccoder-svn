@@ -40,6 +40,9 @@ bool test_wtree_calc_pi();
 //! \brief Тестирует подсчёт коэффициента Sj
 bool test_wtree_calc_sj();
 
+//! \brief Тестирует подсчёт среднего коэффициента Pi по всем дочерним элементам
+bool test_wtree_calc_pi_avg();
+
 
 
 #endif	// QATEST_TEST_PREDICTION_INCLUDED

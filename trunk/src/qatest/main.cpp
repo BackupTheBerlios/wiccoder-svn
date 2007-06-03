@@ -48,7 +48,9 @@ int main(int argc, char **args) {
 	// populate list
 	tests_list.push_back(test_wtree_calc_pi);
 	tests_list.push_back(test_wtree_calc_sj);
+	tests_list.push_back(test_wtree_calc_pi_avg);
 	tests_list.push_back(test_wtree_leafs_top_left);
+	tests_list.push_back(test_child_n_mask);
 	tests_list.push_back(test_n_cutdown_iterator);
 	tests_list.push_back(test_snake_2d_iterator);
 	tests_list.push_back(test_LL_children_iterator);

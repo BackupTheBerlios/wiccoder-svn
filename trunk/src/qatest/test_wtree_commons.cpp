@@ -139,6 +139,37 @@ bool test_wtree_leafs_top_left()
 	return ok;
 }
 
+/*!
+*/
+bool test_child_n_mask()
+{
+	// Что тестируется
+	std::cout << "wtree::child_n_mask() method" << std::endl;
+
+	using namespace wic;
+
+	// exected results
+	n_t n_good_4_0 = 1;
+	n_t n_good_5_0 = 2;
+	n_t n_good_4_1 = 4;
+	n_t n_good_5_1 = 8;
+
+	// calculated result
+	wtree tree(16, 16, 3);
+	n_t n_calc_4_0 = tree.child_n_mask(p_t(4, 0), p_t(2, 0));
+	n_t n_calc_5_0 = tree.child_n_mask(p_t(5, 0), p_t(2, 0));
+	n_t n_calc_4_1 = tree.child_n_mask(p_t(4, 1), p_t(2, 0));
+	n_t n_calc_5_1 = tree.child_n_mask(p_t(5, 1), p_t(2, 0));
+	
+	// comparison
+	bool ok = true;
+	if (n_calc_4_0 != n_good_4_0) ok = false;
+	if (n_calc_5_0 != n_good_5_0) ok = false;
+	if (n_calc_4_1 != n_good_4_1) ok = false;
+	if (n_calc_5_1 != n_good_5_1) ok = false;
+
+	return ok;
+}
 
 /*!
 */
