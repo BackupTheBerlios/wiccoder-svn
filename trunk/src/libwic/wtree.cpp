@@ -284,8 +284,8 @@ void wtree::cut_leafs(const p_t &branch, const n_t n)
 wtree::coefs_iterator wtree::iterator_over_subband(
 	const subbands::subband_t &sb)
 {
-	return new snake_square_iterator(p_t(sb.x_min, sb.y_min),
-									 p_t(sb.x_max, sb.y_max));
+	return new snake_2d_iterator(p_t(sb.x_min, sb.y_min),
+								 p_t(sb.x_max, sb.y_max));
 }
 
 
@@ -305,7 +305,7 @@ wtree::coefs_iterator wtree::iterator_over_leafs(const p_t &root,
 	const p_t b(_leafs_top_left(root, sb.lvl, sb.i));
 	const p_t e(b.x + sb.tree_w - 1, b.y + sb.tree_h - 1);
 
-	return new snake_square_iterator(b, e);
+	return new snake_2d_iterator(b, e);
 }
 
 
@@ -424,8 +424,8 @@ basic_iterator<p_t> *wtree::_iterator_over_children(const p_t &prnt)
 	const p_t c = _children_top_left(prnt);
 
 	// создание итератора
-	return new snake_square_iterator(p_t(c.x    , c.y    ),
-									 p_t(c.x + 1, c.y + 1));
+	return new snake_2d_iterator(p_t(c.x    , c.y    ),
+								 p_t(c.x + 1, c.y + 1));
 }
 
 

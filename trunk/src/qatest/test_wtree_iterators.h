@@ -34,8 +34,8 @@
 //! \brief Тестирует класс wic::n_cutdown_iterator
 bool test_n_cutdown_iterator();
 
-//! \brief Тестирует класс wic::snake_square_iterator
-bool test_snake_square_iterator();
+//! \brief Тестирует класс wic::snake_2d_iterator
+bool test_snake_2d_iterator();
 
 //! \brief Тестирует класс wic::LL_children_iterator
 bool test_LL_children_iterator();

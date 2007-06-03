@@ -1,10 +1,10 @@
-/*******************************************************************************
-* file:         iterators.h                                                    *
-* version:      0.1.0                                                          *
-* author:       mice (mailto:my_mice@mail.ru, ICQ:332-292-380)                 *
-* description:  not available                                                  *
-* tests:        none                                                           *
-*******************************************************************************/
+/*!	\file     iterators.h
+	\version  0.0.1
+	\author   mice, ICQ: 332-292-380, mailto:wonder.mice@gmail.com
+	\brief    Определение классов и интерфейсов для итераторов
+
+	\todo     Более подробно описать файл iterators.h
+*/
 
 #pragma once
 
@@ -54,19 +54,25 @@ class basic_iterator {
 	*/
 	virtual const ival_t &get() const = 0;
 
-	//! \brief Переходит к следующиму значению
-	/*!	\return Новое значение итератора значение итератора
+	//! \brief Переходит к следующему значению
+	/*!	\return Новое значение величины
 
 		Значение итератора может быть неверным (или не существующим), если
 		достигнут конец последовательности итераций и
 		basic_iterator::end() возвращает <i>true</i>. Таким образом, после
 		каждого вызова basic_iterator::next() необходимо проверять
 		условие завершения последовательности итераций.
+
+		Не смотря на это, в <i>wiccoder</i> принято соглашение о
+		завершении последовательности итераций. По нему не следует
+		возвращать ссылку на несуществующий элемент, а вместо этого
+		возвратить ссылку на предыдущий элемент, на котором закончилась
+		последовательность итераций.
 	*/
 	virtual const ival_t &next() = 0;
 
-	//! \brief Проверяет, закончилась ли итереция
-	/*!	\return \c true если достигли конца последовательности
+	//! \brief Проверяет, закончилась ли последовательность итереций
+	/*!	\return <i>true</i> если достигли конца последовательности
 	*/
 	virtual const bool end() const = 0;
 
@@ -75,7 +81,7 @@ class basic_iterator {
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// base_square_iterator class declaration
+// basic_2d_iterator class declaration
 //! \brief Итератор по двумерной прямоугольной области
 /*! Предоставляет простейшую реализацию итератора по прямоугольной двумерной
 	области.
@@ -86,32 +92,35 @@ class basic_iterator {
 	- тип \c size_type, обозначающий тип, используемый для координат
 	- метод size_type getx() возвращающий координату x
 	- метод size_type gety() возвращающий координату y
-
-	\todo Переименовать basic_square_iterator в basic_2d_iterator
 */
 template <class point_t>
-class basic_square_iterator: public basic_iterator<point_t> {
+class basic_2d_iterator: public basic_iterator<point_t> {
 public:
 	// public types ------------------------------------------------------------
 
 	//! \brief Тип используемый для представления двумерных координат
 	typedef point_t point_type;
 
+	//!	\brief Тип используемый в <i>point_type</i> для представления
+	//!	координат
+	typedef typename point_t::size_type size_type;
+
 	// public methods ----------------------------------------------------------
 
 	//! \brief Конструктор
-	/*!	\param[in] start Начальная точка, с которой начнётся итерация
+	/*!	\param[in] start Начальная точка, с которой начнётся
+		последовательность итераций
 		\param[in] top_left Координаты верхнего-левого угла ограничивающего
 		прямоугольника 
 		\param[in] bottom_right Координаты нижнего-правого угла
 		ограничивающего прямоугольника
 
-		Координаты указываются включительно, т.е. все координаты указывают
+		Координаты указываются включительно, то есть все координаты указывают
 		на реальные точки двумерной области.
 	*/
-	basic_square_iterator(const point_t &start,
-						  const point_t &top_left,
-						  const point_t &bottom_right):
+	basic_2d_iterator(const point_t &start,
+					  const point_t &top_left,
+					  const point_t &bottom_right):
 		_point(start),
 		_top_left(top_left), _bottom_right(bottom_right)
 	{
@@ -124,10 +133,14 @@ public:
 	//! \brief Копирующий конструктор
 	/*!	\param[in] src Исходный объект
 	*/
-	basic_square_iterator(const basic_square_iterator &src):
+	basic_2d_iterator(const basic_2d_iterator &src):
 		_point(src._point),
 		_top_left(src._top_left), _bottom_right(src._bottom_right)
 	{
+		assert(_top_left.getx()	<= _point.getx());
+		assert(_point.getx()	<= _bottom_right.getx());
+		assert(_top_left.gety()	<= _point.gety());
+		assert(_point.gety()	<= _bottom_right.gety());
 	}
 
 	//! \brief Определение виртуального basic_iterator::get()
@@ -139,53 +152,53 @@ protected:
 	// protected methods--------------------------------------------------------
 
 	//!	\brief Сдвигает текущие координаты влево
-	/*!	\param[in] x Смещение сдвига по оси x
-		\return \c true если такой сдвиг возможен и был осуществлён, иначе
-		\c false
+	/*!	\param[in] dx Величина сдвига по оси x (0 <= <i>dx</i>)
+		\return <i>true</i> если такой сдвиг возможен и был осуществлён, иначе
+		\c <i>false</i>
 	*/
-	bool _move_left(const typename point_t::size_type &x = 1) {
-		if (_top_left.getx() + x > _point.getx()) return false;
+	bool _move_left(const size_type &dx = 1) {
+		if (_top_left.getx() + dx > _point.getx()) return false;
 
-		_point.getx() -= x;
+		_point.getx() -= dx;
 
 		return true;
 	}
 
 	//!	\brief Сдвигает текущие координаты вправо
-	/*!	\param[in] x Смещение сдвига по оси x
-		\return \c true если такой сдвиг возможен и был осуществлён, иначе
-		\c false
+	/*!	\param[in] dx Величина сдвига по оси x (0 <= <i>dx</i>)
+		\return <i>true</i> если такой сдвиг возможен и был осуществлён, иначе
+		<i>false</i>
 	*/
-	bool _move_right(const typename point_t::size_type &x = 1) {
-		if (_point.getx() + x > _bottom_right.getx()) return false;
+	bool _move_right(const size_type &dx = 1) {
+		if (_point.getx() + dx > _bottom_right.getx()) return false;
 
-		_point.getx() += x;
+		_point.getx() += dx;
 
 		return true;
 	}
 
 	//!	\brief Сдвигает текущие координаты вверх
-	/*!	\param[in] y Смещение сдвига по оси y
-		\return \c true если такой сдвиг возможен и был осуществлён, иначе
-		\c false
+	/*!	\param[in] dy Величина сдвига по оси y (0 <= <i>dy</i>)
+		\return <i>true</i> если такой сдвиг возможен и был осуществлён, иначе
+		<i>false</i>
 	*/
-	bool _move_up(const typename point_t::size_type &y = 1) {
-		if (_top_left.gety() + y > _point.gety()) return false;
+	bool _move_up(const typename point_t::size_type &dy = 1) {
+		if (_top_left.gety() + dy > _point.gety()) return false;
 
-		_point.gety() -= y;
+		_point.gety() -= dy;
 
 		return true;
 	}
 
 	//!	\brief Сдвигает текущие координаты вниз
-	/*!	\param[in] y Смещение сдвига по оси y
-		\return \c true если такой сдвиг возможен и был осуществлён, иначе
-		\c false
+	/*!	\param[in] dy Величина сдвига по оси y (0 <= <i>dy</i>)
+		\return <i>true</i> если такой сдвиг возможен и был осуществлён, иначе
+		<i>false</i>
 	*/
-	bool _move_down(const typename point_t::size_type &y = 1) {
-		if (_point.gety() + y > _bottom_right.gety()) return false;
+	bool _move_down(const typename point_t::size_type &dy = 1) {
+		if (_point.gety() + dy > _bottom_right.gety()) return false;
 
-		_point.gety() += y;
+		_point.gety() += dy;
 
 		return true;
 	}
@@ -194,23 +207,23 @@ private:
 	// private data ------------------------------------------------------------
 
 	//! \brief Текущее значение итератора
-	point_t _point;
+	point_type _point;
 
 	//! \brief Координаты левого-верхнего угла ограничивающего прямоугольника
-	point_t _top_left;
+	point_type _top_left;
 
 	//! \brief Координаты нижнего-правого угла ограничивающего прямоугольника
-	point_t _bottom_right;
+	point_type _bottom_right;
 
 };
 
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// snake_square_iterator class declaration
+// snake_2d_iterator class declaration
 //!	\brief Итератор, проходящий прямоугольную область змейкой
 /*! Образец выполняемого прохода:
-	\code
+	\verbatim
 	- - - - - - - - >
 	                |
 	                V
@@ -221,9 +234,11 @@ private:
 	                |
 			        V
 	< - - - - - - - -
-	\endcode
+	\endverbatim
+
+	\sa basic_2d_iterator
 */
-class snake_square_iterator: public basic_square_iterator<p_t> {
+class snake_2d_iterator: public basic_2d_iterator<p_t> {
 public:
 	// public methods ----------------------------------------------------------
 
@@ -238,28 +253,30 @@ public:
 
 		В качестве начальной точки будет взят верхний-левый угол.
 
-		\sa basic_square_iterator
+		\sa basic_2d_iterator
 	*/
-	snake_square_iterator(const point_type &top_left,
-						  const point_type &bottom_right):
-		basic_square_iterator<point_type>(top_left, top_left, bottom_right)
+	snake_2d_iterator(const point_type &top_left,
+					  const point_type &bottom_right):
+		basic_2d_iterator<point_type>(top_left, top_left, bottom_right),
+		_going_left(false)
 	{
 		_points_left = (bottom_right.getx() -  top_left.getx() + 1) *
 					   (bottom_right.gety() -  top_left.gety() + 1);
-
-		_going_left = false;
 	}
 
 	//! \brief Копирующий конструктор
 	/*!	\param[in] src Исходный объект
 	*/
-	snake_square_iterator(const snake_square_iterator &src):
-		basic_square_iterator<point_type>(src), _points_left(src._points_left),
+	snake_2d_iterator(const snake_2d_iterator &src):
+		basic_2d_iterator<point_type>(src),
+		_points_left(src._points_left),
 		_going_left(src._going_left)
 	{
 	}
 
 	//! \brief Определение виртуального basic_iterator::next()
+	/*! Организует проход змейкой
+	*/
 	virtual const point_type &next() {
 		if (_going_left) {
 			if (_move_left()) --_points_left;
@@ -283,20 +300,27 @@ public:
 		return (0 >= _points_left);
 	}
 
-	//! \brief Количество оставшихся точек
+	//! \brief Возвращает количество оставшихся координат
+	/*!	\return Количество оставшихся координат
+	*/
 	const sz_t &points_left() const { return _points_left; }
 
-	//!	\brief Текущее направление прохода
+	//!	\brief Возвращает текущее направление прохода
+	/*!	\return <i>true</i> если текущее направление обхода - влево,
+		иначе <i>false</i>
+	*/
 	bool going_left() const { return _going_left; }
 
 protected:
 private:
 	// private data ------------------------------------------------------------
 
-	//!	\brief Количество итераций, оставшихся до конца
+	//!	\brief Количество итераций, оставшихся до достижения конца
 	sz_t _points_left;
 
-	//!	\brief Текущее направление перемещения.
+	//!	\brief Текущее направление перемещения
+	/*!	\sa going_left()
+	*/
 	bool _going_left;
 
 };
@@ -408,7 +432,8 @@ public:
 	n_cutdown_iterator(const sz_t lvl): _end(false) {
 		assert(0 <= lvl);
 
-		_n = (0 == lvl)? (MAX_VARIATIONS_LVL_0 - 1): (MAX_VARIATIONS_LVL_X - 1);
+		_n = (0 == lvl)? (MAX_VARIATIONS_LVL_0 - 1)
+					   : (MAX_VARIATIONS_LVL_X - 1);
 	}
 
 	//! \brief Определение виртуального basic_iterator::get()
@@ -482,6 +507,8 @@ public:
 		_ref_count_ptr(new int(INIT_REF_COUNT))
 	{
 		assert(0 != _iterator);
+
+		assert(0 != _ref_count_ptr);	// для отладки
 
 		if (0 == _ref_count_ptr) throw std::bad_alloc();
 	}

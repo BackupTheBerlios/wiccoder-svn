@@ -134,10 +134,10 @@ bool test_n_cutdown_iterator()
 
 /*!
 */
-bool test_snake_square_iterator()
+bool test_snake_2d_iterator()
 {
 	// Что тестируется
-	std::cout << "wic::snake_square_iterator class" << std::endl;
+	std::cout << "wic::snake_2d_iterator class" << std::endl;
 
 	using namespace wic;
 
@@ -155,7 +155,7 @@ bool test_snake_square_iterator()
 	i1_good.push_back(p_t(1, 3));
 	i1_good.push_back(p_t(2, 3));
 	i1_good.push_back(p_t(3, 3));
-	for (wic::snake_square_iterator i1(p_t(1, 1), p_t(3,3)); !i1.end(); i1.next()) {
+	for (wic::snake_2d_iterator i1(p_t(1, 1), p_t(3,3)); !i1.end(); i1.next()) {
 		i1_calc.push_back(i1.get());
 	}
 

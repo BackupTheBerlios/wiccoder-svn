@@ -50,7 +50,7 @@ int main(int argc, char **args) {
 	tests_list.push_back(test_wtree_calc_sj);
 	tests_list.push_back(test_wtree_leafs_top_left);
 	tests_list.push_back(test_n_cutdown_iterator);
-	tests_list.push_back(test_snake_square_iterator);
+	tests_list.push_back(test_snake_2d_iterator);
 	tests_list.push_back(test_LL_children_iterator);
 
 	// for each item in list
