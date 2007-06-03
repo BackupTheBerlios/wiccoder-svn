@@ -131,7 +131,7 @@ subbands::subband_t *subbands::_get(const sz_t i) const {
 
 
 /*!	\param[in] lvl Уровень разложения
-	\param[in] i Номер саббеда с уровня \c lvl
+	\param[in] i Номер саббеда на уровня <i>lvl</i>
 
 	Уровень разложения - число от 0 до количества уровней разложения
 	(включительно). На уровне 0 находится только один LL саббенд и
@@ -142,14 +142,12 @@ subbands::subband_t *subbands::_get(const sz_t i) const {
 	- HL саббенд имеет индекс 0 (константа subbands::SUBBAND_HL)
 	- LH саббенд имеет индекс 1 (константа subbands::SUBBAND_LH)
 	- HH саббенд имеет индекс 2 (константа subbands::SUBBAND_HH)
-
-	Это вторая из основных открытых функций для доступа к саббендам,
-	через которую работают все остальные.
 */
 subbands::subband_t *subbands::_get(const sz_t lvl, const sz_t i) const
 {
+	assert(LVL_0 <= lvl && lvl <= _lvls);
 	assert(0 <= i && i < SUBBANDS_ON_LEVEL);
-	assert(0 <= lvl && lvl <= _lvls);
+	assert(LVL_0 < lvl || SUBBAND_LL == i);
 
 	if (0 == lvl) return (_sb + _mcount);
 

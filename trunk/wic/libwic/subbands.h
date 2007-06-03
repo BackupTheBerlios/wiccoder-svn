@@ -210,13 +210,9 @@ public:
 		меньшего числа сравнений (в отладочной версии также проверяется выход
 		координат за пределы спектра, что делает количество сравнений таким же
 		как и в функции subbands::test()).
-
-		\todo Необходимо протестировать эту функцию
 	*/
 	inline bool test_LL(const p_t &p) {
 		const subband_t &sb = get_LL();
-
-		assert(sb.x_min <= p.x && sb.y_min <= p.y);
 
 		return (p.x <= sb.x_max && p.y <= sb.y_max);
 	}
