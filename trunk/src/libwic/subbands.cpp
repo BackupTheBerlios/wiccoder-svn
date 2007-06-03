@@ -1,10 +1,10 @@
-/*******************************************************************************
-* file:         subbands.cpp                                                   *
-* version:      0.1.0                                                          *
-* author:       mice (mailto:my_mice@mail.ru, ICQ:332-292-380)                 *
-* description:  not available                                                  *
-* tests:        none                                                           *
-*******************************************************************************/
+/*!	\file     subbands.cpp
+	\version  0.0.1
+	\author   mice, ICQ: 332-292-380, mailto:wonder.mice@gmail.com
+	\brief    Реализация класса wic::subbands для работы с саббендами
+
+	\todo     Более подробно описать файл subbands.cpp
+*/
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -14,7 +14,6 @@
 // none
 
 // libwic headers
-#include <wic/libwic/types.h>
 #include <wic/libwic/subbands.h>
 
 
@@ -30,18 +29,21 @@ namespace wic {
 	\param[in] height Высота изображения
 	\param[in] lvls Количество уровней вейвлет преобразования
 */
-subbands::subbands(const sz_t width, const sz_t height, const sz_t lvls) {
+subbands::subbands(const sz_t width, const sz_t height, const sz_t lvls):
+	_width(width), _height(height), _lvls(lvls)
+{
 	// сохранение параметров изображения
-	_width	= width;
-	_height	= height;
-	_lvls	= lvls;
+	assert(0 < _width);
+	assert(0 < _height);
+	assert(0 < _lvls);
 
 	// вычисление количества саббендов
-	_mcount	= SUBBANDS_PER_LEVEL * _lvls;
+	_mcount	= SUBBANDS_ON_LEVEL * _lvls;
 	_count	= _mcount + SUBBANDS_ON_0_LEVEL;
 
-	// выделение памяти
+	// выделение памяти под информацию о саббендах
 	_sb = new subband_t[_count];
+	assert(0 != _sb);	// для отладки
 	if (0 == _sb) throw std::bad_alloc();
 
 	// координаты HH саббенда
@@ -89,7 +91,7 @@ subbands::subbands(const sz_t width, const sz_t height, const sz_t lvls) {
 }
 
 
-/*!
+/*! Освобождает память, выделенную под информацию о саббендах
 */
 subbands::~subbands() {
 	if (0 != _sb) delete[] _sb;
@@ -98,6 +100,7 @@ subbands::~subbands() {
 
 /*!	\param[in] lvl Номер уровня, количество саббендов на котором необходимо
 	узнать.
+	\return Количество саббендов на уровне
 */
 sz_t subbands::subbands_on_lvl(const sz_t lvl) const
 {
@@ -105,7 +108,7 @@ sz_t subbands::subbands_on_lvl(const sz_t lvl) const
 
 	if (LVL_0 == lvl) return SUBBANDS_ON_0_LEVEL;
 
-	return SUBBANDS_PER_LEVEL;
+	return SUBBANDS_ON_LEVEL;
 }
 
 

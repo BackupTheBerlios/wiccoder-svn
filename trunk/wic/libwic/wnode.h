@@ -1,7 +1,7 @@
 /*!	\file     wnode.h
 	\version  0.0.1
 	\author   mice, ICQ: 332-292-380, mailto:wonder.mice@gmail.com
-	\brief    Определение структуры элемента вейвлет-спектра
+	\brief    Определение структуры wic::wnode - элемента вейвлет-спектра
 
 	\todo     Более подробно описать файл wnode.h
 */

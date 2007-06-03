@@ -255,8 +255,7 @@ public:
 	template <const wnode::wnode_members member>
 	pi_t calc_pi_avg(const p_t &prnt, const subbands::subband_t &children_sb)
 	{
-		assert(prnt.x > sb().get_LL().x_max);
-		assert(prnt.y > sb().get_LL().y_max);
+		assert(prnt.x > sb().get_LL().x_max || prnt.y > sb().get_LL().y_max);
 
 		pi_t pi = 0;
 
