@@ -237,17 +237,17 @@ public:
 	pi_t calc_pi(const sz_t x, const sz_t y,
 				 const subbands::subband_t &sb)
 	{
-		const pi_t i1	=	get_safe<member>(x - 1, y,     sb) + 
-							get_safe<member>(x + 1, y,     sb) +
-						 	get_safe<member>(x    , y - 1, sb) + 
-							get_safe<member>(x    , y + 1, sb);
+		const pi_t i1	= abs(get_safe<member>(x - 1, y,     sb)) + 
+						  abs(get_safe<member>(x + 1, y,     sb)) +
+						  abs(get_safe<member>(x    , y - 1, sb)) + 
+						  abs(get_safe<member>(x    , y + 1, sb));
 
-		const pi_t i2	=	get_safe<member>(x + 1, y + 1, sb) + 
-							get_safe<member>(x + 1, y - 1, sb) +
-						 	get_safe<member>(x - 1, y + 1, sb) + 
-							get_safe<member>(x - 1, y - 1, sb);
+		const pi_t i2	= abs(get_safe<member>(x + 1, y + 1, sb)) + 
+						  abs(get_safe<member>(x + 1, y - 1, sb)) +
+						  abs(get_safe<member>(x - 1, y + 1, sb)) + 
+						  abs(get_safe<member>(x - 1, y - 1, sb));
 
-		return pi_t(4 * get_safe<member>(x, y, sb) + 2 * i1 + i2) / 16;
+		return pi_t(4 * abs(get_safe<member>(x, y, sb)) + 2 * i1 + i2) / 16;
 	}
 
 	//!	\brief Вычисляет среднее по дочерним элементам значения прогнозной
@@ -305,7 +305,9 @@ public:
 		Функция при вычислении прогноза использует до трёх соседних элементов
 		<i>(x, y)</i> и до девяти элементов соседних для родителя элемента
 		<i>(x, y)</i>. По этой причине элемент <i>(x, y)</i> должен лежать
-		на уровнях начиная со второго. 
+		на уровнях начиная со второго. Тем не менее функция корректно
+		обрабатывает координаты элементов с первых двух уровней, возвращая
+		при этом нулевое значение прогноза.
 
 		См. формулу (6) из <i>35.pdf</i>
 
@@ -321,10 +323,8 @@ public:
 				 const subbands::subband_t &sb,
 				 const bool going_left)
 	{
-		assert(
-			x > wtree::sb().get(subbands::LVL_1, subbands::SUBBAND_HH).x_max ||
-			y > wtree::sb().get(subbands::LVL_1, subbands::SUBBAND_HH).y_max
-		);
+		// проверка на элемент из первых двух уровней
+		if (subbands::LVL_1 >= sb.lvl) return 0;
 
 		// смещение для верхних коэффициентов
 		static const dsz_t	top		= (-1);
@@ -332,9 +332,10 @@ public:
 		       const dsz_t	side	= (going_left)? (+1): (-1);
 
 		// подсчёт взвешанной суммы
-		const pi_t sum = 0.4 * pi_t(get_safe<member>(x + side, y + top, sb)) +
-							   pi_t(get_safe<member>(x + side, y      , sb)) +
-							   pi_t(get_safe<member>(x       , y + top, sb));
+		const pi_t sum = 0.4 *
+						 abs(pi_t(get_safe<member>(x + side, y + top, sb))) +
+						 abs(pi_t(get_safe<member>(x + side, y      , sb))) +
+						 abs(pi_t(get_safe<member>(x       , y + top, sb)));
 
 		// родительский коэффициент
 		const p_t p = prnt(p_t(x, y));

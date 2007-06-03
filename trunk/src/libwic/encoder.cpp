@@ -61,6 +61,7 @@ void encoder::encode() {
 		const p_t &root = i->get();
 		_encode_step_1(root, 0);
 		_encode_step_2(root, 0);
+		_encode_step_3(root, 0);
 	}
 
 	_aenc.end();
@@ -74,6 +75,10 @@ void encoder::encode() {
 /*!	\param[in] s Значение прогнозной величины <i>S<sub>j</sub></i>
 	\param[in] lvl Номер уровня разложения, из которого был взят коэффициент
 	\return Номер выбираемой модели
+
+	\note Стоит заметить, что для первого и второго уровней функция
+	возвращает определённые значения, независимо от параметра <i>s</i>.
+	<i>pi</i>.
 */
 sz_t encoder::_ind_spec(const pi_t &s, const sz_t lvl) {
 	if (0 == lvl) return 0;
@@ -91,6 +96,10 @@ sz_t encoder::_ind_spec(const pi_t &s, const sz_t lvl) {
 /*!	\param[in] pi Значение прогнозной величины <i>P<sub>i</sub></i>
 	\param[in] is_LL Берётся ли коэффициент из саббенда LL
 	\return Номер выбираемой модели
+
+	\note Стоит заметить, что если параметр <i>is_LL</i> равен <i>true</i>
+	функция всегда возвращает нулевую модель, независимо от параметра
+	<i>pi</i>.
 */
 sz_t encoder::_ind_map(const pi_t &pi, const bool is_LL) {
 	if (is_LL) return 0;
@@ -138,11 +147,7 @@ h_t encoder::_h_map(const sz_t m, const n_t &n) {
 	на кодирование коэффициента арифметическим кодером.
 	\param[in] model Номер модели арифметического кодера, которая будет
 	использована для кодирования коэффициента
-	\return Значения <i>RD</i> функции <i>Лагрнанжа</i>
-
-	\todo Написать тест для этой функции
-	\todo Написать набор функций для работы с номерами моделей арифметического
-	кодера.
+	\return Значения <i>RD-функции Лагрнанжа</i>
 */
 j_t encoder::_calc_rd_iteration(const p_t &p, const wk_t &k,
 								const lambda_t &lambda, const sz_t &model)
@@ -155,43 +160,16 @@ j_t encoder::_calc_rd_iteration(const p_t &p, const wk_t &k,
 }
 
 
-/*!	\param[in] p Координаты элемента для которого будет расчитываться
-	\param[in] sb Саббенд, в котором находятся коэффициенты из сохраняемой
-	ветви. Другими словами, этот саббенд дочерний для того, в котором
-	находится элемент с координатами <i>p</i>.
-	\param[in] lambda Параметр <i>lambda</i> который участвует в вычислении
-	<i>RD</i> функции и представляет собой баланс между <i>R (rate)</i> и
-	<i>D (distortion)</i> частями <i>функции Лагранжа</i>.
-	\return Значение <i>RD функции Лагранжа</i>.
-
-	\sa _calc_j0_value()
-
-	\todo Необходимо написать тест для этой функции.
-*/
-j_t encoder::_calc_j1_value(const p_t &p, const subbands::subband_t &sb,
-							const lambda_t &lambda)
-{
-	const sz_t model = _ind_spec<wnode::member_wc>(p, sb);
-
-	j_t j1 = 0;
-
-	for (wtree::coefs_iterator i = _wtree.iterator_over_children(p);
-		 !i->end(); i->next())
-	{
-		const wnode &node = _wtree.at(i->get());
-		j1 += _calc_rd_iteration(i->get(), node.wc, lambda, model);
-	}
-
-	return j1;
-}
-
-
 /*!	\param[in] p Координаты коэффициента для корректировки
 	\param[in] sb Саббенд, в котором находится коэффициент
 	\param[in] lambda Параметр <i>lambda</i> используемый для
 	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
 	собой баланс между ошибкой и битовыми затратами.
 	\return Значение откорректированного коэффициента
+
+	\note Функция применима для коэффициентов из любых саббендов
+
+	\sa COEF_FIX_USE_4_POINTS
 
 	\todo Написать тест для этой функции
 */
@@ -231,7 +209,7 @@ wk_t encoder::_coef_fix(const p_t &p, const subbands::subband_t &sb,
 }
 
 
-/*!	\param[in] root Координаты родительского элемента
+/*!	\param[in] p Координаты родительского элемента
 	\param[in] sb_j Саббенд, в котором находятся дочерние элементы
 	\param[in] lambda Параметр <i>lambda</i> используемый для
 	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
@@ -251,6 +229,60 @@ void encoder::_coefs_fix(const p_t &p, const subbands::subband_t &sb_j,
 		wnode &node = _wtree.at(p);
 		node.wc = _coef_fix(p, sb_j, lambda);
 	}
+}
+
+
+/*!	\param[in] p Координаты родительского элемента
+	\param[in] sb_j Саббенд, в котором находятся дочерние элементы
+	\param[in] lambda Параметр <i>lambda</i> используемый для
+	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
+	собой баланс между ошибкой и битовыми затратами.
+
+	\note Функция применима только для родительских элементов из
+	любых саббендов.
+*/
+void encoder::_coefs_fix_uni(const p_t &p, const subbands::subband_t &sb_j,
+							 const lambda_t &lambda)
+{
+	// цикл по дочерним элементам
+	for (wtree::coefs_iterator i = _wtree.iterator_over_children_uni(p);
+		 !i->end(); i->next())
+	{
+		const p_t &p = i->get();
+		wnode &node = _wtree.at(p);
+		node.wc = _coef_fix(p, sb_j, lambda);
+	}
+}
+
+
+/*!	\param[in] p Координаты элемента для которого будет расчитываться
+	\param[in] sb Саббенд, в котором находятся коэффициенты из сохраняемой
+	ветви. Другими словами, этот саббенд дочерний для того, в котором
+	находится элемент с координатами <i>p</i>.
+	\param[in] lambda Параметр <i>lambda</i> который участвует в вычислении
+	<i>RD</i> функции и представляет собой баланс между <i>R (rate)</i> и
+	<i>D (distortion)</i> частями <i>функции Лагранжа</i>.
+	\return Значение <i>RD функции Лагранжа</i>.
+
+	\sa _calc_j0_value()
+
+	\todo Необходимо написать тест для этой функции.
+*/
+j_t encoder::_calc_j1_value(const p_t &p, const subbands::subband_t &sb,
+							const lambda_t &lambda)
+{
+	const sz_t model = _ind_spec<wnode::member_wc>(p, sb);
+
+	j_t j1 = 0;
+
+	for (wtree::coefs_iterator i = _wtree.iterator_over_children(p);
+		 !i->end(); i->next())
+	{
+		const wnode &node = _wtree.at(i->get());
+		j1 += _calc_rd_iteration(i->get(), node.wc, lambda, model);
+	}
+
+	return j1;
 }
 
 
