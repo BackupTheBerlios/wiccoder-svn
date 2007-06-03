@@ -52,6 +52,7 @@ int main(int argc, char **args) {
 	tests_list.push_back(test_n_cutdown_iterator);
 	tests_list.push_back(test_snake_2d_iterator);
 	tests_list.push_back(test_LL_children_iterator);
+	tests_list.push_back(test_wtree_prnt);
 
 	// for each item in list
 	for (tests_list_t::const_iterator i = tests_list.begin();

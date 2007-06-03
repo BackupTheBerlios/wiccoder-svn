@@ -114,12 +114,9 @@ void wtree::quantize(const q_t q) {
 	  начальное значение для откорректированного коэффициента
 	- Обнуляет значения функции Лагранжа (wnode::j0 и wnode::j1)
 	- Устанавливает групповой признак подрезания wnode::n, делая все ветви
-	  дерева не подрезанными
+	  дерева подрезанными
 	- Обнуляет признак валидности коэффициента (wnode::invalid), делая
 	  все элементы валидными
-
-	\todo Возможно, установку поля wnode::n следует сделать более
-	корректной (с учётом саббенда, в котором располагается элемент)
 */
 void wtree::refresh()
 {
@@ -134,7 +131,7 @@ void wtree::refresh()
 		node.j0			= 0;
 		node.j1			= 0;
 		// ничего не подрезано
-		node.n			= 0xFF;
+		node.n			= 0;
 		// узел хороший
 		node.invalid	= false;
 	}
@@ -205,8 +202,8 @@ p_t wtree::get_pos(const wnode &node) const
 	располагаются в <i>LL</i> саббенде
 */
 p_t wtree::prnt(const p_t &c) {
-	assert(c.x > sb().get(LVL_1, subbands::SUBBAND_HH).x_max ||
-		   c.y > sb().get(LVL_1, subbands::SUBBAND_HH).y_max);
+	assert(c.x > sb().get(subbands::LVL_1, subbands::SUBBAND_HH).x_max ||
+		   c.y > sb().get(subbands::LVL_1, subbands::SUBBAND_HH).y_max);
 	assert(c.x < _width && c.y < _height);
 
 	return p_t(c.x / 2, c.y / 2);
@@ -224,15 +221,16 @@ p_t wtree::prnt_uni(const p_t &c)
 		   c.y > sb().get_LL().y_max);
 	assert(c.x < _width && c.y < _height);
 
-	const subbands::subband_t &sb_HH = sb().get(LVL_1, subbands::SUBBAND_HH);
+	const subbands::subband_t &sb_HH =
+					sb().get(subbands::LVL_1, subbands::SUBBAND_HH);
 
 	// проверка, лежит ли родительский элемент в LL саббенде
-	if (c.x < sb_HH.x_min && c.y < sb_HH.y_min)
+	if (c.x <= sb_HH.x_max && c.y <= sb_HH.y_max)
 	{
 		const subbands::subband_t &sb_LL = sb().get_LL();
 
-		if (c.y < sb_LL.y_max) return p_t(c.x, c.y - sb_LL.height);
-		if (c.x < sb_LL.x_max) return p_t(c.x - sb_LL.width, c.y);
+		if (c.y <= sb_LL.y_max) return p_t(c.x - sb_LL.width, c.y);
+		if (c.x <= sb_LL.x_max) return p_t(c.x, c.y - sb_LL.height);
 
 		return p_t(c.x - sb_LL.width, c.y - sb_LL.height);
 	}
@@ -298,6 +296,8 @@ n_t wtree::child_n_mask_LL(const p_t &p) {
 	Функция выполняет подрезания ветвей, образующими которых являются
 	элементы дочерние от <i>branch</i>, в соответствии с групповым признаком
 	подрезания ветвей.
+
+	Применима для ветвей из любых саббендов.
 */
 void wtree::cut_leafs(const p_t &branch, const n_t n)
 {
@@ -399,7 +399,8 @@ p_t wtree::_children_top_left(const p_t &prnt) {
 	дерева.
 
 	\note Эта функция корректно работает для любого значения параметра
-	<i>lvl</i>.
+	<i>lvl</i> так как номер саббенда и уровень разложения указываются
+	явно.
 
 	\todo Написать более подробное описание
 */
@@ -501,10 +502,10 @@ basic_iterator<p_t> *wtree::_iterator_over_LL_children(const p_t &prnt)
 	  отмечая все дочерние ветви как подрезанные.
 
 	Функция выполняет <i>умное</i> подрезание, обрабатывая только ещё не
-	подрезанные ветви. Для остановкт процесса подрезания, Функция также
+	подрезанные ветви. Для остановки процесса подрезания, Функция также
 	использует тот факт, что групповые признаки подрезания ветвей у всех
 	элементов последних двух саббендов равны нулю (все ветви подрезаны).
-	Наличие нулевых групповых признаков подрезания ветвей на 2ух
+	Наличие нулевых групповых признаков подрезания ветвей на двух
 	последних саббендах является необходимым условием правильной работы
 	функции.
 
