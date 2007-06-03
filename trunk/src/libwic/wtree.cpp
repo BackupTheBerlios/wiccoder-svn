@@ -1,10 +1,10 @@
-/*******************************************************************************
-* file:         wtree.cpp                                                      *
-* version:      0.1.0                                                          *
-* author:       mice (mailto:my_mice@mail.ru, ICQ:332-292-380)                 *
-* description:  not available                                                  *
-* tests:        none                                                           *
-*******************************************************************************/
+/*!	\file     wtree.cpp
+	\version  0.0.1
+	\author   mice, ICQ: 332-292-380, mailto:wonder.mice@gmail.com
+	\brief    Реализация класса wic::wtree - спектра вейвлет разложения
+
+	\todo     Более подробно описать файл wtree.cpp
+*/
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -25,28 +25,31 @@ namespace wic {
 ////////////////////////////////////////////////////////////////////////////////
 // wtree class public definitions
 
-/*!	\param[in] width Ширина изображения
-	\param[in] height Высота изображения
+/*!	\param[in] width Ширина вейвлет спектра (в элементах)
+	\param[in] height Высота изображения (в элементах)
 	\param[in] lvls Количество уровней разложения
 */
 wtree::wtree(const sz_t width, const sz_t height, const sz_t lvls):
+	_width(width), _height(height), _lvls(lvls),
 	_nodes(0), _subbands(0), _q(0)
 {
 	// сохранение параметров спектра
-	_width	= width;
-	_height	= height;
-	_lvls	= lvls;
+	assert(0 < _width);
+	assert(0 < _height);
+	assert(0 < _lvls);
 
 	// выделение памяти под карту вейвлет коэффициентов (спектр)
 	_nodes = new wnode[coefs()];
+	assert(0 != _nodes);	// для отладки
 	if (0 == _nodes) throw std::bad_alloc();
 
-	// сброс всех значений в ноль
+	// сброс всех значений
 	_reset_trees_content();
 
 	// создание информации о саббендах
 	_subbands = new subbands(_width, _height, _lvls);
-	if (0 == _nodes) throw std::bad_alloc();
+	assert(0 != _subbands);	// для отладки
+	if (0 == _subbands) throw std::bad_alloc();
 }
 
 
@@ -77,8 +80,6 @@ sz_t wtree::nodes_sz() const {
 */
 void wtree::load(const w_t *const from) {
 	assert(0 != from);
-
-	// _reset_trees_content();
 
 	for (sz_t i = 0; coefs() > i; ++i) {
 		_nodes[i].w = from[i];
@@ -112,10 +113,13 @@ void wtree::quantize(const q_t q) {
 	- Выполняет присваивание wnode::wc = wnode::wq и тем самым даёт
 	  начальное значение для откорректированного коэффициента
 	- Обнуляет значения функции Лагранжа (wnode::j0 и wnode::j1)
-	- Обнуляет групповой признак подрезания wnode::n, делая все ветви дерева
-	  не подрезанными
+	- Устанавливает групповой признак подрезания wnode::n, делая все ветви
+	  дерева не подрезанными
 	- Обнуляет признак валидности коэффициента (wnode::invalid), делая
 	  все элементы валидными
+
+	\todo Возможно, установку поля wnode::n следует сделать более
+	корректной (с учётом саббенда, в котором располагается элемент)
 */
 void wtree::refresh()
 {
@@ -130,14 +134,14 @@ void wtree::refresh()
 		node.j0			= 0;
 		node.j1			= 0;
 		// ничего не подрезано
-		node.n			= 0;
+		node.n			= 0xFF;
 		// узел хороший
 		node.invalid	= false;
 	}
 }
 
 
-/*!	\return Константная ссылка на объект wiv::subbands
+/*!	\return Ссылка на объект wiс::subbands
 	\sa subbands
 */
 subbands &wtree::sb() {
@@ -147,7 +151,7 @@ subbands &wtree::sb() {
 }
 
 
-/*!	\return Константная ссылка на объект wiv::subbands
+/*!	\return Константная ссылка на объект wiс::subbands
 	\sa subbands
 */
 const subbands &wtree::sb() const {
@@ -177,9 +181,13 @@ wnode &wtree::at(const sz_t x, const sz_t y) {
 }
 
 
-/*!	\param[in] node Ссылка на узел
+/*!	\param[in] node Ссылка на элемент
+	\return Координаты элемента в спектре
+
+	\note Элемент должен быть обязательно из этого спектра
 */
-p_t wtree::get_pos(const wnode &node) const {
+p_t wtree::get_pos(const wnode &node) const
+{
 	assert(_nodes <= &node);
 
 	const sz_t offset = sz_t(&node - _nodes);
@@ -191,10 +199,43 @@ p_t wtree::get_pos(const wnode &node) const {
 
 
 /*!	\param[in] c Координаты элемента
+	\return Координаты родительского элемента
+
+	\note Данная функция не применима для элементов, родители которых
+	располагаются в <i>LL</i> саббенде
 */
 p_t wtree::prnt(const p_t &c) {
-	assert(0 <= c.x && c.x < _width);
-	assert(0 <= c.y && c.y < _height);
+	assert(c.x > sb().get(LVL_1, subbands::SUBBAND_HH).x_max ||
+		   c.y > sb().get(LVL_1, subbands::SUBBAND_HH).y_max);
+	assert(c.x < _width && c.y < _height);
+
+	return p_t(c.x / 2, c.y / 2);
+}
+
+
+/*!	\param[in] c Координаты элемента
+	\return Координаты родительского элемента
+
+	\note Функция довольно медленная, т.к. делает много проверок
+*/
+p_t wtree::prnt_uni(const p_t &c)
+{
+	assert(c.x > sb().get_LL().x_max ||
+		   c.y > sb().get_LL().y_max);
+	assert(c.x < _width && c.y < _height);
+
+	const subbands::subband_t &sb_HH = sb().get(LVL_1, subbands::SUBBAND_HH);
+
+	// проверка, лежит ли родительский элемент в LL саббенде
+	if (c.x < sb_HH.x_min && c.y < sb_HH.y_min)
+	{
+		const subbands::subband_t &sb_LL = sb().get_LL();
+
+		if (c.y < sb_LL.y_max) return p_t(c.x, c.y - sb_LL.height);
+		if (c.x < sb_LL.x_max) return p_t(c.x - sb_LL.width, c.y);
+
+		return p_t(c.x - sb_LL.width, c.y - sb_LL.height);
+	}
 
 	return p_t(c.x / 2, c.y / 2);
 }
@@ -330,6 +371,8 @@ wtree::coefs_iterator wtree::iterator_over_leafs(const p_t &root,
 
 /*!	Очищает память, занимаемую деревом коэффициентов. Все значения
 	сбрасываются и устанавливаются в 0.
+
+	\warning При вызове этой функции все ветви помечаются как подрезанные
 */
 void wtree::_reset_trees_content() {
 	memset(_nodes, 0, nodes_sz());
