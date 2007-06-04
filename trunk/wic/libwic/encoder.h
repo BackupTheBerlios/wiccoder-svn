@@ -1,10 +1,10 @@
-/*******************************************************************************
-* file:         encoder.h                                                      *
-* version:      0.1.0                                                          *
-* author:       mice (mailto:my_mice@mail.ru, ICQ:332-292-380)                 *
-* description:  not available                                                  *
-* tests:        none                                                           *
-*******************************************************************************/
+/*!	\file     encoder.h
+	\version  0.0.1
+	\author   mice, ICQ: 332-292-380, mailto:wonder.mice@gmail.com
+	\brief    Описания класса wic::encoder
+
+	\todo     Более подробно описать файл encoder.h
+*/
 
 #pragma once
 
@@ -293,6 +293,13 @@ protected:
 	_optimize_branch_topology(const p_t &branch,
 							  const subbands::subband_t &sb,
 							  const lambda_t &lambda);
+
+	//@}
+
+	//!	\name Кодирование отдельных деревьев
+	//@{
+
+	void _encode_tree(const p_t &root);
 
 	//@}
 

@@ -6,7 +6,6 @@
 	\todo     Более подробно описать файл wtree.h
 */
 
-
 #pragma once
 
 #ifndef WIC_LIBWIC_WTREE

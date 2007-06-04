@@ -1,10 +1,10 @@
-/*******************************************************************************
-* file:         encoder.cpp                                                    *
-* version:      0.1.0                                                          *
-* author:       mice (mailto:my_mice@mail.ru, ICQ:332-292-380)                 *
-* description:  not available                                                  *
-* tests:        none                                                           *
-*******************************************************************************/
+/*!	\file     encoder.cpp
+	\version  0.0.1
+	\author   mice, ICQ: 332-292-380, mailto:wonder.mice@gmail.com
+	\brief    Реализация класса wic::encoder
+
+	\todo     Более подробно описать файл encoder.h
+*/
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -62,6 +62,7 @@ void encoder::encode() {
 		_encode_step_1(root, 0);
 		_encode_step_2(root, 0);
 		_encode_step_3(root, 0);
+		_encode_tree(root);
 	}
 
 	_aenc.end();
@@ -485,6 +486,22 @@ encoder::_optimize_branch_topology(const p_t &branch,
 	}
 
 	return optim_topology;
+}
+
+
+/*!
+*/
+void encoder::_encode_tree(const p_t &root)
+{
+	// закодировать коэффициент с нулевого уровня
+
+	// закодировать групповой признак подрезания с нулевого уровня
+
+	for (wtree::coefs_iterator i = _wtree.iterator_over_LL_children(root);
+		 !i->end(); i->next())
+	{
+		// закодировать коэффициенты с первого уровня
+	}
 }
 
 

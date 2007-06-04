@@ -113,32 +113,6 @@ inline void acoder<v_t, b_t>::_init_coder(
 	if (update_models) {
 		coder_base->ResetStatistics();
 
-		#ifdef INIT_CODER_OLD_STAT
-		// from old version
-		std::ofstream out("models_out.txt");
-		coder_base->model(0);
-		coder_base->model()->ResetStatistics();
-
-		for (int i = 94; 510 > i; ++i) out << coder_base->entropy_update(i) << std::endl;
-
-		coder_base->model(6+1);
-		coder_base->entropy_update(0);
-
-        coder_base->model(7+1);
-		for (int i = 0; 16 > i; ++i) coder_base->entropy_update(i);
-
-        coder_base->model(8+1);
-		for (int i = 0; 16 > i; ++i) coder_base->entropy_update(i);
-        
-		coder_base->model(9+1);
-		coder_base->entropy_update(15);
-
-		coder_base->model(6);
-		for (int i = 0; 8 > i; ++i) coder_base->entropy_update(i);
-		#endif
-
-		/*
-
 		if (NULL != models) {
 			for (int i = 0; i < n; i++) {
 				coder_base->model(i);
@@ -147,7 +121,6 @@ inline void acoder<v_t, b_t>::_init_coder(
 				}
 			}
 		}
-		*/
 	}
 }
 
