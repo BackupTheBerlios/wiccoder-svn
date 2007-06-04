@@ -292,6 +292,45 @@ j_t encoder::_calc_j1_value(const p_t &p, const subbands::subband_t &sb,
 }
 
 
+/*!	\param[in] root Координаты корневого элемента
+	\param[in] j_map Значение <i>RD-функцию Лагранжа</i> полученное
+	в шаге 2.6.
+	\param[in] lambda Параметр <i>lambda</i> который участвует в вычислении
+	<i>RD</i> функции и представляет собой баланс между <i>R (rate)</i> и
+	<i>D (distortion)</i> частями <i>функции Лагранжа</i>.
+	\return Значение <i>RD-функции Лагранжа</i>.
+
+	Функция также сохраняет полученное значение <i>RD-функции Лагранжа</i> в
+	полях wnode::j0 и wnode::j1 корневого элемента.
+*/
+j_t encoder::_calc_jx_value(const p_t &root, const j_t &j_map,
+							const lambda_t &lambda)
+{
+	assert(_wtree.sb().test_LL(root));
+
+	// получаем ссылку на LL саббенд
+	const subbands::subband_t &sb_LL = _wtree.sb().get_LL();
+
+	j_t j = j_map;
+
+	// цикл по дочерним элементам
+	for (wtree::coefs_iterator i = _wtree.iterator_over_LL_children(root);
+		 !i->end(); i->next())
+	{
+		const p_t &p = i->get();
+
+		const wnode &node = _wtree.at(p);
+
+		j += _calc_rd_iteration(p, node.wc, lambda,
+								_ind_spec<wnode::member_wc>(p, sb_LL));
+	}
+
+	wnode &node = _wtree.at(root);
+
+	return (node.j0 = node.j1 = j);
+}
+
+
 /*!	\param[in] p Координаты элемента, для которого выполняется подготовка
 	значений <i>J</i> (<i>RD функция Лагранжа</i>) 
 	\param[in] sb_j Саббенд в котором находятся дочерние элементы
@@ -529,7 +568,6 @@ void encoder::_encode_step_2(const p_t &root, const lambda_t &lambda)
 				_prepare_j(p, sb_j, optim_topology.j, lambda);
 			}
 		}
-
 		// на всякий случай, если какой-нить фрик сделает sz_t беззнаковым
 		// типом :^)
 		// if (0 == lvl) break;
@@ -552,9 +590,7 @@ void encoder::_encode_step_3(const p_t &root, const lambda_t &lambda)
 	_wtree.cut_leafs(root, optim_topology.n);
 
 	// шаг 3. Вычисление RD-функции Лагранжа для всего дерева
-	// _calc_rd_iteration(root, 
-	// const j_t = optim_topology.j + 0;
-	// _prepare_j(root, sb_LL, optim_topology.j, lambda);
+	_calc_jx_value(root, optim_topology.j, lambda);
 }
 
 

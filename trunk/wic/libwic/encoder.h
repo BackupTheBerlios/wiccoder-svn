@@ -219,10 +219,15 @@ protected:
 		return j0;
 	}
 
-	//! \brief Расчитывает <i>RDфункцию Лагранжа</i> для варианта
+	//! \brief Расчитывает <i>RD-функцию Лагранжа</i> для варианта
 	//!	сохранения ветвей (без учёта истории подрезания и сохранения
 	//!	ветвей)
 	j_t _calc_j1_value(const p_t &p, const subbands::subband_t &sb,
+					   const lambda_t &lambda);
+
+	//!	\brief Расчитывает <i>RD-функцию Лагранжа</i> для всего дерева
+	//!	(Шаг 3 алгоритма)
+	j_t _calc_jx_value(const p_t &root, const j_t &j_map,
 					   const lambda_t &lambda);
 
 	//!	\brief Расчитывает значения <i>RD-функции Лагранжа</i> для вариантов
