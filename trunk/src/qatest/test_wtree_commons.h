@@ -43,6 +43,9 @@ bool test_child_n_mask();
 //! \brief Тестирует функцию wtree::child_n_mask_LL()
 bool test_child_n_mask_LL();
 
+//! \brief Тестирует функцию wtree::iterator_over_leafs()
+bool test_iterator_over_leafs();
+
 
 
 #endif	// QATEST_TEST_WTREE_COMMONS_INCLUDED

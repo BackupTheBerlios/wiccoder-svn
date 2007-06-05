@@ -52,6 +52,7 @@ int main(int argc, char **args) {
 	tests_list.push_back(test_wtree_leafs_top_left);
 	tests_list.push_back(test_child_n_mask);
 	tests_list.push_back(test_child_n_mask_LL);
+	tests_list.push_back(test_iterator_over_leafs);
 	tests_list.push_back(test_n_cutdown_iterator);
 	tests_list.push_back(test_snake_2d_iterator);
 	tests_list.push_back(test_LL_children_iterator);

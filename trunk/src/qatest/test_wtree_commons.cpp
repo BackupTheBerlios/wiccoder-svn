@@ -14,7 +14,11 @@
 #include <iostream>
 
 // external libraries headers
-// none
+// external libraries headers
+#include <imgs/img_rgb.h>
+#include <imgs/bmp_file.h>
+#include <imgs/bmp_dump.h>
+#include <wavelets/cdf97/cdf97.h>
 
 // libwic headers
 #include <wic/libwic/wtree.h>
@@ -195,13 +199,13 @@ bool test_child_n_mask()
 
 	using namespace wic;
 
-	// exected results
+	// expected results
 	n_t n_good_4_0 = 1;
 	n_t n_good_5_0 = 2;
 	n_t n_good_4_1 = 4;
 	n_t n_good_5_1 = 8;
 
-	// calculated result
+	// calculated results
 	wtree tree(16, 16, 3);
 	n_t n_calc_4_0 = tree.child_n_mask(p_t(4, 0), p_t(2, 0));
 	n_t n_calc_5_0 = tree.child_n_mask(p_t(5, 0), p_t(2, 0));
@@ -228,12 +232,12 @@ bool test_child_n_mask_LL()
 
 	using namespace wic;
 
-	// exected results
+	// expected results
 	n_t n_good_2_0 = 1;
 	n_t n_good_0_2 = 2;
 	n_t n_good_2_2 = 4;
 
-	// calculated result
+	// calculated results
 	wtree tree(16, 16, 3);
 	n_t n_calc_2_0 = tree.child_n_mask_LL(p_t(2, 0));
 	n_t n_calc_0_2 = tree.child_n_mask_LL(p_t(0, 2));
@@ -244,6 +248,73 @@ bool test_child_n_mask_LL()
 	if (n_calc_2_0 != n_good_2_0) ok = false;
 	if (n_calc_0_2 != n_good_0_2) ok = false;
 	if (n_calc_2_2 != n_good_2_2) ok = false;
+
+	return ok;
+}
+
+
+/*!
+*/
+bool test_iterator_over_leafs()
+{
+	std::cout << "wtree::iterator_over_leafs method" << std::endl;
+
+	// some constants to use
+	static const int lvls		= 3;
+
+	// first, load the image
+	imgs::img_rgb rgb_image;
+	if (0 != imgs::bmp_read(rgb_image, "../res/images/lena_eye_16x16.bmp"))
+	{
+		std::cout << "error: can't load image." << std::endl;
+
+		return false;
+	}
+
+	// allocate some memory and copy converted to float image there
+	const wic::sz_t image_pixels_count = rgb_image.w() * rgb_image.h();
+
+	float *const image_wt = new float[image_pixels_count];
+	if (0 == image_wt) {
+		std::cout << "error: can't allocate memory." << std::endl;
+
+		return false;
+	}
+
+	const imgs::img_rgb::rgb24_t *const rgb_image_bits =
+		(imgs::img_rgb::rgb24_t *)(rgb_image.bits());
+
+	for (wic::sz_t i = 0; image_pixels_count > i; ++i) {
+		image_wt[i] = rgb_image_bits[i].r;
+	}
+
+	// do wavelet transform
+	wt2d_cdf97_fwd(image_wt, rgb_image.h(), rgb_image.w(), lvls);
+
+	imgs::bmp_dump<wic::w_t, wic::sz_t>::txt_dump(image_wt,
+												  rgb_image.w(), rgb_image.h(),
+												  "dumps/[enc]image_wt.in");
+
+	wic::wtree wtree(rgb_image.w(), rgb_image.h(), lvls);
+	wtree.load(image_wt);
+
+	// do tests
+	using namespace wic;
+	wtree::coefs_iterator iterator = wtree.iterator_over_leafs(p_t(1, 0), wtree.sb().get(2, 2));
+
+	bool ok = true;
+	if (!_compare_points(p_t(6, 4), iterator.get()->get(), "at 6_4")) ok = false;
+	iterator.get()->next();
+	if (!_compare_points(p_t(7, 4), iterator.get()->get(), "at 7_4")) ok = false;
+	iterator.get()->next();
+	if (!_compare_points(p_t(7, 5), iterator.get()->get(), "at 7_5")) ok = false;
+	iterator.get()->next();
+	if (!_compare_points(p_t(6, 5), iterator.get()->get(), "at 6_5")) ok = false;
+	iterator.get()->next();
+	if (!iterator.get()->end()) ok = false;
+
+	// free memory
+	delete[] image_wt;
 
 	return ok;
 }

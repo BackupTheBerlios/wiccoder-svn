@@ -275,8 +275,6 @@ n_t wtree::child_n_mask(const p_t &p, const p_t &branch)
 	\note Данная функция работает только с элементами, являющимися прямыми
 	потомками элементов из <i>LL</i> саббенда (которые лежат в <i>1ом</i>
 	уровне разложения).
-
-	\todo Необходимо протестировать эту функцию
 */
 n_t wtree::child_n_mask_LL(const p_t &p) {
 	const subbands::subband_t &sb_LL = sb().get_LL();
@@ -342,7 +340,6 @@ wtree::coefs_iterator wtree::iterator_over_subband(
 	\return Итератор по листьям
 
 	\todo Написать функцию получения саббенда в котором находится коэффициент
-	\todo Эту функцию необходимо протестировать
 
 	\sa _leafs_top_left()
 */
