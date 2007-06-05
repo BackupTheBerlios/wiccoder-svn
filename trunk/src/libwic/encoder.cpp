@@ -59,9 +59,7 @@ void encoder::encode() {
 		 !i->end(); i->next())
 	{
 		const p_t &root = i->get();
-		_encode_step_1(root, 0);
-		_encode_step_2(root, 0);
-		_encode_step_3(root, 0);
+		_optimize_tree(root, 0);
 		_encode_tree(root);
 	}
 
@@ -489,7 +487,21 @@ encoder::_optimize_branch_topology(const p_t &branch,
 }
 
 
-/*!
+/*!	\param[in] branch 
+*/
+void encoder::_encode_leafs(const p_t &branch)
+{
+	(void)branch;
+	/*
+	for (wtree::coefs_iterator i = _wtree.iterator_over_leafs(branch);
+		 !i->end(); i->next())
+	{
+	}
+	*/
+}
+
+
+/*!	\param[in] root Координаты корневого элемента дерева
 */
 void encoder::_encode_tree(const p_t &root)
 {
@@ -497,10 +509,32 @@ void encoder::_encode_tree(const p_t &root)
 
 	// закодировать групповой признак подрезания с нулевого уровня
 
+	// кодирование дочерних коэффициентов
 	for (wtree::coefs_iterator i = _wtree.iterator_over_LL_children(root);
 		 !i->end(); i->next())
 	{
 		// закодировать коэффициенты с первого уровня
+	}
+
+	// кодирование групповых признаков подрезания с первого уровня
+	for (wtree::coefs_iterator i = _wtree.iterator_over_LL_children(root);
+		 !i->end(); i->next())
+	{
+		// закодировать групповые признаки подрезания с первого уровня
+		// если ветвь не подрезана
+	}
+
+	for (sz_t lvl = subbands::LVL_1; _wtree.lvls() > lvl; ++lvl)
+	{
+		for (sz_t k = 0; _wtree.sb().subbands_on_lvl(lvl) > k; ++k)
+		{
+			for (wtree::coefs_iterator i =
+						_wtree.iterator_over_leafs(root, lvl, k);
+				 !i->end(); i->next())
+			{
+				// получить групповой признак подрезания для коэффициента
+			}
+		}
 	}
 }
 
@@ -515,7 +549,7 @@ void encoder::_encode_tree(const p_t &root)
 	последующий расчёт <i>RD-функций Лагранжа</i> для вариантов сохранения
 	и подрезания оконечных листьев дерева.
 */
-void encoder::_encode_step_1(const p_t &root, const lambda_t &lambda)
+void encoder::_optimize_tree_step_1(const p_t &root, const lambda_t &lambda)
 {
 	// просматриваются все узлы предпоследнего уровня
 	const sz_t lvl_i = _wtree.sb().lvls() + subbands::LVL_PREV;
@@ -545,9 +579,12 @@ void encoder::_encode_step_1(const p_t &root, const lambda_t &lambda)
 }
 
 
-/*!	
+/*!	\param[in] root Координаты корневого элемента дерева
+	\param[in] lambda Параметр <i>lambda</i> используемый для
+	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
+	собой баланс между ошибкой и битовыми затратами.
 */
-void encoder::_encode_step_2(const p_t &root, const lambda_t &lambda)
+void encoder::_optimize_tree_step_2(const p_t &root, const lambda_t &lambda)
 {
 	// Шаги 2.1 - 2.5 ----------------------------------------------------------
 
@@ -592,10 +629,12 @@ void encoder::_encode_step_2(const p_t &root, const lambda_t &lambda)
 }
 
 
-/*!
-	\todo Доделать Шаг 3 в оптимизации
+/*!	\param[in] root Координаты корневого элемента дерева
+	\param[in] lambda Параметр <i>lambda</i> используемый для
+	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
+	собой баланс между ошибкой и битовыми затратами.
 */
-void encoder::_encode_step_3(const p_t &root, const lambda_t &lambda)
+void encoder::_optimize_tree_step_3(const p_t &root, const lambda_t &lambda)
 {
 	const subbands::subband_t &sb_LL = _wtree.sb().get_LL();
 
@@ -608,6 +647,22 @@ void encoder::_encode_step_3(const p_t &root, const lambda_t &lambda)
 
 	// шаг 3. Вычисление RD-функции Лагранжа для всего дерева
 	_calc_jx_value(root, optim_topology.j, lambda);
+}
+
+
+/*!	\param[in] root Координаты корневого элемента дерева
+	\param[in] lambda Параметр <i>lambda</i> используемый для
+	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
+	собой баланс между ошибкой и битовыми затратами.
+	\return Значение <i>RD-функций Лагранжа</i> для дерева
+*/
+j_t encoder::_optimize_tree(const p_t &root, const lambda_t &lambda)
+{
+	_optimize_tree_step_1(root, lambda);
+	_optimize_tree_step_2(root, lambda);
+	_optimize_tree_step_3(root, lambda);
+
+	return (_wtree.at(root).j1);
 }
 
 

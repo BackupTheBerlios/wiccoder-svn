@@ -299,6 +299,14 @@ n_t wtree::child_n_mask_LL(const p_t &p) {
 */
 void wtree::cut_leafs(const p_t &branch, const n_t n)
 {
+	#if defined _DEBUG || defined DEBUG
+	{
+		const sz_t lvl = lvls() - subbands::LVL_PREV;
+		const subbands::subband_t &sb_HH = sb().get(lvl, subbands::SUBBAND_HH);
+		assert(branch.x < sb_HH.x_min && branch.y < sb_HH.y_min);
+	}
+	#endif
+
 	const bool is_LL = sb().test_LL(branch);
 
 	for (coefs_iterator i = iterator_over_children_uni(branch);
@@ -518,7 +526,7 @@ void wtree::_cut_branch(const p_t &branch) {
 	assert(0 <= branch.x && branch.x < _width);
 	assert(0 <= branch.y && branch.y < _height);
 
-	const n_t &branch_n = at(branch).n;
+	n_t &branch_n = at(branch).n;
 
 	for (coefs_iterator i = iterator_over_children_uni(branch);
 		 !i->end(); i->next())
@@ -534,6 +542,8 @@ void wtree::_cut_branch(const p_t &branch) {
 		node.invalid = true;
 		node.n = 0;
 	}
+
+	branch_n = 0;
 }
 
 

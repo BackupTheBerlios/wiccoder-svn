@@ -299,21 +299,28 @@ protected:
 	//!	\name Кодирование отдельных деревьев
 	//@{
 
+	//!	\brief Выполняет кодирование уровня дерева
+	void _encode_leafs(const p_t &branch);
+
+	//!	\brief Выполняет кодирование отдельного дерева
 	void _encode_tree(const p_t &root);
 
 	//@}
 
-	//!	\name Шаги кодирования
+	//!	\name Оптимизация топологии дерева
 	//@{
 
 	//! \brief Шаг 1. Подготовительный.
-	void _encode_step_1(const p_t &root, const lambda_t &lambda);
+	void _optimize_tree_step_1(const p_t &root, const lambda_t &lambda);
 
 	//! \brief Шаг 2. Просмотр текущего уровня с попыткой подрезания ветвей.
-	void _encode_step_2(const p_t &root, const lambda_t &lambda);
+	void _optimize_tree_step_2(const p_t &root, const lambda_t &lambda);
 
 	//! \brief Шаг 3. Вычисление <i>RD-функции Лагранжа</i> для всего дерева
-	void _encode_step_3(const p_t &root, const lambda_t &lambda);
+	void _optimize_tree_step_3(const p_t &root, const lambda_t &lambda);
+
+	//!	\brief Последовательно выполняет шаги оптимизации топологи дерева
+	j_t _optimize_tree(const p_t &root, const lambda_t &lambda);
 
 	//@}
 
