@@ -14,9 +14,7 @@
 #include <iostream>
 
 // external libraries headers
-#include <imgs/img_rgb.h>
 #include <imgs/bmp_file.h>
-#include <imgs/bmp_dump.h>
 #include <wavelets/cdf97/cdf97.h>
 
 // libwic headers
@@ -107,10 +105,6 @@ bool test_wtree_calc_pi()
 	// do wavelet transform
 	wt2d_cdf97_fwd(image_wt, rgb_image.h(), rgb_image.w(), lvls);
 
-	imgs::bmp_dump<wic::w_t, wic::sz_t>::txt_dump(image_wt,
-												  rgb_image.w(), rgb_image.h(),
-												  "dumps/[enc]image_wt.in");
-
 	wic::wtree wtree(rgb_image.w(), rgb_image.h(), lvls);
 	wtree.load(image_wt);
 
@@ -186,10 +180,6 @@ bool test_wtree_calc_sj()
 
 	// do wavelet transform
 	wt2d_cdf97_fwd(image_wt, rgb_image.h(), rgb_image.w(), lvls);
-
-	imgs::bmp_dump<wic::w_t, wic::sz_t>::txt_dump(image_wt,
-												  rgb_image.w(), rgb_image.h(),
-												  "dumps/[enc]image_wt.in");
 
 	wic::wtree wtree(rgb_image.w(), rgb_image.h(), lvls);
 	wtree.load(image_wt);
@@ -276,10 +266,6 @@ bool test_wtree_calc_pi_avg()
 
 	// do wavelet transform
 	wt2d_cdf97_fwd(image_wt, rgb_image.h(), rgb_image.w(), lvls);
-
-	imgs::bmp_dump<wic::w_t, wic::sz_t>::txt_dump(image_wt,
-												  rgb_image.w(), rgb_image.h(),
-												  "dumps/[enc]image_wt.in");
 
 	wic::wtree wtree(rgb_image.w(), rgb_image.h(), lvls);
 	wtree.load(image_wt);
