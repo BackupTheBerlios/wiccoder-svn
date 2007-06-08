@@ -1,7 +1,7 @@
 /*!	\file     wtree.h
 	\version  0.0.1
 	\author   mice, ICQ: 332-292-380, mailto:wonder.mice@gmail.com
-	\brief    Описания класса wic::wtree - спектра вейвлет разложения
+	\brief    Описание класса wic::wtree - спектра вейвлет разложения
 
 	\todo     Более подробно описать файл wtree.h
 */
@@ -211,6 +211,52 @@ public:
 
 	//@}
 
+	//!	\name Статистическая информация
+	//@{
+
+	//!	\brief Находит минимальное и максимальное значения в спектре
+	/*!	\param[in] set Итератор, задающий множество для поиска максимального
+		и минимального элементов
+		\param[out] min Переменная которая примет найденное минимальное
+		значение
+		\param[out] max Переменная которая примет найденное максимальное
+		значение
+		\return <i>true</i> если множество не пустое и переменные <i>min</i>
+		и <i>max</i> получили некоторые значения, иначе <i>false</i>
+
+		\todo Необходимо протестировать эту функцию
+	*/
+	template <const wnode::wnode_members member>
+	bool minmax(const coefs_iterator &set,
+				typename wnode::type_selector<member>::result &min,
+				typename wnode::type_selector<member>::result &max) const
+	{
+		// используемый тип
+		typedef wnode::type_selector<member>::result value_t;
+
+		// проверка на пустое множество
+		if (set->end()) return false;
+
+		// инициализация переменных
+		coefs_iterator i = set;
+
+		min = max = at(i->get()).get<member>();
+
+		// поиск минимального и максимального значений
+		for (i->next; !i->end(); i->next())
+		{
+			const wnode &node = at(i->get());
+			const value_t &value = node.get<member>();
+
+			if (value < min) min = value;
+			else if (value > max) max = value;
+		}
+
+		return true;
+	}
+
+	//@}
+
 	//! \name Подсчёт прогнозных величин
 	//@{
 
@@ -406,7 +452,7 @@ public:
 	//@{
 
 	//! \brief Возвращает итератор по саббенду
-	coefs_iterator iterator_over_subband(const subbands::subband_t &sb);
+	coefs_iterator iterator_over_subband(const subbands::subband_t &sb) const;
 
 	//! \brief Возвращает итератор по дочерним элементам (родительский
 	//!	элемент не из <i>LL</i> саббенда)
@@ -418,7 +464,7 @@ public:
 
 		\sa _iterator_over_children()
 	*/
-	wtree::coefs_iterator iterator_over_children(const p_t &prnt)
+	wtree::coefs_iterator iterator_over_children(const p_t &prnt) const
 	{
 		return _iterator_over_children(prnt);
 	}
@@ -433,7 +479,7 @@ public:
 
 		\sa _iterator_over_LL_children()
 	*/
-	wtree::coefs_iterator iterator_over_LL_children(const p_t &prnt)
+	wtree::coefs_iterator iterator_over_LL_children(const p_t &prnt) const
 	{
 		return _iterator_over_LL_children(prnt);
 	}
@@ -448,7 +494,7 @@ public:
 
 		\sa _iterator_over_children(), _iterator_over_LL_children()
 	*/
-	wtree::coefs_iterator iterator_over_children_uni(const p_t &prnt)
+	wtree::coefs_iterator iterator_over_children_uni(const p_t &prnt) const
 	{
 		return (sb().test_LL(prnt))
 				? _iterator_over_LL_children(prnt)
@@ -457,11 +503,14 @@ public:
 
 	//! \brief Возвращает итератор по дочерним коэффициентам (листьям)
 	coefs_iterator iterator_over_leafs(const p_t &root,
-									   const subbands::subband_t &sb);
+									   const subbands::subband_t &sb) const;
 
 	//! \brief Возвращает итератор по дочерним коэффициентам (листьям)
 	coefs_iterator iterator_over_leafs(const p_t &root,
-									   const sz_t lvl, const sz_t i);
+									   const sz_t lvl, const sz_t i) const;
+
+	//!	\brief Возвращает итератор по всему спектру
+	coefs_iterator iterator_over_wtree() const;
 
 	//@}
 
@@ -481,11 +530,11 @@ protected:
 
 	//!	\brief Возвращает координаты верхнего левого элемента из группы
 	//!	дочерних элементов
-	p_t _children_top_left(const p_t &prnt);
+	p_t _children_top_left(const p_t &prnt) const;
 
 	//! \brief Определяет координаты верхнего левого элемента блока листьев
 	//!	дерева
-	p_t _leafs_top_left(const p_t &root, const sz_t lvl, const sz_t i);
+	p_t _leafs_top_left(const p_t &root, const sz_t lvl, const sz_t i) const;
 
 	//!	\brief Из координат элемента получает предполагаемое направление
 	//!	обхода
@@ -506,11 +555,11 @@ protected:
 
 	//! \brief Возвращает итератор по дочерним элементам (родительский элемент
 	//!	не из <i>LL</i> саббенда)
-	basic_iterator<p_t> *_iterator_over_children(const p_t &prnt);
+	basic_iterator<p_t> *_iterator_over_children(const p_t &prnt) const;
 
 	//! \brief Возвращает итератор по дочерним элементам (родительский элемент
 	//!	не <i>LL</i> саббенда)
-	basic_iterator<p_t> *_iterator_over_LL_children(const p_t &prnt);
+	basic_iterator<p_t> *_iterator_over_LL_children(const p_t &prnt) const;
 
 	//@}
 

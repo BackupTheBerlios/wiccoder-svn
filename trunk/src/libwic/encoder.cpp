@@ -64,6 +64,10 @@ void encoder::encode() {
 	}
 
 	_aenc.end();
+
+	wk_t w_min = 0;
+	wk_t w_max = 0;
+	_wtree.minmax<wnode::member_wc>(_wtree.iterator_over_wtree(), w_min, w_max);
 }
 
 

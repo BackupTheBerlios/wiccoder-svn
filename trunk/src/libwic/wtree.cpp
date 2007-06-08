@@ -327,7 +327,7 @@ void wtree::cut_leafs(const p_t &branch, const n_t n)
 	\return Итератор по саббенду
 */
 wtree::coefs_iterator wtree::iterator_over_subband(
-	const subbands::subband_t &sb)
+		const subbands::subband_t &sb) const
 {
 	return new snake_2d_iterator(p_t(sb.x_min, sb.y_min),
 								 p_t(sb.x_max, sb.y_max));
@@ -343,8 +343,8 @@ wtree::coefs_iterator wtree::iterator_over_subband(
 
 	\sa _leafs_top_left()
 */
-wtree::coefs_iterator wtree::iterator_over_leafs(const p_t &root,
-												 const subbands::subband_t &sb)
+wtree::coefs_iterator wtree::iterator_over_leafs(
+		const p_t &root, const subbands::subband_t &sb) const
 {
 	const p_t b(_leafs_top_left(root, sb.lvl, sb.i));
 	const p_t e(b.x + sb.tree_w - 1, b.y + sb.tree_h - 1);
@@ -362,10 +362,19 @@ wtree::coefs_iterator wtree::iterator_over_leafs(const p_t &root,
 
 	\sa _leafs_top_left()
 */
-wtree::coefs_iterator wtree::iterator_over_leafs(const p_t &root,
-												 const sz_t lvl, const sz_t i)
+wtree::coefs_iterator wtree::iterator_over_leafs(
+		const p_t &root, const sz_t lvl, const sz_t i) const
 {
 	return iterator_over_leafs(root, sb().get(lvl, i));
+}
+
+/*!	\return Итератор по всему спектру
+*/
+wtree::coefs_iterator wtree::iterator_over_wtree() const
+{
+	assert(0 < _width && 0 < _height);
+
+	return new snake_2d_iterator(p_t(0, 0), p_t(_width - 1, _height - 1));
 }
 
 
@@ -390,7 +399,7 @@ void wtree::_reset_trees_content() {
 	родительских элементов из <i>LL</i> саббенда, так как в этом случае
 	дочерние элементы оказываются в разных саббендах.
 */
-p_t wtree::_children_top_left(const p_t &prnt) {
+p_t wtree::_children_top_left(const p_t &prnt) const {
 	return p_t(2 * prnt.x, 2 * prnt.y);
 }
 
@@ -407,7 +416,7 @@ p_t wtree::_children_top_left(const p_t &prnt) {
 
 	\todo Написать более подробное описание
 */
-p_t wtree::_leafs_top_left(const p_t &root, const sz_t lvl, const sz_t i)
+p_t wtree::_leafs_top_left(const p_t &root, const sz_t lvl, const sz_t i) const
 {
 	// будем часто обращаться к LL саббенду
 	const subbands::subband_t &sb_LL = sb().get_LL();
@@ -465,7 +474,7 @@ bool wtree::_going_left(const sz_t x, const sz_t y) {
 	\attention Необходимо использовать оператор <i>delete</i> для
 	освобождения памяти, занимаемой возвращённым итератором.
 */
-basic_iterator<p_t> *wtree::_iterator_over_children(const p_t &prnt)
+basic_iterator<p_t> *wtree::_iterator_over_children(const p_t &prnt) const
 {
 	// координаты верхнего левого дочернего элемента
 	const p_t c = _children_top_left(prnt);
@@ -485,7 +494,7 @@ basic_iterator<p_t> *wtree::_iterator_over_children(const p_t &prnt)
 	\attention Необходимо использовать оператор <i>delete</i> для
 	освобождения памяти, занимаемой возвращённым итератором.
 */
-basic_iterator<p_t> *wtree::_iterator_over_LL_children(const p_t &prnt)
+basic_iterator<p_t> *wtree::_iterator_over_LL_children(const p_t &prnt) const
 {
 	const subbands::subband_t &sb_LL = sb().get_LL();
 

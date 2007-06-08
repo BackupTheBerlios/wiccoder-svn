@@ -196,7 +196,7 @@ public:
 
 		\todo Необходимо протестировать эту функцию
 	*/
-	inline bool test(const p_t &p, const subband_t &sb) {
+	inline bool test(const p_t &p, const subband_t &sb) const {
 		return (sb.x_min <= p.x && p.x <= sb.x_max &&
 				sb.y_min <= p.y && p.y <= sb.y_max);
 	}
@@ -211,7 +211,7 @@ public:
 		координат за пределы спектра, что делает количество сравнений таким же
 		как и в функции subbands::test()).
 	*/
-	inline bool test_LL(const p_t &p) {
+	inline bool test_LL(const p_t &p) const {
 		const subband_t &sb = get_LL();
 
 		return (p.x <= sb.x_max && p.y <= sb.y_max);
