@@ -25,7 +25,8 @@ namespace wic {
 ////////////////////////////////////////////////////////////////////////////////
 // acoder class public definitions
 
-/*!	\param[in] Размер памяти (в байтах), выделяемой под внутренний буфер
+/*!	\param[in] buffer_sz Размер памяти (в байтах), выделяемой под внутренний
+	буфер
 */
 acoder::acoder(const sz_t buffer_sz):
 	_buffer_sz(buffer_sz), _buffer(0),
@@ -60,6 +61,14 @@ acoder::~acoder()
 
 	// освобождаем буфер
 	if (0 != _buffer) delete[] _buffer;
+}
+
+
+/*!
+*/
+void acoder::use(const models_t &models)
+{
+	_mk_coders(models);
 }
 
 

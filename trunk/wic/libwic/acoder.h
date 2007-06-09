@@ -47,6 +47,27 @@ namespace wic {
 	  упростить работу с памятью.
 	- Имеет набор функций для работы с моделями.
 
+	Пример использования:
+	\code
+	wic::acoder acoder(1024);
+
+	wic::acoder::models_t models;
+	// populate models vector
+	acoder.use(models);
+
+	acoder.encode_start();
+	acoder.put(1, 0);
+	acoder.put(2, 1);
+	acoder.put(3, 0);
+	acoder.encode_stop();
+
+	acoder.decode_start();
+	std::cout << acoder.get_value(0);
+	std::cout << acoder.get_value(1);
+	std::cout << acoder.get_value(0);
+	acoder.decode_stop();
+	\endcode
+
 	\todo Необходимо протестировать этот класс
 */
 class acoder {
@@ -107,7 +128,15 @@ public:
 	const sz_t buffer_sz() const { return _buffer_sz; }
 
 	//! \brief Размер 
-	const sz_t encoded_sz() const;
+	// const sz_t encoded_sz() const;
+
+	//@}
+
+	//!	\name Работа с моделями
+	//@{
+
+	//!	\brief Устанавливает модели, используемые арифметическим кодером
+	void use(const models_t &models);
 
 	//@}
 
@@ -124,7 +153,7 @@ public:
 	void put_value(const value_type &value, const sz_t model_no);
 
 	//!	\brief Кодирует значение и помещает его в битовый поток
-	/*!	\param[in] value Значение для кодирования
+	/*!	\param[in] param Значение для кодирования
 		\param[in] model_no Номер модели
 
 		Функция отличается от acoder::put_value() тем, что сама может
