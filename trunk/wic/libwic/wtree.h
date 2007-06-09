@@ -243,7 +243,7 @@ public:
 		min = max = at(i->get()).get<member>();
 
 		// поиск минимального и максимального значений
-		for (i->next; !i->end(); i->next())
+		for (i->next(); !i->end(); i->next())
 		{
 			const wnode &node = at(i->get());
 			const value_t &value = node.get<member>();

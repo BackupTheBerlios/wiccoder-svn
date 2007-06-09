@@ -32,13 +32,11 @@ namespace wic {
 */
 encoder::encoder(const w_t *const image,
 				 const sz_t width, const sz_t height, const sz_t lvls):
-	_wtree(width, height, lvls)
+	_wtree(width, height, lvls),
+	_acoder(width * height * sizeof(w_t))
 {
 	// загрузка коэффициентов разложения в дерево
 	_wtree.load(image);
-
-	// выделение памяти для арифметического енкодера
-	_aenc.mk_buf(width * height * sizeof(aencoder::tv_t));
 }
 
 
@@ -50,8 +48,9 @@ encoder::~encoder() {
 
 /*!
 */
-void encoder::encode() {
-	_aenc.begin();
+void encoder::encode()
+{
+	_acoder.encode_start();
 
 	const subbands &sb = _wtree.sb();
 
@@ -63,7 +62,7 @@ void encoder::encode() {
 		_encode_tree(root);
 	}
 
-	_aenc.end();
+	_acoder.encode_stop();
 
 	wk_t w_min = 0;
 	wk_t w_max = 0;
@@ -125,7 +124,7 @@ sz_t encoder::_ind_map(const pi_t &pi, const sz_t lvl) {
 	модели нумеруются с 0 как для коэффициентов, так и для признаков.
 */
 h_t encoder::_h_spec(const sz_t m, const wk_t &wk) {
-	return _aenc.entropy(wk, m);
+	return 0;	// _aenc.entropy(wk, m);
 }
 
 
@@ -138,7 +137,7 @@ h_t encoder::_h_spec(const sz_t m, const wk_t &wk) {
 	модели нумеруются с 0 как для коэффициентов, так и для признаков.
 */
 h_t encoder::_h_map(const sz_t m, const n_t &n) {
-	return _aenc.entropy(n, m);
+	return 0;	// _aenc.entropy(n, m);
 }
 
 

@@ -39,8 +39,15 @@ namespace wic {
 ////////////////////////////////////////////////////////////////////////////////
 // acoder class declaration
 
-//! \brief Арифметический кодер (енкодер + декодер)
-/*!	
+//! \brief Арифметический кодер (енкодер и декодер)
+/*!	Класс представляет собой удобную оболочку для арифметического кодера.
+	Имеет следующие особенности:
+	- Объединяет в себе возможности енкодера и декодера.
+	- Имеет внутренний буфер для кодирования и декодирования, что позволяет
+	  упростить работу с памятью.
+	- Имеет набор функций для работы с моделями.
+
+	\todo Необходимо протестировать этот класс
 */
 class acoder {
 public:
@@ -58,6 +65,14 @@ public:
 		value_type min;
 		//!	\brief Максимальное значение символа
 		value_type max;
+		//!	\brief Смещение, необходимое для корректного кодирования
+		//! символов из алфавита этой модели.
+		/*!	\note Это поле заполняется <b>автоматически</b> при инициализации
+			аркодера.
+		*/
+		value_type _delta;
+		//!	\brief Количество символов в алфавите модели
+		value_type _symbols;
 	};
 
 	//!	\brief Описание моделей, используемых арифметическим кодером
@@ -81,42 +96,74 @@ public:
 	//!	\name Работа с внутренним буфером
 	//@{
 
-	byte_t *get_buffer() const;
-	const sz_t buffer_sz() const {}
+	//!	\brief Указатель на внутренний буфер
+	/*!	\return Указатель на внутренний буфер
+	*/
+	byte_t *buffer() const { return _buffer; }
+
+	//!	\brief Размер внутреннего буфера
+	/*!	\return Размер внутреннего буфера (в байтах)
+	*/
+	const sz_t buffer_sz() const { return _buffer_sz; }
+
+	//! \brief Размер 
+	const sz_t encoded_sz() const;
 
 	//@}
 
-	//!	\name Инициализация
+	//!	\name Функции енкодера
 	//@{
 
-	void enc_begin();
-	void enc_end();
+	//! \brief Начинает арифметическое кодирование
+	void encode_start();
 
-	void dec_begin();
-	void dec_end();
+	//! \brief Завершает арифметическое кодирование
+	void encode_stop();
 
-	//@}
+	//!	\brief Кодирует значение и помещает его в битовый поток
+	void put_value(const value_type &value, const sz_t model_no);
 
-	//!	\name Кодирование декодирование
-	//@{
+	//!	\brief Кодирует значение и помещает его в битовый поток
+	/*!	\param[in] value Значение для кодирования
+		\param[in] model_no Номер модели
 
-	template<class result_t>
-	result_t get(const sz_t model)
+		Функция отличается от acoder::put_value() тем, что сама может
+		производить допустимые преобразования типов.
+	*/
+	template <class param_t>
+	void put(const param_t &param, const sz_t model_no)
 	{
-		_adecoder->model(model);
+		assert(sizeof(param_t) <= sizeof(value_type));
 
-		value_type value;
-		(*_adecoder) >> value;
-
-		return reinterpret_cast<result_t>(value);
+		put_value(reinterpret_cast<value_type>(param), model_no);
 	}
 
-	template<class param_t>
-	void put(const param_t &val, const sz_t model)
-	{
-		_aencoder->model(model);
+	//@}
 
-		(*_aencoder) << reinterpret_cast<param_t>(val);
+	//!	\name Функции декодера
+	//@{
+
+	//! \brief Начинает арифметическое декодирование
+	void decode_start();
+
+	//! \brief Завершает арифметическое декодирование
+	void decode_stop();
+
+	//!	\brief Выбирает очередной символ из битового потока и
+	//!	декодирует его
+	value_type get_value(const sz_t model_no);
+
+	//!	\brief Выбирает очередной символ из битового потока и
+	//!	декодирует его
+	/*!	\param[in] model_no Номер модели
+
+		Функция отличается от acoder::get_value() тем, что сама может
+		производить допустимые преобразования типов.
+	*/
+	template <class result_t>
+	result_t get(const sz_t model_no)
+	{
+		return reinterpret_cast<result_t>(get_value(model_no));
 	}
 
 	//@}
@@ -124,7 +171,7 @@ public:
 protected:
 	// protected methods -------------------------------------------------------
 
-	//!	\name Создание моделей для арифметического кодера
+	//!	\name Создание моделей
 	//@{
 
 	//!	\brief Получает количество символов в алфавите по минимальному и
@@ -138,16 +185,22 @@ protected:
 	//!	\brief Освобождает описание моделей для арифметического кодера
 	static void _rm_models(const int *const models_ptr);
 
+	//!	\brief Обновляет внутренние модели, заполняя необходимые поля
+	void _refresh_models(models_t &models);
+
 	//@}
 
 	//!	\name Создание и удаление кодеров
 	//@{
 
-	//!	\brief Удаляет арифметические енкодер и декодер
-	void _rm_coders();
+	//!	\brief Производит инициализацию моделей арифметического кодера
+	void _init_models(arcoder_base *const coder_base);
 
 	//!	\brief Создаёт арифметические енкодер и декодер
 	void _mk_coders(const models_t &models);
+
+	//!	\brief Удаляет арифметические енкодер и декодер
+	void _rm_coders();
 
 	//@}
 

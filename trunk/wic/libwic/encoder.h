@@ -18,12 +18,12 @@
 #include <assert.h>
 
 // external library header
-#include <arcoder/aencoder.h>
-#include <arcoder/adecoder.h>
+// none
 
 // libwic headers
 #include <wic/libwic/types.h>
 #include <wic/libwic/wtree.h>
+#include <wic/libwic/acoder.h>
 #include <wic/libwic/iterators.h>
 
 
@@ -53,13 +53,6 @@ namespace wic {
 class encoder {
 public:
 	// public types ------------------------------------------------------------
-
-	//!	\brief Псевдоним для арифметического енкодера
-	typedef wtc::aencoder<wk_t> aencoder;
-
-	//!	\brief Псевдоним для арифметического декодера
-	typedef wtc::adecoder<wk_t> adecoder;
-
 	// public constants --------------------------------------------------------
 	// public methods ----------------------------------------------------------
 
@@ -330,8 +323,8 @@ private:
 	//! \brief Рабочее дерево коэффициентов
 	wtree _wtree;
 
-	//! \brief Арифметический енкодер
-	aencoder _aenc;
+	//! \brief Арифметический кодер
+	acoder _acoder;
 };
 
 
