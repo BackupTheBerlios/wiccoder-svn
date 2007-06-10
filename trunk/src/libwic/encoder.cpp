@@ -76,6 +76,17 @@ void encoder::encode(const lambda_t &lambda)
 	_acoder.encode_stop();
 }
 
+void encoder::decode()
+{
+	_wtree.reset();
+
+	_acoder.decode_start();
+
+	_encode_wtree(true);
+
+	_acoder.decode_stop();
+}
+
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -834,15 +845,14 @@ void encoder::_encode_wtree(const bool decode_mode)
 	// кодирование корневых элементов
 	_encode_wtree_root(decode_mode);
 
-	// кодирование дочерних от LL элементов
-	_encode_wtree_subband(_wtree.sb().get_LL(), decode_mode);
-
 	// кодирование остальных элементов
 	const sz_t final_lvl = _wtree.lvls() + 2*subbands::LVL_PREV;
 
+	// цикл по уровням
 	for (sz_t lvl = subbands::LVL_1; final_lvl >= lvl; ++lvl)
 	{
-		for (sz_t k = 0; subbands::SUBBANDS_ON_LEVEL > k; ++k)
+		// цикл по саббендам в уровне
+		for (sz_t k = 0; _wtree.sb().subbands_on_lvl(lvl) > k; ++k)
 		{
 			const subbands::subband_t &sb = _wtree.sb().get(lvl, k);
 

@@ -1,8 +1,6 @@
 #include <iostream>
 
-#include <wic/libwic/codec.h>
-#include <wic/libwic/wtree.h>
-#include <wic/libwic/subbands.h>
+#include <wic/libwic/encoder.h>
 #include <imgs/img_rgb.h>
 #include <imgs/bmp_file.h>
 #include <imgs/bmp_dump.h>
@@ -22,7 +20,7 @@ int main() {
 
 	float *const image_wt = new float[image_pixels_count];
 
-	const imgs::img_rgb::rgb24_t *const rgb_image_bits =
+	imgs::img_rgb::rgb24_t *const rgb_image_bits =
 		(imgs::img_rgb::rgb24_t *)(rgb_image.bits());
 
 	for (wic::sz_t i = 0; image_pixels_count > i; ++i) {
@@ -36,6 +34,27 @@ int main() {
 												  rgb_image.w(), rgb_image.h(),
 												  "dumps/[enc]image_wt.in");
 
+	wic::encoder encoder(image_wt, rgb_image.w(), rgb_image.h(), lvls);
+
+	encoder.encode(0);
+	encoder.decode();
+
+	encoder.spectrum().save<wic::wnode::member_w>(image_wt);
+
+	imgs::bmp_dump<wic::w_t, wic::sz_t>::txt_dump(image_wt,
+												  rgb_image.w(), rgb_image.h(),
+												  "dumps/[dec]image_wt.in");
+
+	wt2d_cdf97_inv(image_wt, rgb_image.h(), rgb_image.w(), lvls);
+
+	for (wic::sz_t i = 0; image_pixels_count > i; ++i) {
+		rgb_image_bits[i].r = (unsigned char)(image_wt[i]);
+		rgb_image_bits[i].g = (unsigned char)(image_wt[i]);
+		rgb_image_bits[i].b = (unsigned char)(image_wt[i]);
+	}
+
+	imgs::bmp_write(rgb_image, "dumps/lena_eye_16x16.bmp");
+	/*
 	// what and how to encode
 	wic::encode_in_t enc_in;
 	enc_in.image	= image_wt;
@@ -49,13 +68,10 @@ int main() {
 	enc_out.data_sz = 0;
 	enc_out.enc_sz = 0;
 	wic::encode(enc_in, enc_out);
+	*/
 
 	// free memory
 	delete[] image_wt;
 
 	return 0;
-
-	wic::decode_in_t dec_in;
-	wic::decode_out_t dec_out;
-	wic::decode(dec_in, dec_out);
 }

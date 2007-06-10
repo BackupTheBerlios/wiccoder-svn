@@ -138,6 +138,15 @@ void wtree::refresh()
 }
 
 
+/*!
+	\sa _reset_trees_content()
+*/
+void wtree::reset()
+{
+	_reset_trees_content();
+}
+
+
 /*!	\return —сылка на объект wiс::subbands
 	\sa subbands
 */

@@ -117,6 +117,34 @@ public:
 	//! \brief Загружает спектр из памяти
 	void load(const w_t *const from);
 
+	//! \brief Загружает поля элементов из памяти
+	/*!	\param[in] from Блок памяти с полями элементов, значения которых,
+		будут скопированы
+	*/
+	template <const wnode::wnode_members member, class value_t>
+	void load(const value_t *const from)
+	{
+		typedef typename wnode::type_selector<member>::result wnm_t;
+
+		for (sz_t i = coefs() - 1; 0 <= i; --i)
+		{
+			_nodes[i].get<member>() = static_cast<wnm_t>(from[i]);
+		}
+	}
+
+	//!	\brief Сохраняет значения полей в память
+	/*!	\param[out] to Блок памяти, в который будут сохранены значения поля
+		элементов
+	*/
+	template <const wnode::wnode_members member, class value_t>
+	void save(value_t *const to) const
+	{
+		for (sz_t i = coefs() - 1; 0 <= i; --i)
+		{
+			to[i] = static_cast<value_t>(_nodes[i].get<member>());
+		}
+	}
+
 	//! \brief Производит квантование всего спектра
 	void quantize(const q_t q = 1);
 
@@ -124,6 +152,9 @@ public:
 	//! приравнивая значения полей wnode::wq и wnode::wk к wnode::w,
 	//!	устанавливая wnode::n и обнуляя остальные поля.
 	void refresh();
+
+	//!	\brief Сбрасывает содержимое дерева
+	void reset();
 
 	//@}
 
