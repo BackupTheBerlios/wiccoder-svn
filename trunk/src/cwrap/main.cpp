@@ -36,8 +36,12 @@ int main() {
 
 	wic::encoder encoder(image_wt, rgb_image.w(), rgb_image.h(), lvls);
 
+	encoder.spectrum().quantize(16);
+
 	encoder.encode(0);
 	encoder.decode();
+
+	encoder.spectrum().dequantize(16);
 
 	encoder.spectrum().save<wic::wnode::member_w>(image_wt);
 

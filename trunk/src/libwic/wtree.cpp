@@ -109,6 +109,18 @@ void wtree::quantize(const q_t q) {
 }
 
 
+/*!	\param[in] q Квантователь
+*/
+void wtree::dequantize(const q_t q) {
+	assert(q == _q);
+
+	for (sz_t i = 0; coefs() > i; ++i) {
+		wnode &node = _nodes[i];
+		node.w = wnode::dequantize(node.wc, q);
+	}
+}
+
+
 /*! Функция производит следующие действия:
 	- Выполняет присваивание wnode::wc = wnode::wq и тем самым даёт
 	  начальное значение для откорректированного коэффициента
@@ -210,10 +222,9 @@ p_t wtree::get_pos(const wnode &node) const
 	\note Данная функция не применима для элементов, родители которых
 	располагаются в <i>LL</i> саббенде
 */
-p_t wtree::prnt(const p_t &c) {
-	assert(c.x > sb().get(subbands::LVL_1, subbands::SUBBAND_HH).x_max ||
-		   c.y > sb().get(subbands::LVL_1, subbands::SUBBAND_HH).y_max);
-	assert(c.x < _width && c.y < _height);
+p_t wtree::prnt(const p_t &c)
+{
+	assert(!sb().test_LL(c));
 
 	return p_t(c.x / 2, c.y / 2);
 }

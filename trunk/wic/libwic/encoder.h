@@ -103,9 +103,14 @@ public:
 	//@{
 
 	//!	\brief Спектр вейвлет коэффициентов
-	/*!	\return Ссылка на внутренний объект класса wic::wtree
+	/*!	\return Константная ссылка на внутренний объект класса wic::wtree
 	*/
 	const wtree &spectrum() const { return _wtree; }
+
+	//!	\brief Спектр вейвлет коэффициентов
+	/*!	\return Ссылка на внутренний объект класса wic::wtree
+	*/
+	wtree &spectrum() { return _wtree; }
 
 	//@}
 
@@ -371,8 +376,8 @@ protected:
 	inline j_t _topology_calc_j_uni(const p_t &branch, const n_t n)
 	{
 		return (_wtree.sb().test_LL(branch))
-				? _topology_calc_j(branch, n)
-				: _topology_calc_j_LL(branch, n);
+				? _topology_calc_j_LL(branch, n)
+				: _topology_calc_j(branch, n);
 	}
 
 	//!	\brief Производит оптимизацию топологии ветви, путём подрезания

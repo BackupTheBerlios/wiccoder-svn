@@ -495,8 +495,6 @@ encoder::_optimize_branch_topology(const p_t &branch,
 								   const subbands::subband_t &sb,
 								   const lambda_t &lambda)
 {
-	assert(subbands::LVL_0 != sb.lvl);
-
 	// получение дочернего саббенда
 	const sz_t lvl_j = sb.lvl + subbands::LVL_NEXT;
 	const subbands::subband_t &sb_j = _wtree.sb().get(lvl_j, sb.i);
@@ -778,10 +776,7 @@ void encoder::_encode_wtree_subband(const subbands::subband_t &sb,
 		const p_t &p_i = i->get();
 		const wnode &node_i = _wtree.at(p_i);
 
-		// элементы могут лежать в разных саббендах (случай с LL саббендом)
-		const subbands::subband_t &sb_j = _wtree.sb().from_point(p_i, lvl_j);
-		const subbands::subband_t &sb_g = _wtree.sb().get(lvl_g, sb_j.i);
-
+		// цикл по дочерним элементам
 		for (wtree::coefs_iterator j = _wtree.iterator_over_children_uni(p_i);
 			 !j->end(); j->next())
 		{
@@ -792,6 +787,10 @@ void encoder::_encode_wtree_subband(const subbands::subband_t &sb,
 
 			// переходим к следующему потомку, если ветвь подрезана
 			if (!_wtree.test_n_mask(node_i.n, mask)) continue;
+
+			// элементы могут лежать в разных саббендах (случай с LL саббендом)
+			const subbands::subband_t &sb_j = _wtree.sb().from_point(p_j, lvl_j);
+			const subbands::subband_t &sb_g = _wtree.sb().get(lvl_g, sb_j.i);
 
 			for (wtree::coefs_iterator g = _wtree.iterator_over_children(p_j);
 				 !g->end(); g->next())
@@ -822,6 +821,10 @@ void encoder::_encode_wtree_subband(const subbands::subband_t &sb,
 
 			// переходим к следующему потомку, если ветвь подрезана
 			if (!_wtree.test_n_mask(node_i.n, mask)) continue;
+
+			// элементы могут лежать в разных саббендах (случай с LL саббендом)
+			const subbands::subband_t &sb_j = _wtree.sb().from_point(p_j, lvl_j);
+			const subbands::subband_t &sb_g = _wtree.sb().get(lvl_g, sb_j.i);
 
 			// номер модели для (де)кодирования
 			const sz_t model = _ind_map<wnode::member_wc>(p_j, sb_g);
