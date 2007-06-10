@@ -68,6 +68,12 @@ void encoder::encode(const lambda_t &lambda)
 	}
 
 	_acoder.encode_stop();
+
+	_acoder.encode_start();
+
+	_encode_wtree();
+
+	_acoder.encode_stop();
 }
 
 
@@ -584,6 +590,9 @@ void encoder::_encode_tree_root(const p_t &root)
 
 /*!	\param[in] root Координаты корнвого элемента
 	\param[in] lvl Номер уровня разложения
+
+	\todo Попробовать написать функцию которая будет совместно
+	использоваться функциями _encode_tree_leafs() и _encode_tree_root()
 */
 void encoder::_encode_tree_leafs(const p_t &root, const sz_t lvl)
 {
@@ -681,6 +690,15 @@ void encoder::_encode_tree(const p_t &root)
 	{
 		_encode_tree_leafs(root, lvl);
 	}
+}
+
+
+/*!	\param[in] decode_mode Если <i>false</i> функция будет выполнять
+	кодирование спектра, иначе (если <i>true</i>) будет выполнять
+	декодирование спектра.
+*/
+void encoder::_encode_wtree(const bool decode_mode)
+{
 }
 
 
