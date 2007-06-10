@@ -127,8 +127,8 @@ public:
 	*/
 	const sz_t buffer_sz() const { return _buffer_sz; }
 
-	//! \brief Размер 
-	// const sz_t encoded_sz() const;
+	//! \brief Размер закодированных данных
+	sz_t encoded_sz() const;
 
 	//@}
 
@@ -164,7 +164,23 @@ public:
 	{
 		assert(sizeof(param_t) <= sizeof(value_type));
 
-		put_value(reinterpret_cast<value_type>(param), model_no);
+		put_value(reinterpret_cast<const value_type &>(param), model_no);
+	}
+
+	//!	\brief Производит подсчёт битовых затрат, необходимых для кодирования
+	//!	символа
+	/*!	\param[in] param Символ из алфавита модели
+		\param[in] model_no Номер используемой модели
+		\return Битовые затраты на кодирование символа
+	*/
+	template <class param_t>
+	double enc_entropy(const param_t &param, const sz_t model_no)
+	{
+		assert(sizeof(param_t) <= sizeof(value_type));
+
+		return _entropy_eval(_aencoder,
+							 reinterpret_cast<const value_type &>(param),
+							 model_no);
 	}
 
 	//@}
@@ -215,7 +231,7 @@ protected:
 	static void _rm_models(const int *const models_ptr);
 
 	//!	\brief Обновляет внутренние модели, заполняя необходимые поля
-	void _refresh_models(models_t &models);
+	static void _refresh_models(models_t &models);
 
 	//@}
 
@@ -230,6 +246,15 @@ protected:
 
 	//!	\brief Удаляет арифметические енкодер и декодер
 	void _rm_coders();
+
+	//@}
+
+	//!	\name Статистические функции
+	//@{
+
+	//!	\brief Подсчёт битовых затрат на кодирование символа
+	double _entropy_eval(arcoder_base *const coder_base,
+						 const value_type &value, const sz_t model_no);
 
 	//@}
 

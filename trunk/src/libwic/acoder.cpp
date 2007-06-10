@@ -64,6 +64,20 @@ acoder::~acoder()
 }
 
 
+/*!	\return Размер закодированных данных (в байтах)
+
+	Возвращает <i>0</i>, если арифметический енкодер ещё не создан.
+
+	\sa acoder::use()
+*/
+sz_t acoder::encoded_sz() const
+{
+	if (0 == _out_stream) return 0;
+
+	return sz_t(_out_stream->PackedBytes());
+}
+
+
 /*!
 */
 void acoder::use(const models_t &models)
@@ -76,6 +90,10 @@ void acoder::use(const models_t &models)
 */
 void acoder::encode_start()
 {
+	// проверка утверждений
+	assert(0 != _aencoder);
+	assert(0 != _out_stream);
+
 	// начало арифметического кодирования
 	_aencoder->StartPacking();
 
@@ -88,6 +106,10 @@ void acoder::encode_start()
 */
 void acoder::encode_stop()
 {
+	// проверка утверждений
+	assert(0 != _aencoder);
+	assert(0 != _out_stream);
+
 	// помещение EOF символа в поток
 	_aencoder->PutEOF();
 
@@ -102,6 +124,9 @@ void acoder::encode_stop()
 void acoder::put_value(const value_type &value, const sz_t model_no)
 {
 	// проверка утверждений
+	assert(0 != _aencoder);
+	assert(0 != _out_stream);
+
 	assert(0 <= model_no && model_no < int(_models.size()));
 
 	const model_t &model = _models[model_no];
@@ -119,6 +144,10 @@ void acoder::put_value(const value_type &value, const sz_t model_no)
 */
 void acoder::decode_start()
 {
+	// проверка утверждений
+	assert(0 != _adecoder);
+	assert(0 != _in_stream);
+
 	// начало арифметического декодирования
 	_adecoder->StartUnpacking();
 
@@ -131,6 +160,11 @@ void acoder::decode_start()
 */
 void acoder::decode_stop()
 {
+	// проверка утверждений
+	assert(0 != _adecoder);
+	assert(0 != _in_stream);
+
+	// завершение декодирования
 	_adecoder->EndUnpacking();
 }
 
@@ -140,6 +174,9 @@ void acoder::decode_stop()
 acoder::value_type acoder::get_value(const sz_t model_no)
 {
 	// проверка утверждений
+	assert(0 != _adecoder);
+	assert(0 != _in_stream);
+
 	assert(0 <= model_no && model_no < int(_models.size()));
 
 	const model_t &model = _models[model_no];
@@ -225,11 +262,15 @@ void acoder::_refresh_models(models_t &models)
 */
 void acoder::_init_models(arcoder_base *const coder_base)
 {
+	// проверка утверждений
+	assert(0 != coder_base);
+	assert(coder_base->Models().Size() == _models.size());
+
 	// сброс статистик
 	coder_base->ResetStatistics();
 
 	// инициализация моделей
-	for (sz_t i = 0; i < int(_models.size()); i++)
+	for (sz_t i = 0; coder_base->Models().Size() > i; i++)
 	{
 		const model_t &model = _models[i];
 
@@ -249,6 +290,10 @@ void acoder::_init_models(arcoder_base *const coder_base)
 */
 void acoder::_mk_coders(const models_t &models)
 {
+	// проверка утверждений
+	assert(0 != _out_stream);
+	assert(0 != _in_stream);
+
 	// освобождение старых объектов
 	_rm_coders();
 
@@ -289,6 +334,31 @@ void acoder::_rm_coders()
 		delete _adecoder;
 		_adecoder = 0;
 	}
+}
+
+
+/*! \param[in] coder_base Базовый класс для арифметических енкодера и
+	декодера
+	\param[in] value Значение, символ из алфавита модели
+	\param[in] model_no Номер используемой модели
+	\return Битовые затраты на кодирование символа
+*/
+double acoder::_entropy_eval(arcoder_base *const coder_base,
+							 const value_type &value, const sz_t model_no)
+{
+	// проверка утверждений
+	assert(0 != coder_base);
+	assert(coder_base->Models().Size() == _models.size());
+	assert(0 <= model_no && model_no < int(_models.size()));
+
+	const model_t &model = _models[model_no];
+
+	assert(model.min <= value && value <= model.max);
+
+	// выбор модели и подсчёт битовых затрат (учитывая смещение)
+	coder_base->model(model_no);
+
+	return (coder_base->entropy_eval(value + model._delta));
 }
 
 

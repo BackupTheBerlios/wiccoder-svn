@@ -124,7 +124,7 @@ sz_t encoder::_ind_map(const pi_t &pi, const sz_t lvl) {
 	модели нумеруются с 0 как для коэффициентов, так и для признаков.
 */
 h_t encoder::_h_spec(const sz_t m, const wk_t &wk) {
-	return 0;	// _aenc.entropy(wk, m);
+	return _acoder.enc_entropy(wk, m);
 }
 
 
@@ -137,7 +137,7 @@ h_t encoder::_h_spec(const sz_t m, const wk_t &wk) {
 	модели нумеруются с 0 как для коэффициентов, так и для признаков.
 */
 h_t encoder::_h_map(const sz_t m, const n_t &n) {
-	return 0;	// _aenc.entropy(n, m);
+	return _acoder.enc_entropy(n, m);
 }
 
 
