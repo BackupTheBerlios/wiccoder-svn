@@ -519,6 +519,10 @@ encoder::_optimize_branch_topology(const p_t &branch,
 
 
 /*!	\param[in] root Координаты корневого элемента
+
+	Функция выполняет кодирование:
+	- Коэффициента при корневом элементе
+	- 
 */
 void encoder::_encode_tree_root(const p_t &root)
 {
@@ -542,36 +546,38 @@ void encoder::_encode_tree_root(const p_t &root)
 	// кодирование коэффициентов со второго уровня
 	static const sz_t LVL_2 = subbands::LVL_1 + subbands::LVL_NEXT;
 
-	for (sz_t k = 0; subbands::SUBBANDS_ON_LEVEL > k; ++k)
-	{
-		/*
-		const p_t &c = i->get();
-		const n_t mask = _wtree.child_n_mask_LL(c);
-
-		// переходим к следующему потомку, если ветвь подрезана
-		if (!_wtree.test_n_mask(root_node.n, mask)) continue;
-
-		const subbands::subband_t &sb = _wtree.sb().get(LVL_2, k);
-
-		for (wtree::coefs_iterator i = _wtree.iterator_over_leafs(root, sb);
-			 !i->end(); i->next())
-		{
-			
-		}
-		*/
-	}
-
 	for (wtree::coefs_iterator i = _wtree.iterator_over_LL_children(root);
 		 !i->end(); i->next())
 	{
-		const p_t &c = i->get();
-		const n_t mask = _wtree.child_n_mask_LL(c);
+		// координаты текущего родительского элемента с первого уровня
+		const p_t &p = i->get();
+
+		// маска подрезания, где текущий элемент не подрезан
+		const n_t mask = _wtree.child_n_mask_LL(p);
 
 		// переходим к следующему потомку, если ветвь подрезана
 		if (!_wtree.test_n_mask(root_node.n, mask)) continue;
 
-		// закодировать групповые признаки подрезания с первого уровня
-		_encode_map(_ind_map(0, subbands::LVL_1), _wtree.at(c).n);
+		// саббенд в котором лежит текущий родительский элемент
+		const subbands::subband_t &sb_i =
+						_wtree.sb().from_point(p, subbands::LVL_1);
+
+		// саббенд в котором лежат дочерние элементы со второго уровня
+		// (дочерний от sb_i)
+		const subbands::subband_t &sb_j =
+						_wtree.sb().get(LVL_2, sb_i.i);
+
+		// ветвь не подрезана, кодируем дочерние коэффициенты
+		for (wtree::coefs_iterator i = _wtree.iterator_over_children(p);
+			 !i->end(); i->next())
+		{
+			// координаты текущего дочернего элемента со второго уровня
+			const p_t &c = i->get();
+
+			// кодирование коэффициента
+			_encode_spec(_ind_spec<wnode::member_wc>(c, sb_j),
+						 _wtree.at(c).wc);
+		}
 	}
 }
 

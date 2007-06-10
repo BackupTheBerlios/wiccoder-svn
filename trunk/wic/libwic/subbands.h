@@ -247,6 +247,36 @@ public:
 	}
 
 	//!	\brief Возвращает саббенд, в котором лежит элемент
+	//!	с заданными координатами в заданном уровне
+	/*!	\param[in] p Координаты элемента
+		\param[in] lvl Номер уровня разложения
+		\return Ссылка на саббенд, в котором лежит элемент с координатами
+		<i>p</i>.
+	*/
+	inline const subband_t &from_point(const p_t &p, const sz_t lvl) const
+	{
+		// проверка присутствия на уровне
+		#ifdef _DEBUG
+		{
+			const subband_t &sb_HH = get(lvl, SUBBAND_HH);
+			assert(p.x >= sb_HH.x_min || p.y >= sb_HH.y_min);
+			assert(p.x <= sb_HH.x_max && p.y <=sb_HH.y_max);
+		}
+		#endif
+
+		// проверка на LL саббенд
+		if (LVL_0 == lvl) return get_LL();
+
+		// получение HH саббенда этого уровня
+		const subband_t &sb_HH = get(lvl, SUBBAND_HH);
+
+		if (p.y < sb_HH.y_min) return get(lvl, SUBBAND_HL);
+		if (p.x < sb_HH.x_min) return get(lvl, SUBBAND_LH);
+
+		return sb_HH;
+	}
+
+	//!	\brief Возвращает саббенд, в котором лежит элемент
 	//!	с заданными координатами
 	/*!	\param[in] p Координаты элемента
 		\return Ссылка на саббенд, в котором лежит элемент с координатами
@@ -261,16 +291,7 @@ public:
 		// получение уровня разложения
 		const sz_t lvl = lvl_from_point(p);
 
-		// проверка на LL саббенд
-		if (LVL_0 == lvl) return get_LL();
-
-		// получение HH саббенда этого уровня
-		const subband_t &sb_HH = get(lvl, SUBBAND_HH);
-
-		if (p.y < sb_HH.y_min) return get(lvl, SUBBAND_HL);
-		if (p.x < sb_HH.x_min) return get(lvl, SUBBAND_LH);
-
-		return sb_HH;
+		return from_point(p,lvl);
 	}
 
 	//@}
