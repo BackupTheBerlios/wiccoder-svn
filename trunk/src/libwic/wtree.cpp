@@ -244,7 +244,7 @@ p_t wtree::prnt_uni(const p_t &c)
 	\return Итератор по всевозможным значениям для данного уровня группового
 	признака подрезания ветвей
 */
-wtree::n_iterator wtree::iterator_through_n(const sz_t lvl) {
+wtree::n_iterator wtree::iterator_through_n(const sz_t lvl) const {
 	return new n_cutdown_iterator(lvl);
 }
 
@@ -256,7 +256,7 @@ wtree::n_iterator wtree::iterator_through_n(const sz_t lvl) {
 	только одна ветвь (которой принадлежит элемент с координатами <i>p</i>)
 	осталась неподрезанной.
 */
-n_t wtree::child_n_mask(const p_t &p, const p_t &branch)
+n_t wtree::child_n_mask(const p_t &p, const p_t &branch) const
 {
 	const p_t ctl = _children_top_left(branch);
 
@@ -276,7 +276,7 @@ n_t wtree::child_n_mask(const p_t &p, const p_t &branch)
 	потомками элементов из <i>LL</i> саббенда (которые лежат в <i>1ом</i>
 	уровне разложения).
 */
-n_t wtree::child_n_mask_LL(const p_t &p) {
+n_t wtree::child_n_mask_LL(const p_t &p) const {
 	const subbands::subband_t &sb_LL = sb().get_LL();
 
 	if (p.y <= sb_LL.y_max) return (1 << 0);

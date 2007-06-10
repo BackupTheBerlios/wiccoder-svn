@@ -35,6 +35,9 @@ encoder::encoder(const w_t *const image,
 	_wtree(width, height, lvls),
 	_acoder(width * height * sizeof(w_t))
 {
+	// проверка утверждений
+	assert(MINIMUM_LEVELS <= lvls);
+
 	// загрузка коэффициентов разложения в дерево
 	_wtree.load(image);
 }
@@ -76,9 +79,8 @@ void encoder::encode(const lambda_t &lambda)
 	\param[in] lvl Номер уровня разложения, из которого был взят коэффициент
 	\return Номер выбираемой модели
 
-	\note Стоит заметить, что для первого и второго уровней функция
+	\note Стоит заметить, что для нулевого и первого уровней функция
 	возвращает определённые значения, независимо от параметра <i>s</i>.
-	<i>pi</i>.
 */
 sz_t encoder::_ind_spec(const pi_t &s, const sz_t lvl) {
 	if (subbands::LVL_0 == lvl) return 0;
@@ -516,6 +518,64 @@ encoder::_optimize_branch_topology(const p_t &branch,
 }
 
 
+/*!	\param[in] root Координаты корневого элемента
+*/
+void encoder::_encode_tree_root(const p_t &root)
+{
+	// получение корневого элемента
+	const wnode &root_node = _wtree.at(root);
+
+	// закодировать коэффициент с нулевого уровня
+	_encode_spec(_ind_spec(0, subbands::LVL_0), root_node.wc);
+
+	// закодировать групповой признак подрезания с нулевого уровня
+	_encode_map(_ind_map(0, subbands::LVL_0), root_node.n);
+
+	// кодирование дочерних коэффициентов с первого уровня
+	for (wtree::coefs_iterator i = _wtree.iterator_over_LL_children(root);
+		 !i->end(); i->next())
+	{
+		// закодировать коэффициенты с первого уровня
+		_encode_spec(_ind_spec(0, subbands::LVL_1), _wtree.at(i->get()).wc);
+	}
+
+	// кодирование коэффициентов со второго уровня
+	static const sz_t LVL_2 = subbands::LVL_1 + subbands::LVL_NEXT;
+
+	for (sz_t k = 0; subbands::SUBBANDS_ON_LEVEL > k; ++k)
+	{
+		/*
+		const p_t &c = i->get();
+		const n_t mask = _wtree.child_n_mask_LL(c);
+
+		// переходим к следующему потомку, если ветвь подрезана
+		if (!_wtree.test_n_mask(root_node.n, mask)) continue;
+
+		const subbands::subband_t &sb = _wtree.sb().get(LVL_2, k);
+
+		for (wtree::coefs_iterator i = _wtree.iterator_over_leafs(root, sb);
+			 !i->end(); i->next())
+		{
+			
+		}
+		*/
+	}
+
+	for (wtree::coefs_iterator i = _wtree.iterator_over_LL_children(root);
+		 !i->end(); i->next())
+	{
+		const p_t &c = i->get();
+		const n_t mask = _wtree.child_n_mask_LL(c);
+
+		// переходим к следующему потомку, если ветвь подрезана
+		if (!_wtree.test_n_mask(root_node.n, mask)) continue;
+
+		// закодировать групповые признаки подрезания с первого уровня
+		_encode_map(_ind_map(0, subbands::LVL_1), _wtree.at(c).n);
+	}
+}
+
+
 /*!	\param[in] branch 
 */
 void encoder::_encode_leafs(const p_t &branch)
@@ -535,6 +595,7 @@ void encoder::_encode_leafs(const p_t &branch)
 void encoder::_encode_tree(const p_t &root)
 {
 	// закодировать коэффициент с нулевого уровня
+	_encode_spec(_ind_spec(0, subbands::LVL_0), _wtree.at(root).wc);
 
 	// закодировать групповой признак подрезания с нулевого уровня
 

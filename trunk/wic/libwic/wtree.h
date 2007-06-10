@@ -415,15 +415,15 @@ public:
 
 	//!	\brief Возвращает итератор по значениям группового признака
 	//!	подрезания
-	n_iterator iterator_through_n(const sz_t lvl);
+	n_iterator iterator_through_n(const sz_t lvl) const;
 
 	//!	\brief Конструирует групповой признак подрезания ветвей, в котором
 	//!	все элементы кроме одного подрезаны.
-	n_t child_n_mask(const p_t &p, const p_t &branch);
+	n_t child_n_mask(const p_t &p, const p_t &branch) const;
 
 	//!	\brief Конструирует групповой признак подрезания ветвей, в котором
 	//!	все элементы кроме одного подрезаны. Версия для <i>LL</i> саббенда.
-	n_t child_n_mask_LL(const p_t &p);
+	n_t child_n_mask_LL(const p_t &p) const;
 
 	//!	\brief Проверяет, подрезанность ветвей в групповом признаке
 	//!	подрезания по маске ветвей.
@@ -433,7 +433,7 @@ public:
 		\return <i>true</i> если все запрашиваемые в <i>mask</i> ветви
 		не подрезаны. <i>false</i> если хотя бы одна ветвь подрезана.
 	*/
-	inline bool test_n_mask(const n_t &n, const n_t &mask) {
+	inline bool test_n_mask(const n_t &n, const n_t &mask) const {
 		return (mask == (n & mask));
 	}
 

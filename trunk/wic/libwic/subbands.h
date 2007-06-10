@@ -217,6 +217,62 @@ public:
 		return (p.x <= sb.x_max && p.y <= sb.y_max);
 	}
 
+	//!	\brief Возвращает номер уровня разложения на котором лежит
+	//!	элемент с заданными координатами
+	/*!	\param[in] p Координаты элемента
+		\return Номер уровня на котором лежит элемент с координатами
+		<i>p</i>.
+
+		\todo Функцию необходимо протестировать
+		\todo Попробовать оптимизировать алгоритм поиска
+	*/
+	inline sz_t lvl_from_point(const p_t &p) const {
+		// проверка выхода за пределы спектра
+		assert(0 <= p.x && p.x < _width);
+		assert(0 <= p.y && p.y < _height);
+
+		// проверка на нулевой уровень
+		if (p.x <= get_LL().x_max && p.y <= get_LL().y_max) return LVL_0;
+
+		// проверка остальных уровней
+		for (sz_t lvl = LVL_1; _lvls > lvl; ++lvl)
+		{
+			const subband_t &sb_HH = get(lvl, SUBBAND_HH);
+
+			if (p.x <= sb_HH.x_max && p.y <= sb_HH.y_max) return lvl;
+		}
+
+		// последний уровент разложения
+		return _lvls;
+	}
+
+	//!	\brief Возвращает саббенд, в котором лежит элемент
+	//!	с заданными координатами
+	/*!	\param[in] p Координаты элемента
+		\return Ссылка на саббенд, в котором лежит элемент с координатами
+		<i>p</i>.
+	*/
+	inline const subband_t &from_point(const p_t &p) const
+	{
+		// проверка выхода за пределы спектра
+		assert(0 <= p.x && p.x < _width);
+		assert(0 <= p.y && p.y < _height);
+
+		// получение уровня разложения
+		const sz_t lvl = lvl_from_point(p);
+
+		// проверка на LL саббенд
+		if (LVL_0 == lvl) return get_LL();
+
+		// получение HH саббенда этого уровня
+		const subband_t &sb_HH = get(lvl, SUBBAND_HH);
+
+		if (p.y < sb_HH.y_min) return get(lvl, SUBBAND_HL);
+		if (p.x < sb_HH.x_min) return get(lvl, SUBBAND_LH);
+
+		return sb_HH;
+	}
+
 	//@}
 
 protected:
