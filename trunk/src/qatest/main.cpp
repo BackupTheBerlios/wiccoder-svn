@@ -23,6 +23,7 @@
 #include "test_wtree_commons.h"
 #include "test_wtree_iterators.h"
 #include "test_acoder.h"
+#include "test_subbands.h"
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -59,6 +60,8 @@ int main(int argc, char **args) {
 	tests_list.push_back(test_LL_children_iterator);
 	tests_list.push_back(test_wtree_prnt);
 	tests_list.push_back(test_acoder_integration);
+	tests_list.push_back(test_lvl_from_point);
+	tests_list.push_back(test_from_point);
 
 	// for each item in list
 	for (tests_list_t::const_iterator i = tests_list.begin();

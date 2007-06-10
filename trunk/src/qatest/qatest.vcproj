@@ -124,6 +124,9 @@
 				RelativePath=".\test_prediction.cpp">
 			</File>
 			<File
+				RelativePath=".\test_subbands.cpp">
+			</File>
+			<File
 				RelativePath=".\test_wtree_commons.cpp">
 			</File>
 			<File
@@ -139,6 +142,9 @@
 			</File>
 			<File
 				RelativePath=".\test_prediction.h">
+			</File>
+			<File
+				RelativePath=".\test_subbands.h">
 			</File>
 			<File
 				RelativePath=".\test_wtree_commons.h">
