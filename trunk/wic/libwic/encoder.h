@@ -122,7 +122,7 @@ protected:
 
 		С помощью параметра шаблона возможно выбирать поле элемента,
 		которое будет использоваться при вычислении прогнозов. Так как,
-		во времдя декодирования нам известны только откорректированные
+		во время декодирования нам известны только откорректированные
 		коэффициенты, наиболее вероятным полем является wnode::member_wc.
 	*/
 	template <const wnode::wnode_members member>
@@ -134,6 +134,30 @@ protected:
 
 	//! \brief Реализует функцию IndMap(<i>P<sub>i</sub></i>) из 35.pdf
 	sz_t _ind_map(const pi_t &pi, const sz_t lvl);
+
+	//!	\brief Реализует функцию IndMap(<i>P<sub>i</sub></i>) из 35.pdf
+	/*!	\param[in] p Координаты элемента с кодируемым признаком подрезания
+		\param[in] children_sb Саббенд, в котором находится элементы,
+		дочерние от элемена с координатами <i>p</i>
+		\return Номер выбираемой модели
+
+		Функция использует координаты элемента в качестве входных
+		параметров.
+
+		С помощью параметра шаблона возможно выбирать поле элемента,
+		которое будет использоваться при вычислении прогнозов. Так как,
+		во время декодирования нам известны только откорректированные
+		коэффициенты, наиболее вероятным полем является wnode::member_wc.
+	*/
+	template <const wnode::wnode_members member>
+	sz_t _ind_map(const p_t &p, const subbands::subband_t &children_sb)
+	{
+		// подсчёт прогнозной величины Pi
+		const pi_t pi_avg = _wtree.calc_pi_avg<member>(p, children_sb);
+
+		// выбор модели для кодирования групповых признаков подрезания
+		return _ind_map(pi_avg, children_sb.lvl + subbands::LVL_PREV);
+	}
 
 	//@}
 
@@ -365,7 +389,7 @@ protected:
 	void _encode_tree_root(const p_t &root);
 
 	//!	\brief Выполняет кодирование уровня дерева
-	void _encode_leafs(const p_t &branch);
+	void _encode_tree_leafs(const p_t &root, const sz_t lvl);
 
 	//!	\brief Выполняет кодирование отдельного дерева
 	void _encode_tree(const p_t &root);

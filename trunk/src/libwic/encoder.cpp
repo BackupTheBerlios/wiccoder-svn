@@ -100,7 +100,7 @@ sz_t encoder::_ind_spec(const pi_t &s, const sz_t lvl) {
 	признак подрезания ветвей
 	\return Номер выбираемой модели
 
-	\note Стоит заметить, что если параметр <i>is_LL</i> равен <i>true</i>
+	\note Стоит заметить, что если параметр <i>lvl</i> равен <i>0</i>
 	функция всегда возвращает нулевую модель, независимо от параметра
 	<i>pi</i>.
 */
@@ -484,11 +484,8 @@ encoder::_optimize_branch_topology(const p_t &branch,
 	const sz_t lvl_j = sb.lvl + subbands::LVL_NEXT;
 	const subbands::subband_t &sb_j = _wtree.sb().get(lvl_j, sb.i);
 
-	// подсчёт прогнозной величины Pi
-	const pi_t pi_avg = _wtree.calc_pi_avg<wnode::member_wc>(branch, sb_j);
-
 	// выбор модели для кодирования групповых признаков подрезания
-	const sz_t model = _ind_map(pi_avg, sb.lvl);
+	const sz_t model = _ind_map<wnode::member_wc>(branch, sb_j);
 
 	// поиск наиболее оптимальной топологии
 	wtree::n_iterator i = _wtree.iterator_through_n(sb.lvl);
@@ -522,7 +519,10 @@ encoder::_optimize_branch_topology(const p_t &branch,
 
 	Функция выполняет кодирование:
 	- Коэффициента при корневом элементе
-	- 
+	- Группового признака подрезания при корневом элементе
+	- Коэффициентов принадлежащих дереву с первого уровня разложения
+	- Коэффициентов принадлежащих дереву со второго уровня разложения
+	  если те не попали в подрезанные ветви
 */
 void encoder::_encode_tree_root(const p_t &root)
 {
@@ -582,17 +582,88 @@ void encoder::_encode_tree_root(const p_t &root)
 }
 
 
-/*!	\param[in] branch 
+/*!	\param[in] root Координаты корнвого элемента
+	\param[in] lvl Номер уровня разложения
 */
-void encoder::_encode_leafs(const p_t &branch)
+void encoder::_encode_tree_leafs(const p_t &root, const sz_t lvl)
 {
-	(void)branch;
-	/*
-	for (wtree::coefs_iterator i = _wtree.iterator_over_leafs(branch);
-		 !i->end(); i->next())
+	// номер предыдущего уровня разложения
+	const sz_t lvl_i = lvl + subbands::LVL_PREV;
+
+	// псевдоним текущего уровня (для ясности)
+	const sz_t lvl_j = lvl;
+
+	// номер следующего уровня
+	const sz_t lvl_g = lvl + subbands::LVL_NEXT;
+
+	// номер уровня следующего за lvl_g
+	const sz_t lvl_v = lvl_g + subbands::LVL_NEXT;
+
+	// цикл по саббендам в уровне
+	for (sz_t k = 0; subbands::SUBBANDS_ON_LEVEL > k; ++k)
 	{
+		const subbands::subband_t &sb_i = _wtree.sb().get(lvl_i, k);
+		const subbands::subband_t &sb_j = _wtree.sb().get(lvl_j, k);
+		const subbands::subband_t &sb_g = _wtree.sb().get(lvl_g, k);
+		const subbands::subband_t &sb_v = _wtree.sb().get(lvl_v, k);
+
+		// цикл по элементам дерева из саббенда sb_i
+		for (wtree::coefs_iterator i = _wtree.iterator_over_leafs(root, sb_i);
+			 !i->end(); i->next())
+		{
+			const p_t &p_i = i->get();
+			const wnode &node_i = _wtree.at(p_i);
+
+			// цикл по элементам из саббенда sb_j (с уровня lvl)
+			for (wtree::coefs_iterator j =
+						_wtree.iterator_over_children_uni(p_i);
+				 !j->end(); j->next())
+			{
+				// текущий элемент с уровня sb_j
+				const p_t &p_j = j->get();
+
+				// маска подрезания, где текущий элемент не подрезан
+				const n_t mask = _wtree.child_n_mask_uni(p_j, p_i);
+
+				// переходим к следующему потомку, если ветвь подрезана
+				if (!_wtree.test_n_mask(node_i.n, mask)) continue;
+
+				// текущий элемент с уровня sb_j
+				const wnode &node_j = _wtree.at(p_j);
+
+				// закодируем групповой признак подрезания
+				_encode_map(_ind_map<wnode::member_wc>(p_j, sb_g), node_j.n);
+
+				// цикл по дочерним коэффициентам из саббенда sb_g
+				for (wtree::coefs_iterator g =
+							_wtree.iterator_over_leafs(root, sb_g);
+					 !g->end(); g->next())
+				{
+					// текущий элемент с уровня sb_g
+					const p_t &p_g = g->get();
+
+					// маска подрезания, где текущий элемент не подрезан
+					const n_t mask = _wtree.child_n_mask(p_g, p_j);
+
+					// переходим к следующему потомку, если ветвь подрезана
+					if (!_wtree.test_n_mask(node_j.n, mask)) continue;
+
+					// цикл по кодируемым элементам
+					for (wtree::coefs_iterator v =
+								_wtree.iterator_over_children(p_g);
+						 !v->end(); v->next())
+					{
+						// координаты кодируемого элемента
+						const p_t &p_v = v->get();
+
+						// кодирование элемента
+						_encode_spec(_ind_spec<wnode::member_wc>(p_v, sb_v),
+									 _wtree.at(p_v).wc);
+					}
+				}
+			}
+		}
 	}
-	*/
 }
 
 
@@ -600,37 +671,15 @@ void encoder::_encode_leafs(const p_t &branch)
 */
 void encoder::_encode_tree(const p_t &root)
 {
-	// закодировать коэффициент с нулевого уровня
-	_encode_spec(_ind_spec(0, subbands::LVL_0), _wtree.at(root).wc);
+	// кодирование корневого и дочерних элементов
+	_encode_tree_root(root);
 
-	// закодировать групповой признак подрезания с нулевого уровня
+	// кодирование элементов на остальных уровнях
+	const sz_t final_lvl = _wtree.lvls() + 2*subbands::LVL_PREV;
 
-	// кодирование дочерних коэффициентов
-	for (wtree::coefs_iterator i = _wtree.iterator_over_LL_children(root);
-		 !i->end(); i->next())
+	for (sz_t lvl = subbands::LVL_1; final_lvl >= lvl; ++lvl)
 	{
-		// закодировать коэффициенты с первого уровня
-	}
-
-	// кодирование групповых признаков подрезания с первого уровня
-	for (wtree::coefs_iterator i = _wtree.iterator_over_LL_children(root);
-		 !i->end(); i->next())
-	{
-		// закодировать групповые признаки подрезания с первого уровня
-		// если ветвь не подрезана
-	}
-
-	for (sz_t lvl = subbands::LVL_1; _wtree.lvls() > lvl; ++lvl)
-	{
-		for (sz_t k = 0; _wtree.sb().subbands_on_lvl(lvl) > k; ++k)
-		{
-			for (wtree::coefs_iterator i =
-						_wtree.iterator_over_leafs(root, lvl, k);
-				 !i->end(); i->next())
-			{
-				// получить групповой признак подрезания для коэффициента
-			}
-		}
+		_encode_tree_leafs(root, lvl);
 	}
 }
 
@@ -709,7 +758,7 @@ void encoder::_optimize_tree_step_2(const p_t &root, const lambda_t &lambda)
 						_optimize_branch_topology(p, sb_i, lambda);
 
 				// Шаг 2.2. Изменение топологии дерева
-				_wtree.cut_leafs(p, optim_topology.n);
+				_wtree.cut_leafs<wnode::member_wc>(p, optim_topology.n);
 
 				// Шаг 2.3. Корректировка проквантованных коэффициентов
 				_coefs_fix(p, sb_j, lambda);
@@ -739,7 +788,7 @@ void encoder::_optimize_tree_step_3(const p_t &root, const lambda_t &lambda)
 			_optimize_branch_topology(root, sb_LL, lambda);
 
 	// Шаг 2.7. Изменение топологии дерева
-	_wtree.cut_leafs(root, optim_topology.n);
+	_wtree.cut_leafs<wnode::member_wc>(root, optim_topology.n);
 
 	// шаг 3. Вычисление RD-функции Лагранжа для всего дерева
 	_calc_jx_value(root, optim_topology.j, lambda);

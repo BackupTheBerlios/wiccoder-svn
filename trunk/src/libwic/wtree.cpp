@@ -286,39 +286,17 @@ n_t wtree::child_n_mask_LL(const p_t &p) const {
 }
 
 
-/*!	\param[in] branch Координаты элемента, образующего ветвь
-	\param[in] n Групповой признак подрезания ветвей
-
-	Функция выполняет подрезания ветвей, образующими которых являются
-	элементы дочерние от <i>branch</i>, в соответствии с групповым признаком
-	подрезания ветвей.
-
-	Применима для ветвей из любых саббендов.
+/*!	\param[in] p Координаты элемента, который будет оставлен неподрезанным
+	в групповом признаке подрезания ветвей.
+	\param[in] branch Координаты родительского элемента, дающего начало ветки.
+	\return Групповой признак подрезания ветвей, сконструированный так, что
+	только одна ветвь (которой принадлежит элемент с координатами <i>p</i>)
+	осталась неподрезанной.
 */
-void wtree::cut_leafs(const p_t &branch, const n_t n)
-{
-	#if defined _DEBUG || defined DEBUG
-	{
-		const sz_t lvl = lvls() - subbands::LVL_PREV;
-		const subbands::subband_t &sb_HH = sb().get(lvl, subbands::SUBBAND_HH);
-		assert(branch.x < sb_HH.x_min && branch.y < sb_HH.y_min);
-	}
-	#endif
+n_t wtree::child_n_mask_uni(const p_t &p, const p_t &branch) const {
+	if (sb().test_LL(branch)) return child_n_mask_LL(p);
 
-	const bool is_LL = sb().test_LL(branch);
-
-	for (coefs_iterator i = iterator_over_children_uni(branch);
-		 !i->end(); i->next())
-	{
-		const p_t &p = i->get();
-
-		const n_t mask = (is_LL)? child_n_mask_LL(p)
-								: child_n_mask(p, branch);
-
-		if (!test_n_mask(n, mask)) _cut_branch(p);
-	}
-
-	at(branch).n = n;
+	return child_n_mask(p, branch);
 }
 
 
@@ -501,55 +479,6 @@ basic_iterator<p_t> *wtree::_iterator_over_LL_children(const p_t &prnt) const
 	assert(sb().test(prnt, sb_LL));
 
 	return new LL_children_iterator(sb_LL.width, sb_LL.height, prnt);
-}
-
-
-/*!	\param[in] branch Координаты элемента порождающего подрезаемую ветвь.
-
-	Функция осуществляет следующие действия со всеми элементами попавшими
-	в подрезанную ветвь:
-	- Отмечает элемент как <i>недействительный</i>, выставляя поле
-	  wnode::invalid в <i>true</i>.
-	- Изменяет групповой признак подрезания ветвей, связанный с элементом,
-	  отмечая все дочерние ветви как подрезанные.
-
-	Функция выполняет <i>умное</i> подрезание, обрабатывая только ещё не
-	подрезанные ветви. Для остановки процесса подрезания, Функция также
-	использует тот факт, что групповые признаки подрезания ветвей у всех
-	элементов последних двух саббендов равны нулю (все ветви подрезаны).
-	Наличие нулевых групповых признаков подрезания ветвей на двух
-	последних саббендах является необходимым условием правильной работы
-	функции.
-
-	\note Функция корректно обрабатывает элементы из любых саббендов,
-	включая элементы из <i>LL</i> саббенда.
-
-	\attention Функция нарушает целостность дерева, так как не
-	модифицирует групповой признак подрезания у родительского элемента
-	ветви
-*/
-void wtree::_cut_branch(const p_t &branch) {
-	assert(0 <= branch.x && branch.x < _width);
-	assert(0 <= branch.y && branch.y < _height);
-
-	n_t &branch_n = at(branch).n;
-
-	for (coefs_iterator i = iterator_over_children_uni(branch);
-		 !i->end(); i->next())
-	{
-		const p_t &p = i->get();
-		wnode &node = at(p);
-
-		// необходимо сначала рекурсивно подрезать дочерние ветви
-		// так как следующая строчка обнулит групповой признак подрезания
-		// этой ветви элемента p
-		if (0 != branch_n) _cut_branch(p);
-
-		node.invalid = true;
-		node.n = 0;
-	}
-
-	branch_n = 0;
 }
 
 

@@ -255,7 +255,7 @@ public:
 	inline const subband_t &from_point(const p_t &p, const sz_t lvl) const
 	{
 		// проверка присутствия на уровне
-		#ifdef _DEBUG
+		#if defined _DEBUG || defined DEBUG
 		{
 			const subband_t &sb_HH = get(lvl, SUBBAND_HH);
 			assert(p.x >= sb_HH.x_min || p.y >= sb_HH.y_min);
