@@ -399,6 +399,15 @@ protected:
 	//!	\name  одирование всего спектра
 	//@{
 
+	//!	\brief ¬ыполн€ет кодирование/декодирование корневых элементов
+	//!	спектра
+	void _encode_wtree_root(const bool decode_mode = false);
+
+	//!	\brief ¬ыполн€ет кодирование/декодирование не корневых элементов
+	//!	спектра
+	void _encode_wtree_subband(const subbands::subband_t &sb,
+							   const bool decode_mode = false);
+
 	//!	\brief ¬ыполн€ет кодирование/декодирование всего спектра
 	void _encode_wtree(const bool decode_mode = false);
 

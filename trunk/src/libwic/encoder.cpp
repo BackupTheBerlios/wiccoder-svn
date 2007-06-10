@@ -697,8 +697,158 @@ void encoder::_encode_tree(const p_t &root)
 	кодирование спектра, иначе (если <i>true</i>) будет выполнять
 	декодирование спектра.
 */
+void encoder::_encode_wtree_root(const bool decode_mode)
+{
+	// LL cаббенд
+	const subbands::subband_t &sb_LL = _wtree.sb().get_LL();
+
+	// модели для кодирования в LL саббенде
+	const sz_t spec_LL_model = _ind_spec(0, sb_LL.lvl);
+	const sz_t map_LL_model = _ind_map(0, sb_LL.lvl);
+
+	// (де)кодирование коэффициентов и групповых признаков подрезания
+	// из LL саббенда
+	for (wtree::coefs_iterator i = _wtree.iterator_over_subband(sb_LL);
+		 !i->end(); i->next())
+	{
+		wnode &node = _wtree.at(i->get());
+
+		if (decode_mode) {
+			node.wc = _decode_spec(spec_LL_model);
+			node.n = _decode_spec(map_LL_model);
+		}  else {
+			_encode_spec(spec_LL_model, node.wc);
+			_encode_map(map_LL_model, node.n);
+		}
+	}
+
+	// модель для кодирования коэффициентов с первого уровня
+	const sz_t spec_1_model = _ind_spec(0, subbands::LVL_1);
+
+	// (де)кодирование коэффициентов из саббендов первого уровня
+	for (sz_t k = 0; subbands::SUBBANDS_ON_LEVEL > k; ++k)
+	{
+		// очередной саббенд с первого уровня
+		const subbands::subband_t &sb = _wtree.sb().get(subbands::LVL_1, k);
+
+		// цикл по всем элементам из саббенда
+		for (wtree::coefs_iterator i = _wtree.iterator_over_subband(sb);
+			 !i->end(); i->next())
+		{
+			if (decode_mode)
+				_wtree.at(i->get()).wc = _decode_spec(spec_1_model);
+			else
+				_encode_spec(spec_1_model, _wtree.at(i->get()).wc);
+		}
+	}
+}
+
+
+/*!	\param[in] sb Саббенд из которого будут использоваться групповые
+	признаки подрезания ветвей
+	\param[in] decode_mode Если <i>false</i> функция будет выполнять
+	кодирование спектра, иначе (если <i>true</i>) будет выполнять
+	декодирование спектра.
+*/
+void encoder::_encode_wtree_subband(const subbands::subband_t &sb,
+									const bool decode_mode)
+{
+	const sz_t lvl_i = sb.lvl;
+	const sz_t lvl_j = lvl_i + subbands::LVL_NEXT;
+	const sz_t lvl_g = lvl_j + subbands::LVL_NEXT;
+
+	// псевдоним для саббенда sb (для ясности)
+	const subbands::subband_t &sb_i = sb;
+
+	// цикл по всем элементам из саббенда
+	for (wtree::coefs_iterator i = _wtree.iterator_over_subband(sb_i);
+		 !i->end(); i->next())
+	{
+		const p_t &p_i = i->get();
+		const wnode &node_i = _wtree.at(p_i);
+
+		// элементы могут лежать в разных саббендах (случай с LL саббендом)
+		const subbands::subband_t &sb_j = _wtree.sb().from_point(p_i, lvl_j);
+		const subbands::subband_t &sb_g = _wtree.sb().get(lvl_g, sb_j.i);
+
+		for (wtree::coefs_iterator j = _wtree.iterator_over_children_uni(p_i);
+			 !j->end(); j->next())
+		{
+			const p_t &p_j = j->get();
+
+			// маска подрезания, где текущий элемент не подрезан
+			const n_t mask = _wtree.child_n_mask_uni(p_j, p_i);
+
+			// переходим к следующему потомку, если ветвь подрезана
+			if (!_wtree.test_n_mask(node_i.n, mask)) continue;
+
+			for (wtree::coefs_iterator g = _wtree.iterator_over_children(p_j);
+				 !g->end(); g->next())
+			{
+				// координаты (де)кодируемого элемента
+				const p_t &p_g = g->get();
+
+				// номер модели для (де)кодирования
+				const sz_t model = _ind_spec<wnode::member_wc>(p_g, sb_g);
+
+				// (де)кодирование коэффициента
+				if (decode_mode)
+					_wtree.at(p_g).wc = _decode_spec(model);
+				else
+					_encode_spec(model, _wtree.at(p_g).wc);
+			}
+		}
+
+		// (де)кодирование групповых признаков подрезания
+		for (wtree::coefs_iterator j = _wtree.iterator_over_children_uni(p_i);
+			 !j->end(); j->next())
+		{
+			// координаты текущего элемента
+			const p_t &p_j = j->get();
+
+			// маска подрезания, где текущий элемент не подрезан
+			const n_t mask = _wtree.child_n_mask_uni(p_j, p_i);
+
+			// переходим к следующему потомку, если ветвь подрезана
+			if (!_wtree.test_n_mask(node_i.n, mask)) continue;
+
+			// номер модели для (де)кодирования
+			const sz_t model = _ind_map<wnode::member_wc>(p_j, sb_g);
+
+			// (де)кодирование группового признака подрезания
+			if (decode_mode)
+				_wtree.at(p_j).n = _decode_map(model);
+			else
+				_encode_map(model, _wtree.at(p_j).n);
+		}
+	}
+}
+
+
+/*!	\param[in] decode_mode Если <i>false</i> функция будет выполнять
+	кодирование спектра, иначе (если <i>true</i>) будет выполнять
+	декодирование спектра.
+*/
 void encoder::_encode_wtree(const bool decode_mode)
 {
+	// кодирование корневых элементов
+	_encode_wtree_root(decode_mode);
+
+	// кодирование дочерних от LL элементов
+	_encode_wtree_subband(_wtree.sb().get_LL(), decode_mode);
+
+	// кодирование остальных элементов
+	const sz_t final_lvl = _wtree.lvls() + 2*subbands::LVL_PREV;
+
+	for (sz_t lvl = subbands::LVL_1; final_lvl >= lvl; ++lvl)
+	{
+		for (sz_t k = 0; subbands::SUBBANDS_ON_LEVEL > k; ++k)
+		{
+			const subbands::subband_t &sb = _wtree.sb().get(lvl, k);
+
+			_encode_wtree_subband(sb, decode_mode);
+		}
+	}
 }
 
 
