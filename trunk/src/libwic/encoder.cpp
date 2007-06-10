@@ -48,8 +48,10 @@ encoder::~encoder() {
 
 /*!
 */
-void encoder::encode()
+void encoder::encode(const lambda_t &lambda)
 {
+	_acoder.use(_mk_acoder_models<wnode::member_wq>());
+
 	_acoder.encode_start();
 
 	const subbands &sb = _wtree.sb();
@@ -58,15 +60,11 @@ void encoder::encode()
 		 !i->end(); i->next())
 	{
 		const p_t &root = i->get();
-		_optimize_tree(root, 0);
+		_optimize_tree(root, lambda);
 		_encode_tree(root);
 	}
 
 	_acoder.encode_stop();
-
-	wk_t w_min = 0;
-	wk_t w_max = 0;
-	_wtree.minmax<wnode::member_wc>(_wtree.iterator_over_wtree(), w_min, w_max);
 }
 
 
@@ -119,9 +117,6 @@ sz_t encoder::_ind_map(const pi_t &pi, const sz_t lvl) {
 	\param[in] wk Значение коэффициента для кодирования
 	\return Битовые затраты, необходимые для кодирования коэффициента с
 	использованием этой модели
-
-	\todo Необходимо учитывать смешение при выборе номера модели, т.к.
-	модели нумеруются с 0 как для коэффициентов, так и для признаков.
 */
 h_t encoder::_h_spec(const sz_t m, const wk_t &wk) {
 	return _acoder.enc_entropy(wk, m);
@@ -132,12 +127,43 @@ h_t encoder::_h_spec(const sz_t m, const wk_t &wk) {
 	\param[in] n Значение группового признака подрезания ветвей
 	\return Битовые затраты, необходимые для кодирования группового
 	признака подрезания
-
-	\todo Необходимо учитывать смешение при выборе номера модели, т.к.
-	модели нумеруются с 0 как для коэффициентов, так и для признаков.
 */
 h_t encoder::_h_map(const sz_t m, const n_t &n) {
-	return _acoder.enc_entropy(n, m);
+	return _acoder.enc_entropy(n, m + ACODER_SPEC_MODELS_COUNT);
+}
+
+
+/*!	\param[in] m Номер модели для кодирования
+	\param[in] wk Значение коэффициента для кодирования
+*/
+void encoder::_encode_spec(const sz_t m, const wk_t &wk) {
+	_acoder.put(wk, m);
+}
+
+
+/*!	\param[in] m Номер модели для кодирования
+	\param[in] n Значение группового признака подрезания ветвей
+*/
+void encoder::_encode_map(const sz_t m, const n_t &n) {
+	_acoder.put(n, m + ACODER_SPEC_MODELS_COUNT);
+}
+
+
+/*!	\param[in] m Номер модели для кодирования
+	\return Значение коэффициента для кодирования
+*/
+wk_t encoder::_decode_spec(const sz_t m)
+{
+	return _acoder.get<wk_t>(m);
+}
+
+
+/*!	\param[in] m Номер модели для кодирования
+	\return Значение группового признака подрезания ветвей
+*/
+n_t encoder::_decode_map(const sz_t m)
+{
+	return _acoder.get<n_t>(m);
 }
 
 

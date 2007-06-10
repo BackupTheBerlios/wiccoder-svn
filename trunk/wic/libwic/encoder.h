@@ -54,6 +54,19 @@ class encoder {
 public:
 	// public types ------------------------------------------------------------
 	// public constants --------------------------------------------------------
+
+	//!	\brief Количество моделей, используемых арифметическим кодером для
+	//!	кодирования коэффициентов
+	static const sz_t ACODER_SPEC_MODELS_COUNT	= 6;
+
+	//!	\brief Количество моделей, используемых арифметическим кодером для
+	//!	кодирования групповых признаков подрезания
+	static const sz_t ACODER_MAP_MODELS_COUNT	= 5;
+
+	//!	\brief Общее количество моделей, используемых арифметическим кодером
+	static const sz_t ACODER_TOTAL_MODELS_COUNT	= ACODER_SPEC_MODELS_COUNT +
+												  ACODER_MAP_MODELS_COUNT;
+
 	// public methods ----------------------------------------------------------
 
 	//!	\name Конструкторы и деструкторы
@@ -72,7 +85,7 @@ public:
 	//@{
 
 	//!	\brief Функция осуществляющая непосредственное кодирование изображения
-	void encode();
+	void encode(const lambda_t &lambda);
 
 	//@}
 
@@ -124,6 +137,44 @@ protected:
 	//!	\name Поддержка арифметического кодирования
 	//@{
 
+	//!	\brief Создаёт модели, используемые арифметическим кодером на
+	//!	основе информации из спектра
+	/*!	\return Модели для арифметического кодера
+
+		\sa acoder::use()
+	*/
+	template <const wnode::wnode_members member>
+	acoder::models_t _mk_acoder_models()
+	{
+		// поиск минимального и максимального значений коэффициентов
+		wnode::type_selector<member>::result w_min = 0;
+		wnode::type_selector<member>::result w_max = 0;
+
+		_wtree.minmax<member>(_wtree.iterator_over_wtree(), w_min, w_max);
+
+		// создание моделей для кодирования коэффициентов
+		acoder::models_t models;
+
+		acoder::model_t model;
+		model.min = w_min - 1;
+		model.max = w_max + 1;
+
+		models.insert(models.end(), ACODER_SPEC_MODELS_COUNT, model);
+
+		// создание моделей для кодирования групповых признаков подрезания
+		model.min = 0;
+		model.max = 0x7;
+		models.push_back(model);
+
+		model.max = 0xF;
+		models.insert(models.end(), ACODER_MAP_MODELS_COUNT - 1, model);
+
+		// проверка утверждений
+		assert(ACODER_TOTAL_MODELS_COUNT == models.size());
+
+		return models;
+	}
+
 	//! \brief Подсчитывает битовые затраты для кодирования коэффициента.
 	//! Реализует функцию <i>H<sub>spec</sub></i>.
 	h_t _h_spec(const sz_t m, const wk_t &wk);
@@ -131,6 +182,20 @@ protected:
 	//! \brief Подсчитывает битовые затраты для кодирования группового
 	//! признака подрезания ветвей. Реализует функцию <i>H<sub>map</sub></i>.
 	h_t _h_map(const sz_t m, const n_t &n);
+
+	//!	\brief Кодирует коэффициент арифметическим енкодером
+	void _encode_spec(const sz_t m, const wk_t &wk);
+
+	//!	\brief Кодирует групповой признак подрезания ветвей арифметическим
+	//!	енкодером
+	void _encode_map(const sz_t m, const n_t &n);
+
+	//!	\brief Декодирует коэффициент арифметическим декодером
+	wk_t _decode_spec(const sz_t m);
+
+	//!	\brief Декодирует групповой признак подрезания ветвей арифметическим
+	//!	декодером
+	n_t _decode_map(const sz_t m);
 
 	//@}
 

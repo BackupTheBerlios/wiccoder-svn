@@ -93,6 +93,9 @@ public:
 		*/
 		value_type _delta;
 		//!	\brief Количество символов в алфавите модели
+		/*!	\note Это поле заполняется <b>автоматически</b> при инициализации
+			аркодера.
+		*/
 		value_type _symbols;
 	};
 
@@ -164,7 +167,7 @@ public:
 	{
 		assert(sizeof(param_t) <= sizeof(value_type));
 
-		put_value(reinterpret_cast<const value_type &>(param), model_no);
+		put_value(static_cast<const value_type &>(param), model_no);
 	}
 
 	//!	\brief Производит подсчёт битовых затрат, необходимых для кодирования
@@ -179,7 +182,7 @@ public:
 		assert(sizeof(param_t) <= sizeof(value_type));
 
 		return _entropy_eval(_aencoder,
-							 reinterpret_cast<const value_type &>(param),
+							 static_cast<const value_type &>(param),
 							 model_no);
 	}
 
@@ -208,7 +211,7 @@ public:
 	template <class result_t>
 	result_t get(const sz_t model_no)
 	{
-		return reinterpret_cast<result_t>(get_value(model_no));
+		return static_cast<result_t>(get_value(model_no));
 	}
 
 	//@}
