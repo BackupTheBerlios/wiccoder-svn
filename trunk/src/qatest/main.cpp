@@ -22,6 +22,7 @@
 #include "test_prediction.h"
 #include "test_wtree_commons.h"
 #include "test_wtree_iterators.h"
+#include "test_acoder.h"
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -57,6 +58,7 @@ int main(int argc, char **args) {
 	tests_list.push_back(test_snake_2d_iterator);
 	tests_list.push_back(test_LL_children_iterator);
 	tests_list.push_back(test_wtree_prnt);
+	tests_list.push_back(test_acoder_integration);
 
 	// for each item in list
 	for (tests_list_t::const_iterator i = tests_list.begin();
