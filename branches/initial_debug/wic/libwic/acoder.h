@@ -19,6 +19,7 @@
 #include <vector>
 #include <assert.h>
 #include <iostream>
+#include <iomanip>
 
 // external library headers
 #include <arcoder/arcodec.h>
@@ -98,6 +99,9 @@ public:
 			аркодера.
 		*/
 		value_type _symbols;
+
+		unsigned int _encoded_count;
+		unsigned int _decoded_count;
 	};
 
 	//!	\brief Описание моделей, используемых арифметическим кодером
@@ -286,10 +290,6 @@ private:
 
 	//!	\brief Арифметический декодер
 	ArDecoderWithBitCounter<BITInMemStream> *_adecoder;
-
-	//
-	std::ofstream *_dbg_decode_out;
-	std::ofstream *_dbg_encode_out;
 };
 
 

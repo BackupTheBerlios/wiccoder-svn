@@ -618,7 +618,7 @@ void encoder::_encode_tree_leafs(const p_t &root, const sz_t lvl)
 	const sz_t lvl_v = lvl_g + subbands::LVL_NEXT;
 
 	// цикл по саббендам в уровне
-	for (sz_t k = 0; subbands::SUBBANDS_ON_LEVEL > k; ++k)
+	for (sz_t k = 0; _wtree.sb().subbands_on_lvl(lvl_i) > k; ++k)
 	{
 		const subbands::subband_t &sb_i = _wtree.sb().get(lvl_i, k);
 		const subbands::subband_t &sb_j = _wtree.sb().get(lvl_j, k);

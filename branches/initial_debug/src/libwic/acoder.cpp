@@ -99,9 +99,6 @@ void acoder::encode_start()
 
 	// инициализация моделей
 	_init_models(_aencoder);
-
-	//
-	_dbg_encode_out = new std::ofstream("dumps/arcoder.encode");
 }
 
 
@@ -114,13 +111,24 @@ void acoder::encode_stop()
 	assert(0 != _out_stream);
 
 	// помещение EOF символа в поток
-	_aencoder->PutEOF();
+	// _aencoder->PutEOF();
 
 	// завершение кодирования
 	_aencoder->EndPacking();
 
-	//
-	delete _dbg_encode_out;
+	std::cout << "[encode_models] ----------" << std::endl;
+	unsigned int ttl_chars = 0;
+	for (sz_t i = 0; int(_models.size()) > i; ++i) {
+		_aencoder->model(i);
+		std::cout << "model #" << std::setw(2) << i << ": ";
+		std::cout << std::setw(6) << _aencoder->model()->bit_counter << " bits |";
+		std::cout << std::setw(6) << (_aencoder->model()->bit_counter/8) << " bytes |";
+		std::cout << std::setw(6) << _models[i]._encoded_count << " chars";
+		std::cout << std::endl;
+		ttl_chars += _models[i]._encoded_count;
+	}
+	std::cout << "Total chars: " << ttl_chars << std::endl;
+	std::cout << "[/encode_models] ----------" << std::endl;
 }
 
 
@@ -135,7 +143,8 @@ void acoder::put_value(const value_type &value, const sz_t model_no)
 
 	assert(0 <= model_no && model_no < int(_models.size()));
 
-	const model_t &model = _models[model_no];
+	model_t &model = _models[model_no];
+	++(model._encoded_count);
 
 	assert(model.min <= value && value <= model.max);
 
@@ -143,8 +152,6 @@ void acoder::put_value(const value_type &value, const sz_t model_no)
 	_aencoder->model(model_no);
 
 	(*_aencoder) << (value + model._delta);
-
-	(*_dbg_encode_out) << "mdl: " << model_no << "; val: " << value << std::endl;
 }
 
 
@@ -161,9 +168,6 @@ void acoder::decode_start()
 
 	// инициализация моделей
 	_init_models(_adecoder);
-
-	//
-	_dbg_decode_out = new std::ofstream("dumps/arcoder.decode");
 }
 
 
@@ -178,8 +182,19 @@ void acoder::decode_stop()
 	// завершение декодирования
 	_adecoder->EndUnpacking();
 
-	//
-	delete _dbg_decode_out;
+	std::cout << "[decode_models] ----------" << std::endl;
+	unsigned int ttl_chars = 0;
+	for (sz_t i = 0; int(_models.size()) > i; ++i) {
+		_adecoder->model(i);
+		std::cout << "model #" << std::setw(2) << i << ": ";
+		std::cout << std::setw(6) << _adecoder->model()->bit_counter << " bits |";
+		std::cout << std::setw(6) << (_adecoder->model()->bit_counter/8) << " bytes |";
+		std::cout << std::setw(6) << _models[i]._decoded_count << " chars";
+		std::cout << std::endl;
+		ttl_chars += _models[i]._decoded_count;
+	}
+	std::cout << "Total chars: " << ttl_chars << std::endl;
+	std::cout << "[/decode_models] ----------" << std::endl;
 }
 
 
@@ -193,15 +208,14 @@ acoder::value_type acoder::get_value(const sz_t model_no)
 
 	assert(0 <= model_no && model_no < int(_models.size()));
 
-	const model_t &model = _models[model_no];
+	model_t &model = _models[model_no];
+	++(model._decoded_count);
 
 	// выбор модели и декодирование (учитывая смещение)
 	_adecoder->model(model_no);
 
 	value_type value;
 	(*_adecoder) >> value;
-
-	(*_dbg_decode_out) << "mdl: " << model_no << "; val: " << (value - model._delta) << std::endl;
 
 	return (value - model._delta);
 }
@@ -269,6 +283,8 @@ void acoder::_refresh_models(models_t &models)
 		model_t &model = (*i);
 		model._delta = - model.min;
 		model._symbols = _symbols_count(model);
+		model._decoded_count = 0;
+		model._encoded_count = 0;
 	}
 }
 
@@ -281,6 +297,8 @@ void acoder::_init_models(arcoder_base *const coder_base)
 	// проверка утверждений
 	assert(0 != coder_base);
 	assert(coder_base->Models().Size() == _models.size());
+
+	_refresh_models(_models);
 
 	// сброс статистик
 	coder_base->ResetStatistics();
