@@ -36,6 +36,15 @@ double psnr(const std::string &file1, const std::string &file2) {
 
 
 int main() {
+	static const char *const in_image_file	=
+	//		"../res/images/lena_eye_16x16.bmp";
+	//		"../res/images/lena.bmp";
+			"../res/images/lena_eye_64x64.bmp";
+	static const char *const out_image_file	=
+	//		"dumps/lena_eye_16x16.bmp";
+	//		"dumps/lena.bmp";
+			"dumps/lena_eye_64x64.bmp";
+
 	// some constants to use
 	static const int			lvls	= 3;
 
@@ -45,7 +54,7 @@ int main() {
 
 	// first, load the image
 	imgs::img_rgb rgb_image;
-	imgs::bmp_read(rgb_image, "../res/images/lena.bmp");
+	imgs::bmp_read(rgb_image, in_image_file);
 
 	// allocate some memory and copy converted to float image there
 	const wic::sz_t image_pixels_count = rgb_image.w() * rgb_image.h();
@@ -147,7 +156,7 @@ int main() {
 		rgb_image_bits[i].b = (unsigned char)(image_wt[i]);
 	}
 
-	imgs::bmp_write(rgb_image, "dumps/lena.bmp");
+	imgs::bmp_write(rgb_image, out_image_file);
 
 	{
 		std::cout << "q: " << q << std::endl;
@@ -156,7 +165,7 @@ int main() {
 		std::cout << "size: " << sz << " bytes" << std::endl;
 		std::cout << "size: " << (sz / 1024) << " kbytes" << std::endl;
 		std::cout << "bpp: " << double(sz * 8) / double(rgb_image.h() * rgb_image.w()) << std::endl;
-		std::cout << "psnr: " << psnr("dumps/lena.bmp", "../res/images/lena.bmp") <<std::endl;
+		std::cout << "psnr: " << psnr(in_image_file, out_image_file) <<std::endl;
 	}
 	/*
 	// what and how to encode
