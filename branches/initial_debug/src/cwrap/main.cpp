@@ -37,9 +37,9 @@ double psnr(const std::string &file1, const std::string &file2) {
 
 int main() {
 	// some constants to use
-	static const int			lvls	= 5;
+	static const int			lvls	= 3;
 
-	static const wic::q_t		q		= 13;
+	static const wic::q_t		q		= 10;
 
 	static const wic::lambda_t	lambda	= 21;
 

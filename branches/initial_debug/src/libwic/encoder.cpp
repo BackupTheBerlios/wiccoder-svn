@@ -228,6 +228,8 @@ j_t encoder::_calc_rd_iteration(const p_t &p, const wk_t &k,
 wk_t encoder::_coef_fix(const p_t &p, const subbands::subband_t &sb,
 						const lambda_t &lambda)
 {
+	return _wtree.at(p).wq;
+
 	// выбор модели и оригинального значения коэффициента
 	const sz_t	model	= _ind_spec<wnode::member_wc>(p, sb);
 	const wk_t	&wq		= _wtree.at(p).wq;
@@ -238,7 +240,7 @@ wk_t encoder::_coef_fix(const p_t &p, const subbands::subband_t &sb,
 		const wk_t w_vals[vals_count] = {0, wq, wq + 1, wq - 1};
 	#else
 		static const sz_t vals_count	= 3;
-		const wk_t w_drift = (0 <= w)? -1; +1;
+		const wk_t w_drift = (0 <= wq)? -1: +1;
 		const wk_t w_vals[vals_count] = {0, wq, wq + w_drift};
 	#endif
 

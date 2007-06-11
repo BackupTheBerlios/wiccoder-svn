@@ -432,6 +432,7 @@ public:
 		if (_subbands->test(p_t(x + side, y + top), sb)) sums += 0.4;
 		if (_subbands->test(p_t(x + side, y      ), sb)) sums += 1;
 		if (_subbands->test(p_t(x       , y + top), sb)) sums += 1;
+		if (0 == sums) sums = 1;
 
 		// родительский коэффициент
 		const p_t p = prnt(p_t(x, y));
