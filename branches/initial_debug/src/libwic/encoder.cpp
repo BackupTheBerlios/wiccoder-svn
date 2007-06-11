@@ -787,7 +787,7 @@ void encoder::_encode_wtree_root(const bool decode_mode)
 			node.wc = _decode_spec(spec_LL_model);
 			node.n = _decode_map(map_LL_model);
 
-			_wtree.uncut_leafs<wnode::member_wc>(p_i, node.n);
+			_wtree.uncut_leafs(p_i, node.n);
 		}  else {
 			_encode_spec(spec_LL_model, node.wc);
 			_encode_map(map_LL_model, node.n);
@@ -953,8 +953,7 @@ void encoder::_encode_wtree_level(const sz_t lvl,
 			// переходим к следующему потомку, если ветвь подрезана
 			if (!_wtree.test_n_mask(node_i.n, mask))
 			{
-				if (decode_mode)
-					_wtree.uncut_leafs<wnode::member_wc>(p_j, 0);
+				if (decode_mode) _wtree.uncut_leafs(p_j, 0);
 
 				continue;
 			}
@@ -966,7 +965,7 @@ void encoder::_encode_wtree_level(const sz_t lvl,
 			if (decode_mode) {
 				node_j.n = _decode_map(model);
 
-				_wtree.uncut_leafs<wnode::member_wc>(p_j, node_j.n);
+				_wtree.uncut_leafs(p_j, node_j.n);
 			} else {
 				_encode_map(model, node_j.n);
 			}

@@ -38,17 +38,17 @@ double psnr(const std::string &file1, const std::string &file2) {
 int main() {
 	static const char *const in_image_file	=
 	//		"../res/images/lena_eye_16x16.bmp";
-	//		"../res/images/lena.bmp";
-			"../res/images/lena_eye_64x64.bmp";
+			"../res/images/lena.bmp";
+	//		"../res/images/lena_eye_64x64.bmp";
 	static const char *const out_image_file	=
 	//		"dumps/lena_eye_16x16.bmp";
-	//		"dumps/lena.bmp";
-			"dumps/lena_eye_64x64.bmp";
+			"dumps/lena.bmp";
+	//		"dumps/lena_eye_64x64.bmp";
 
 	// some constants to use
-	static const int			lvls	= 3;
+	static const int			lvls	= 5;
 
-	static const wic::q_t		q		= 10;
+	static const wic::q_t		q		= 13;
 
 	static const wic::lambda_t	lambda	= 21;
 

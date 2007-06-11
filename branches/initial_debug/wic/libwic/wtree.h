@@ -540,27 +540,8 @@ public:
 		at(branch).n = n;
 	}
 
-	template <const wnode::wnode_members member>
-	void uncut_leafs(const p_t &branch, const n_t n)
-	{
-		// проверка утверждений
-		assert(lvls() + subbands::LVL_PREV > sb().from_point(branch).lvl);
-
-		const bool is_LL = sb().test_LL(branch);
-
-		for (coefs_iterator i = iterator_over_children_uni(branch);
-			 !i->end(); i->next())
-		{
-			const p_t &p = i->get();
-
-			const n_t mask = (is_LL)? child_n_mask_LL(p)
-									: child_n_mask(p, branch);
-
-			_uncut_branch<member>(p, !test_n_mask(n, mask));
-		}
-
-		at(branch).n = n;
-	}
+	//!	\brief ¬ыполн€ет антиподрезание листьев
+	void uncut_leafs(const p_t &branch, const n_t n);
 
 	//@}
 
@@ -720,29 +701,8 @@ protected:
 		branch_n = 0;
 	}
 
-	template <const wnode::wnode_members member>
-	void _uncut_branch(const p_t &branch, const bool is_cut)
-	{
-		// проверка утверждений
-		assert(sb().from_point(branch).lvl > subbands::LVL_0);
-		assert(sb().from_point(branch).lvl < lvls());
-
-		n_t &branch_n = at(branch).n;
-
-		// перебор дочерних элементов
-		for (coefs_iterator i = iterator_over_children(branch);
-			 !i->end(); i->next())
-		{
-			const p_t &p = i->get();
-			wnode &node = at(p);
-
-			node.invalid = is_cut;
-			node.n = (is_cut)? 0x00: 0x0F;
-		}
-
-		branch_n = 0;
-	}
-
+	//!	\brief ¬ыполн€ет антиподрезание ветви
+	void _uncut_branch(const p_t &branch, const bool is_cut);
 
 	//@}
 
