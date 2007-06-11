@@ -206,7 +206,9 @@ j_t encoder::_calc_rd_iteration(const p_t &p, const wk_t &k,
 
 	const w_t dw = (wnode::dequantize(k, _wtree.q()) - node.w);
 
-	return (dw*dw + lambda * _h_spec(model, k));
+	const double h = _h_spec(model, k);
+
+	return (dw*dw + lambda * h);
 }
 
 
@@ -558,6 +560,7 @@ void encoder::_encode_tree_root(const p_t &root)
 		_encode_spec(_ind_spec(0, subbands::LVL_1), _wtree.at(i->get()).wc);
 	}
 
+	/*
 	// кодирование коэффициентов со второго уровня
 	static const sz_t LVL_2 = subbands::LVL_1 + subbands::LVL_NEXT;
 
@@ -594,6 +597,7 @@ void encoder::_encode_tree_root(const p_t &root)
 						 _wtree.at(c).wc);
 		}
 	}
+	*/
 }
 
 
@@ -605,6 +609,57 @@ void encoder::_encode_tree_root(const p_t &root)
 */
 void encoder::_encode_tree_leafs(const p_t &root, const sz_t lvl)
 {
+	const sz_t lvl_g = lvl;
+	const sz_t lvl_j = lvl_g + subbands::LVL_PREV;
+	const sz_t lvl_i = lvl_j + subbands::LVL_PREV;
+
+	// цикл по саббендам в уровне
+	for (sz_t k = 0; _wtree.sb().subbands_on_lvl(lvl) > k; ++k)
+	{
+		const subbands::subband_t &sb_g = _wtree.sb().get(lvl_g, k);
+		const subbands::subband_t &sb_j = _wtree.sb().get(lvl_j, k);
+
+		// кодирование коэффициентов
+		for (wtree::coefs_iterator g = _wtree.iterator_over_leafs(root, sb_g);
+			 !g->end(); g->next())
+		{
+			const p_t &p_g = g->get();
+
+			wnode &node_g = _wtree.at(p_g);
+
+			if (node_g.invalid) continue;
+
+			const sz_t model = _ind_spec<wnode::member_wc>(p_g, sb_g);
+
+			_encode_spec(model, node_g.wc);
+		}
+
+		// на предпоследнем уровне нет групповых признаков подрезания
+		if (_wtree.lvls() == lvl) continue;
+
+		// кодирование групповых признаков подрезания
+		for (wtree::coefs_iterator j = _wtree.iterator_over_leafs(root, sb_j);
+			 !j->end(); j->next())
+		{
+			const p_t &p_j = j->get();
+
+			const p_t &p_i = _wtree.prnt_uni(p_j);
+			const wnode &node_i = _wtree.at(p_i);
+
+			// маска подрезания, где текущий элемент не подрезан
+			const n_t mask = _wtree.child_n_mask_uni(p_j, p_i);
+
+			// переходим к следующему потомку, если ветвь подрезана
+			if (!_wtree.test_n_mask(node_i.n, mask)) continue;
+
+			wnode &node_j = _wtree.at(p_j);
+
+			const sz_t model = _ind_map<wnode::member_wc>(p_j, sb_g);
+
+			_encode_map(model, node_j.n);
+		}
+	}
+	/*
 	// номер предыдущего уровня разложения
 	const sz_t lvl_i = lvl + subbands::LVL_PREV;
 
@@ -682,6 +737,7 @@ void encoder::_encode_tree_leafs(const p_t &root, const sz_t lvl)
 			}
 		}
 	}
+	*/
 }
 
 
@@ -693,9 +749,10 @@ void encoder::_encode_tree(const p_t &root)
 	_encode_tree_root(root);
 
 	// кодирование элементов на остальных уровнях
-	const sz_t final_lvl = _wtree.lvls() + 2*subbands::LVL_PREV;
+	const sz_t first_lvl = subbands::LVL_1 + subbands::LVL_NEXT;
+	const sz_t final_lvl = _wtree.lvls();
 
-	for (sz_t lvl = subbands::LVL_1; final_lvl >= lvl; ++lvl)
+	for (sz_t lvl = first_lvl; final_lvl >= lvl; ++lvl)
 	{
 		_encode_tree_leafs(root, lvl);
 	}

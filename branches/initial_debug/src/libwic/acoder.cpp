@@ -394,7 +394,9 @@ double acoder::_entropy_eval(arcoder_base *const coder_base,
 	// выбор модели и подсчёт битовых затрат (учитывая смещение)
 	coder_base->model(model_no);
 
-	return (coder_base->entropy_eval(value + model._delta));
+	const double entropy = coder_base->entropy_eval(value + model._delta);
+
+	return entropy;
 }
 
 
