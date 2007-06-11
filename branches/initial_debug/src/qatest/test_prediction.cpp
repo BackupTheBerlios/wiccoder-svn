@@ -112,8 +112,8 @@ bool test_wtree_calc_pi()
 	using namespace wic;
 	const pi_t good_at_00_00	= 239.33333333;
 	const pi_t good_at_15_00	= 3.11111111;
-	const pi_t good_at_00_15	= 5.44444444;
-	const pi_t good_at_15_15	= 2.55555555;
+	const pi_t good_at_00_15	= 6.55555555;
+	const pi_t good_at_15_15	= 3.66666666;
 	const pi_t good_at_06_06	= 22.0625;
 
 	const pi_t calc_at_00_00	= wtree.calc_pi<wic::wnode::member_w>(
@@ -187,7 +187,7 @@ bool test_wtree_calc_sj()
 	// do tests
 	using namespace wic;
 	const pi_t good_at_09_01	= 21.14;
-	const pi_t good_at_07_07	= 16.28;
+	const pi_t good_at_07_07	= 28.152;
 	const pi_t good_at_06_06	= 71.612;
 	const pi_t good_at_03_12	= 17.466;
 
