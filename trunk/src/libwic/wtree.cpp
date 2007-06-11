@@ -320,6 +320,36 @@ n_t wtree::child_n_mask_uni(const p_t &p, const p_t &branch) const {
 }
 
 
+/*!	\param[in] branch Координаты элемента, образующего ветвь
+	\param[in] n Групповой признак подрезания ветвей
+
+	По сути, данная функция это единственный правильный способ порождения
+	ветвей (замены подрезанных ветвей на сохранённые).
+
+	Функция не выполняется рекурсивно вниз, как wtree::cut_leafs().
+*/
+void wtree::uncut_leafs(const p_t &branch, const n_t n)
+{
+	// проверка утверждений
+	assert(lvls() + subbands::LVL_PREV > sb().from_point(branch).lvl);
+
+	const bool is_LL = sb().test_LL(branch);
+
+	for (coefs_iterator i = iterator_over_children_uni(branch);
+		 !i->end(); i->next())
+	{
+		const p_t &p = i->get();
+
+		const n_t mask = (is_LL)? child_n_mask_LL(p)
+								: child_n_mask(p, branch);
+
+		_uncut_branch(p, !test_n_mask(n, mask));
+	}
+
+	at(branch).n = n;
+}
+
+
 /*!	\param[in] sb Саббенд по которому будет происходить обход с помощью
 	возвращённого итератора
 	\return Итератор по саббенду
@@ -460,6 +490,33 @@ bool wtree::_going_left(const sz_t x, const sz_t y) {
 	(void)x;
 
 	return (0 != y % 2);
+}
+
+
+/*!	\param[in] branch Координаты элемента, порождающего ветвь
+	\param[in] is_cut Флаг указывающий подрезанна ветвь или нет
+	(если <i>true</i>, то подрезана)
+
+	Функция просто устанавливает поле wnode::invalid для дочерних
+	от <i>branch</i> элементов в значение переданное во флаге
+	<i>is_cut</i>.
+
+	\note Родительский элемент <i>branch</i> не может быть из
+	<i>LL</i> саббенда или с саббенда находящегося на последнем
+	уровне разложения.
+*/
+void wtree::_uncut_branch(const p_t &branch, const bool is_cut)
+{
+	// проверка утверждений
+	assert(sb().from_point(branch).lvl > subbands::LVL_0);
+	assert(sb().from_point(branch).lvl < lvls());
+
+	// перебор дочерних элементов
+	for (coefs_iterator i = iterator_over_children(branch);
+		 !i->end(); i->next())
+	{
+		at(i->get()).invalid = is_cut;
+	}
 }
 
 

@@ -112,8 +112,8 @@ bool test_wtree_calc_pi()
 	using namespace wic;
 	const pi_t good_at_00_00	= 239.33333333;
 	const pi_t good_at_15_00	= 3.11111111;
-	const pi_t good_at_00_15	= 5.44444444;
-	const pi_t good_at_15_15	= 2.55555555;
+	const pi_t good_at_00_15	= 6.55555555;
+	const pi_t good_at_15_15	= 3.66666666;
 	const pi_t good_at_06_06	= 22.0625;
 
 	const pi_t calc_at_00_00	= wtree.calc_pi<wic::wnode::member_w>(
@@ -186,11 +186,14 @@ bool test_wtree_calc_sj()
 
 	// do tests
 	using namespace wic;
+	const pi_t good_at_04_00	= 42.24;
 	const pi_t good_at_09_01	= 21.14;
-	const pi_t good_at_07_07	= 16.28;
+	const pi_t good_at_07_07	= 28.152;
 	const pi_t good_at_06_06	= 71.612;
 	const pi_t good_at_03_12	= 17.466;
 
+	const pi_t calc_at_04_00	= wtree.calc_sj<wic::wnode::member_w>(
+										4,  0,  wtree.sb().get(2, 0), false);
 	const pi_t calc_at_09_01	= wtree.calc_sj<wic::wnode::member_w>(
 										9,  1,  wtree.sb().get(3, 0), true);
 	const pi_t calc_at_07_07	= wtree.calc_sj<wic::wnode::member_w>(
@@ -200,6 +203,8 @@ bool test_wtree_calc_sj()
 	const pi_t calc_at_03_12	= wtree.calc_sj<wic::wnode::member_w>(
 										3,  12, wtree.sb().get(3, 1), false);
 
+	const pi_t calc_at_04_00a	= wtree.calc_sj<wic::wnode::member_w>(
+										4,  0,  wtree.sb().get(2, 0));
 	const pi_t calc_at_09_01a	= wtree.calc_sj<wic::wnode::member_w>(
 										9,  1,  wtree.sb().get(3, 0));
 	const pi_t calc_at_07_07a	= wtree.calc_sj<wic::wnode::member_w>(
@@ -215,11 +220,13 @@ bool test_wtree_calc_sj()
 	// output results
 	bool ok = true;
 
+	if (!qa_dbl_compare(good_at_04_00, calc_at_04_00, "(4, 0)")) ok = false;
 	if (!qa_dbl_compare(good_at_09_01, calc_at_09_01, "(9, 1)")) ok = false;
 	if (!qa_dbl_compare(good_at_07_07, calc_at_07_07, "(7, 7)")) ok = false;
 	if (!qa_dbl_compare(good_at_06_06, calc_at_06_06, "(6, 6)")) ok = false;
 	if (!qa_dbl_compare(good_at_03_12, calc_at_03_12, "(3, 12)")) ok = false;
 
+	if (!qa_dbl_compare(good_at_04_00, calc_at_04_00a, "(4, 0)a")) ok = false;
 	if (!qa_dbl_compare(good_at_09_01, calc_at_09_01a, "(9, 1)a")) ok = false;
 	if (!qa_dbl_compare(good_at_07_07, calc_at_07_07a, "(7, 7)a")) ok = false;
 	if (!qa_dbl_compare(good_at_06_06, calc_at_06_06a, "(6, 6)a")) ok = false;

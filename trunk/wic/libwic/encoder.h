@@ -16,6 +16,7 @@
 
 // standard C++ library headers
 #include <assert.h>
+#include <iostream>
 
 // external library header
 // none
@@ -106,6 +107,8 @@ public:
 	/*!	\return Константная ссылка на внутренний объект класса wic::wtree
 	*/
 	const wtree &spectrum() const { return _wtree; }
+
+	const acoder &coder() const { return _acoder; }
 
 	//!	\brief Спектр вейвлет коэффициентов
 	/*!	\return Ссылка на внутренний объект класса wic::wtree
@@ -429,6 +432,11 @@ protected:
 	//!	спектра
 	void _encode_wtree_subband(const subbands::subband_t &sb,
 							   const bool decode_mode = false);
+
+	//!	\brief Выполняет кодирование/декодирование не корневых элементов
+	//!	спектра всего уровня
+	void _encode_wtree_level(const sz_t lvl,
+							 const bool decode_mode = false);
 
 	//!	\brief Выполняет кодирование/декодирование всего спектра
 	void _encode_wtree(const bool decode_mode = false);

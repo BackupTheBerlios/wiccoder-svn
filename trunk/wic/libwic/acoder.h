@@ -14,10 +14,16 @@
 ////////////////////////////////////////////////////////////////////////////////
 // include
 
+// code configuration headers
+#include <wic/libwic/defines.h>
+
 // standard C++ library headers
 #include <new>							// for std::bad_alloc exception class
 #include <vector>
 #include <assert.h>
+#include <string>						// for debug output only
+#include <fstream>						// for debug output only
+#include <iomanip>						// for debug output only
 
 // external library headers
 #include <arcoder/arcodec.h>
@@ -97,6 +103,36 @@ public:
 			аркодера.
 		*/
 		value_type _symbols;
+
+		//!	\name Поля для отладки
+		//@{
+		#ifdef LIBWIC_DEBUG
+
+		//!	\brief Количество символов, закодированных с использованием этой
+		//!	модели
+		/*!	\note Счётчик обнуляется при каждом вызове acoder::encode_start()
+		*/
+		unsigned int _encoded_symbols;
+
+		//!	\brief Количество символов, декодированных в этой модели
+		/*!	\note Счётчик обнуляется при каждом вызове acoder::decode_start()
+		*/
+		unsigned int _decoded_symbols;
+
+		//!	\brief Частоты появления кодируемых символов
+		/*!	Вектор содержит количество появлений всех символов из алфавита
+			\note Обнуляется при каждом вызове acoder::encode_start()
+		*/
+		std::vector<unsigned int> _encoded_freqs;
+
+		//!	\brief Частоты появления декодируемых символов
+		/*!	Вектор содержит количество появлений всех символов из алфавита
+			\note Обнуляется при каждом вызове acoder::decode_start()
+		*/
+		std::vector<unsigned int> _decoded_freqs;
+
+		#endif
+		//@}
 	};
 
 	//!	\brief Описание моделей, используемых арифметическим кодером
@@ -216,6 +252,23 @@ public:
 
 	//@}
 
+	//!	\name Отладочные функции
+	//@{
+
+	//!	\brief Выводит отладочную информацию о енкодере
+	void dbg_encoder_info(std::ostream &out);
+
+	//!	\brief Выводит отладочную информацию о енкодере
+	void dbg_encoder_info(const std::string &file);
+
+	//!	\brief Выводит отладочную информацию о декодере
+	void dbg_decoder_info(std::ostream &out);
+
+	//!	\brief Выводит отладочную информацию о декодере
+	void dbg_decoder_info(const std::string &file);
+
+	//@}
+
 protected:
 	// protected methods -------------------------------------------------------
 
@@ -261,6 +314,18 @@ protected:
 
 	//@}
 
+	//!	\name Отладочные функции
+	//@{
+
+	#ifdef LIBWIC_DEBUG
+	//!	\brief Выводит информацию о накопленной статистике
+	static void _dbg_freqs_out(const std::vector<unsigned int> &freqs,
+							   const model_t &model,
+							   std::ostream &out);
+	#endif
+
+	//@}
+
 private:
 	// private data ------------------------------------------------------------
 
@@ -285,6 +350,12 @@ private:
 
 	//!	\brief Арифметический декодер
 	ArDecoderWithBitCounter<BITInMemStream> *_adecoder;
+
+	#ifdef LIBWIC_DEBUG
+	//!	\brief Стандартный файловый поток для вывода информации в
+	//!	отладочном режиме
+	std::ofstream _dbg_out_stream;
+	#endif
 };
 
 

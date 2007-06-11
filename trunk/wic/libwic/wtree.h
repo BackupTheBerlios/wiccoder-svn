@@ -316,17 +316,29 @@ public:
 	pi_t calc_pi(const sz_t x, const sz_t y,
 				 const subbands::subband_t &sb)
 	{
+		int sums	= 4;
+
 		const pi_t i1	= abs(get_safe<member>(x - 1, y,     sb)) + 
 						  abs(get_safe<member>(x + 1, y,     sb)) +
 						  abs(get_safe<member>(x    , y - 1, sb)) + 
 						  abs(get_safe<member>(x    , y + 1, sb));
+
+		if (_subbands->test(p_t(x - 1, y    ), sb)) sums += 2;
+		if (_subbands->test(p_t(x + 1, y    ), sb)) sums += 2;
+		if (_subbands->test(p_t(x    , y - 1), sb)) sums += 2;
+		if (_subbands->test(p_t(x    , y + 1), sb)) sums += 2;
 
 		const pi_t i2	= abs(get_safe<member>(x + 1, y + 1, sb)) + 
 						  abs(get_safe<member>(x + 1, y - 1, sb)) +
 						  abs(get_safe<member>(x - 1, y + 1, sb)) + 
 						  abs(get_safe<member>(x - 1, y - 1, sb));
 
-		return pi_t(4 * abs(get_safe<member>(x, y, sb)) + 2 * i1 + i2) / 16;
+		if (_subbands->test(p_t(x + 1, y + 1), sb)) sums += 1;
+		if (_subbands->test(p_t(x + 1, y - 1), sb)) sums += 1;
+		if (_subbands->test(p_t(x - 1, y + 1), sb)) sums += 1;
+		if (_subbands->test(p_t(x - 1, y - 1), sb)) sums += 1;
+
+		return pi_t(4 * abs(get_safe<member>(x, y, sb)) + 2 * i1 + i2) / pi_t(sums);
 	}
 
 	//!	\brief Вычисляет среднее по дочерним элементам значения прогнозной
@@ -407,7 +419,9 @@ public:
 		// смещение для верхних коэффициентов
 		static const dsz_t	top		= (-1);
 		// смещение для боковых коэффициентов
-		       const dsz_t	side	= (going_left)? (+1): (-1);
+			const dsz_t	side	= (going_left)? (+1): (-1);
+		
+		pi_t sums = 0;
 
 		// подсчёт взвешанной суммы
 		const pi_t sum = 0.4 *
@@ -415,12 +429,17 @@ public:
 						 abs(pi_t(get_safe<member>(x + side, y      , sb))) +
 						 abs(pi_t(get_safe<member>(x       , y + top, sb)));
 
+		if (_subbands->test(p_t(x + side, y + top), sb)) sums += 0.4;
+		if (_subbands->test(p_t(x + side, y      ), sb)) sums += 1;
+		if (_subbands->test(p_t(x       , y + top), sb)) sums += 1;
+		if (0 == sums) sums = 1;
+
 		// родительский коэффициент
 		const p_t p = prnt(p_t(x, y));
 		const subbands::subband_t &prnt_sb = *(sb.prnt);
 
 		return (0.36 * pi_t(calc_pi<member>(p.x, p.y, prnt_sb)) +
-				1.06 * sum);
+				1.06 * 2.4 * sum / sums);
 	}
 
 	//! \brief Высчитывает значение прогнозной величины <i>S<sub>j</sub></i>
@@ -520,6 +539,9 @@ public:
 
 		at(branch).n = n;
 	}
+
+	//!	\brief Выполняет антиподрезание листьев
+	void uncut_leafs(const p_t &branch, const n_t n);
 
 	//@}
 
@@ -679,6 +701,8 @@ protected:
 		branch_n = 0;
 	}
 
+	//!	\brief Выполняет антиподрезание ветви
+	void _uncut_branch(const p_t &branch, const bool is_cut);
 
 	//@}
 

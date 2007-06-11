@@ -45,6 +45,10 @@ acoder::acoder(const sz_t buffer_sz):
 	_in_stream	= new BITInMemStream((char *)_buffer, _buffer_sz);
 
 	if (0 == _out_stream || 0 == _in_stream) throw std::bad_alloc();
+
+	#ifdef LIBWIC_DEBUG
+	 _dbg_out_stream.open("dumps/[acoder]models.out");
+	#endif
 }
 
 
@@ -99,6 +103,16 @@ void acoder::encode_start()
 
 	// инициализаци€ моделей
 	_init_models(_aencoder);
+
+	#ifdef LIBWIC_DEBUG
+	for (models_t::iterator i = _models.begin(); _models.end() != i; ++i)
+	{
+		model_t &model = (*i);
+
+		model._encoded_symbols = 0;
+		model._encoded_freqs.assign(model._symbols, 0);
+	}
+	#endif
 }
 
 
@@ -111,10 +125,14 @@ void acoder::encode_stop()
 	assert(0 != _out_stream);
 
 	// помещение EOF символа в поток
-	_aencoder->PutEOF();
+	// _aencoder->PutEOF();
 
 	// завершение кодировани€
 	_aencoder->EndPacking();
+
+	#ifdef LIBWIC_DEBUG
+	if (_dbg_out_stream.good()) dbg_encoder_info(_dbg_out_stream);
+	#endif
 }
 
 
@@ -127,16 +145,25 @@ void acoder::put_value(const value_type &value, const sz_t model_no)
 	assert(0 != _aencoder);
 	assert(0 != _out_stream);
 
-	assert(0 <= model_no && model_no < int(_models.size()));
+	assert(0 <= model_no && model_no < sz_t(_models.size()));
 
-	const model_t &model = _models[model_no];
+	model_t &model = _models[model_no];
 
 	assert(model.min <= value && value <= model.max);
+
+	const value_type enc_val = (value + model._delta);
+
+	assert(0 <= enc_val && enc_val < model._symbols);
+
+	#ifdef LIBWIC_DEBUG
+	++(model._encoded_symbols);
+	++(model._encoded_freqs[enc_val]);
+	#endif
 
 	// выбор модели и кодирование (учитыва€ смещение)
 	_aencoder->model(model_no);
 
-	(*_aencoder) << (value + model._delta);
+	(*_aencoder) << enc_val;
 }
 
 
@@ -153,6 +180,16 @@ void acoder::decode_start()
 
 	// инициализаци€ моделей
 	_init_models(_adecoder);
+
+	#ifdef LIBWIC_DEBUG
+	for (models_t::iterator i = _models.begin(); _models.end() != i; ++i)
+	{
+		model_t &model = (*i);
+
+		model._decoded_symbols = 0;
+		model._decoded_freqs.assign(model._symbols, 0);
+	}
+	#endif
 }
 
 
@@ -166,6 +203,10 @@ void acoder::decode_stop()
 
 	// завершение декодировани€
 	_adecoder->EndUnpacking();
+
+	#ifdef LIBWIC_DEBUG
+	if (_dbg_out_stream.good()) dbg_decoder_info(_dbg_out_stream);
+	#endif
 }
 
 
@@ -179,16 +220,148 @@ acoder::value_type acoder::get_value(const sz_t model_no)
 
 	assert(0 <= model_no && model_no < int(_models.size()));
 
-	const model_t &model = _models[model_no];
+	model_t &model = _models[model_no];
 
 	// выбор модели и декодирование (учитыва€ смещение)
 	_adecoder->model(model_no);
 
-	value_type value;
-	(*_adecoder) >> value;
+	value_type dec_val;
+	(*_adecoder) >> dec_val;
 
-	return (value - model._delta);
+	#ifdef LIBWIC_DEBUG
+	++(model._decoded_symbols);
+	++(model._decoded_freqs[dec_val]);
+	#endif
+
+	return (dec_val - model._delta);
 }
+
+
+/*!	\param[out] out —тандартный поток дл€ вывода
+*/
+void acoder::dbg_encoder_info(std::ostream &out)
+{
+	assert(0 != _aencoder);
+
+	out << "[encoder models information] ----------------------------";
+	out << std::endl;
+
+	#ifdef LIBWIC_DEBUG
+	unsigned int total_symbols = 0;
+	#endif
+
+	for (sz_t i = 0; sz_t(_models.size()) > i; ++i)
+	{
+		out << "#" << std::setw(2) << i;
+
+		_aencoder->model(i);
+		const model_t &model = _models[i];
+
+		#ifdef LIBWIC_DEBUG
+		out << "[" << std::setw(5) << model._symbols << "]";
+		#endif
+
+		const unsigned int bits = _aencoder->model()->bit_counter;
+
+		out << ": ";
+		out << std::setw(8) << bits << " bits |";
+		out << std::setw(7) << (bits / 8) << " bytes";
+
+		#ifdef LIBWIC_DEBUG
+		const unsigned int encoded_symbols = model._encoded_symbols;
+		total_symbols += encoded_symbols;
+
+		out << " |" << std::setw(7) << encoded_symbols  << " symbols";
+		#endif
+
+		out << std::endl;
+
+		#ifdef LIBWIC_DEBUG
+		_dbg_freqs_out(model._encoded_freqs, model, out);
+		#endif
+	}
+
+	#ifdef LIBWIC_DEBUG
+	out << "Total symbols: " << std::setw(6) << total_symbols << std::endl;
+	#endif
+
+	out << "[/encoder models information] ---------------------------";
+	out << std::endl;
+}
+
+
+/*!	\param[in] file »м€ файла в который будет производитьс€ вывод
+*/
+void acoder::dbg_encoder_info(const std::string &file)
+{
+	std::ofstream out(file.c_str());
+
+	if (out.good()) dbg_encoder_info(out);
+}
+
+
+/*!	\param[out] out —тандартный поток дл€ вывода
+*/
+void acoder::dbg_decoder_info(std::ostream &out)
+{
+	assert(0 != _adecoder);
+
+	out << "[decoder models information] ----------------------------";
+	out << std::endl;
+
+	#ifdef LIBWIC_DEBUG
+	unsigned int total_symbols = 0;
+	#endif
+
+	for (sz_t i = 0; sz_t(_models.size()) > i; ++i)
+	{
+		out << "#" << std::setw(2) << i;
+
+		_adecoder->model(i);
+		const model_t &model = _models[i];
+
+		#ifdef LIBWIC_DEBUG
+		out << "[" << std::setw(5) << model._symbols << "]";
+		#endif
+
+		const unsigned int bits = _adecoder->model()->bit_counter;
+
+		out << ": ";
+		out << std::setw(8) << bits << " bits |";
+		out << std::setw(7) << (bits / 8) << " bytes";
+
+		#ifdef LIBWIC_DEBUG
+		const unsigned int decoded_symbols = model._decoded_symbols;
+		total_symbols += decoded_symbols;
+
+		out << " |" << std::setw(7) << decoded_symbols  << " symbols";
+		#endif
+
+		out << std::endl;
+
+		#ifdef LIBWIC_DEBUG
+		_dbg_freqs_out(model._decoded_freqs, model, out);
+		#endif
+	}
+
+	#ifdef LIBWIC_DEBUG
+	out << "Total symbols: " << std::setw(6) << total_symbols << std::endl;
+	#endif
+
+	out << "[/decoder models information] ---------------------------";
+	out << std::endl;
+}
+
+
+/*!	\param[in] file »м€ файла в который будет производитьс€ вывод
+*/
+void acoder::dbg_decoder_info(const std::string &file)
+{
+	std::ofstream out(file.c_str());
+
+	if (out.good()) dbg_decoder_info(out);
+}
+
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -266,10 +439,13 @@ void acoder::_init_models(arcoder_base *const coder_base)
 	assert(0 != coder_base);
 	assert(coder_base->Models().Size() == _models.size());
 
+	_refresh_models(_models);
+
 	// сброс статистик
 	coder_base->ResetStatistics();
 
 	// инициализаци€ моделей
+	/*
 	for (sz_t i = 0; coder_base->Models().Size() > i; i++)
 	{
 		const model_t &model = _models[i];
@@ -281,6 +457,7 @@ void acoder::_init_models(arcoder_base *const coder_base)
 			coder_base->update_model(j);
 		}
 	}
+	*/
 }
 
 
@@ -358,8 +535,44 @@ double acoder::_entropy_eval(arcoder_base *const coder_base,
 	// выбор модели и подсчЄт битовых затрат (учитыва€ смещение)
 	coder_base->model(model_no);
 
-	return (coder_base->entropy_eval(value + model._delta));
+	const double entropy = coder_base->entropy_eval(value + model._delta);
+
+	return entropy;
 }
+
+
+#ifdef LIBWIC_DEBUG
+/*!	\param[in] freqs ¬ектор частот символов
+	\param[in] model »спользуема€ модель
+	\paran[out] out —тандартный поток дл€ вывода
+
+	\note ‘ункци€ не раелизованна
+*/
+void acoder::_dbg_freqs_out(const std::vector<unsigned int> &freqs,
+							const model_t &model,
+							std::ostream &out)
+{
+	unsigned int freq_max = 0;
+
+	for (sz_t i = 0; sz_t(freqs.size()) > i; ++i)
+	{
+		if (freq_max < freqs[i]) freq_max = freqs[i];
+	}
+
+	for (sz_t i = 0; sz_t(freqs.size()) > i; ++i)
+	{
+		const unsigned int freq = freqs[i];
+
+		if (0 == freq) continue;
+
+		out << "\t" << std::setw(5) << (i - model._delta) << "|";
+
+		for (sz_t k = (36 * freq / freq_max); 0 < k;  --k) out << '+';
+
+		out << std::setw(7) << freq << std::endl;
+	}
+}
+#endif
 
 
 
