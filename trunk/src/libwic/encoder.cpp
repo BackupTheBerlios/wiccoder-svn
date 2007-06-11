@@ -182,7 +182,7 @@ wk_t encoder::_decode_spec(const sz_t m)
 */
 n_t encoder::_decode_map(const sz_t m)
 {
-	return _acoder.get<n_t>(m);
+	return _acoder.get<n_t>(m + ACODER_SPEC_MODELS_COUNT);
 }
 
 
@@ -724,7 +724,7 @@ void encoder::_encode_wtree_root(const bool decode_mode)
 
 		if (decode_mode) {
 			node.wc = _decode_spec(spec_LL_model);
-			node.n = _decode_spec(map_LL_model);
+			node.n = _decode_map(map_LL_model);
 		}  else {
 			_encode_spec(spec_LL_model, node.wc);
 			_encode_map(map_LL_model, node.n);
@@ -852,7 +852,7 @@ void encoder::_encode_wtree(const bool decode_mode)
 	const sz_t final_lvl = _wtree.lvls() + 2*subbands::LVL_PREV;
 
 	// цикл по уровням
-	for (sz_t lvl = subbands::LVL_1; final_lvl >= lvl; ++lvl)
+	for (sz_t lvl = subbands::LVL_0; final_lvl >= lvl; ++lvl)
 	{
 		// цикл по саббендам в уровне
 		for (sz_t k = 0; _wtree.sb().subbands_on_lvl(lvl) > k; ++k)

@@ -34,15 +34,51 @@ int main() {
 												  rgb_image.w(), rgb_image.h(),
 												  "dumps/[enc]image_wt.in");
 
+	// создание кодера
 	wic::encoder encoder(image_wt, rgb_image.w(), rgb_image.h(), lvls);
 
-	encoder.spectrum().quantize(16);
+	// квантование коэффициентов
+	encoder.spectrum().quantize(6);
 
+	encoder.spectrum().save<wic::wnode::member_wq>(image_wt);
+	imgs::bmp_dump<wic::w_t, wic::sz_t>::txt_dump(image_wt,
+												  rgb_image.w(), rgb_image.h(),
+												  "dumps/[enc]quantized.wq");
+
+	// кодирование
 	encoder.encode(0);
+
+	encoder.spectrum().save<wic::wnode::member_wc>(image_wt);
+
+	imgs::bmp_dump<wic::w_t, wic::sz_t>::txt_dump(image_wt,
+												  rgb_image.w(), rgb_image.h(),
+												  "dumps/[enc]optimized.wc");
+
+	encoder.spectrum().save<wic::wnode::member_n>(image_wt);
+
+	imgs::bmp_dump<wic::w_t, wic::sz_t>::txt_dump(image_wt,
+												  rgb_image.w(), rgb_image.h(),
+												  "dumps/[enc]optimized.n");
+
+	// декодирование
 	encoder.decode();
 
-	encoder.spectrum().dequantize(16);
+	encoder.spectrum().save<wic::wnode::member_wc>(image_wt);
 
+	imgs::bmp_dump<wic::w_t, wic::sz_t>::txt_dump(image_wt,
+												  rgb_image.w(), rgb_image.h(),
+												  "dumps/[dec]decoded.wc");
+
+	encoder.spectrum().save<wic::wnode::member_n>(image_wt);
+
+	imgs::bmp_dump<wic::w_t, wic::sz_t>::txt_dump(image_wt,
+												  rgb_image.w(), rgb_image.h(),
+												  "dumps/[dec]decoded.n");
+
+	// деквантование
+	encoder.spectrum().dequantize(6);
+
+	// сохранение результатов
 	encoder.spectrum().save<wic::wnode::member_w>(image_wt);
 
 	imgs::bmp_dump<wic::w_t, wic::sz_t>::txt_dump(image_wt,
