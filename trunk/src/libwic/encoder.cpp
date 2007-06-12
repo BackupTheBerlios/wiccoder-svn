@@ -605,12 +605,10 @@ void encoder::_encode_tree_root(const p_t &root)
 
 /*!	\param[in] root Координаты корнвого элемента
 	\param[in] lvl Номер уровня разложения
-
-	\todo Попробовать написать функцию которая будет совместно
-	использоваться функциями _encode_tree_leafs() и _encode_tree_root()
 */
 void encoder::_encode_tree_leafs(const p_t &root, const sz_t lvl)
 {
+	// псевдонимы для номеров уровней
 	const sz_t lvl_g = lvl;
 	const sz_t lvl_j = lvl_g + subbands::LVL_PREV;
 	const sz_t lvl_i = lvl_j + subbands::LVL_PREV;
@@ -661,85 +659,6 @@ void encoder::_encode_tree_leafs(const p_t &root, const sz_t lvl)
 			_encode_map(model, node_j.n);
 		}
 	}
-	/*
-	// номер предыдущего уровня разложения
-	const sz_t lvl_i = lvl + subbands::LVL_PREV;
-
-	// псевдоним текущего уровня (для ясности)
-	const sz_t lvl_j = lvl;
-
-	// номер следующего уровня
-	const sz_t lvl_g = lvl + subbands::LVL_NEXT;
-
-	// номер уровня следующего за lvl_g
-	const sz_t lvl_v = lvl_g + subbands::LVL_NEXT;
-
-	// цикл по саббендам в уровне
-	for (sz_t k = 0; _wtree.sb().subbands_on_lvl(lvl_i) > k; ++k)
-	{
-		const subbands::subband_t &sb_i = _wtree.sb().get(lvl_i, k);
-		const subbands::subband_t &sb_j = _wtree.sb().get(lvl_j, k);
-		const subbands::subband_t &sb_g = _wtree.sb().get(lvl_g, k);
-		const subbands::subband_t &sb_v = _wtree.sb().get(lvl_v, k);
-
-		// цикл по элементам дерева из саббенда sb_i
-		for (wtree::coefs_iterator i = _wtree.iterator_over_leafs(root, sb_i);
-			 !i->end(); i->next())
-		{
-			const p_t &p_i = i->get();
-			const wnode &node_i = _wtree.at(p_i);
-
-			// цикл по элементам из саббенда sb_j (с уровня lvl)
-			for (wtree::coefs_iterator j =
-						_wtree.iterator_over_children_uni(p_i);
-				 !j->end(); j->next())
-			{
-				// текущий элемент с уровня sb_j
-				const p_t &p_j = j->get();
-
-				// маска подрезания, где текущий элемент не подрезан
-				const n_t mask = _wtree.child_n_mask_uni(p_j, p_i);
-
-				// переходим к следующему потомку, если ветвь подрезана
-				if (!_wtree.test_n_mask(node_i.n, mask)) continue;
-
-				// текущий элемент с уровня sb_j
-				const wnode &node_j = _wtree.at(p_j);
-
-				// закодируем групповой признак подрезания
-				_encode_map(_ind_map<wnode::member_wc>(p_j, sb_g), node_j.n);
-
-				// цикл по дочерним коэффициентам из саббенда sb_g
-				for (wtree::coefs_iterator g =
-							_wtree.iterator_over_leafs(root, sb_g);
-					 !g->end(); g->next())
-				{
-					// текущий элемент с уровня sb_g
-					const p_t &p_g = g->get();
-
-					// маска подрезания, где текущий элемент не подрезан
-					const n_t mask = _wtree.child_n_mask(p_g, p_j);
-
-					// переходим к следующему потомку, если ветвь подрезана
-					if (!_wtree.test_n_mask(node_j.n, mask)) continue;
-
-					// цикл по кодируемым элементам
-					for (wtree::coefs_iterator v =
-								_wtree.iterator_over_children(p_g);
-						 !v->end(); v->next())
-					{
-						// координаты кодируемого элемента
-						const p_t &p_v = v->get();
-
-						// кодирование элемента
-						_encode_spec(_ind_spec<wnode::member_wc>(p_v, sb_v),
-									 _wtree.at(p_v).wc);
-					}
-				}
-			}
-		}
-	}
-	*/
 }
 
 
@@ -747,10 +666,10 @@ void encoder::_encode_tree_leafs(const p_t &root, const sz_t lvl)
 */
 void encoder::_encode_tree(const p_t &root)
 {
-	// кодирование корневого и дочерних элементов
+	// кодирование корневого и дочерних элементов дерева
 	_encode_tree_root(root);
 
-	// кодирование элементов на остальных уровнях
+	// кодирование элементов дерева на остальных уровнях
 	const sz_t first_lvl = subbands::LVL_1 + subbands::LVL_NEXT;
 	const sz_t final_lvl = _wtree.lvls();
 
@@ -779,16 +698,25 @@ void encoder::_encode_wtree_root(const bool decode_mode)
 	for (wtree::coefs_iterator i = _wtree.iterator_over_subband(sb_LL);
 		 !i->end(); i->next())
 	{
+		// координаты элемента
 		const p_t &p_i = i->get();
 
+		// сам элемент из LL саббенда
 		wnode &node = _wtree.at(p_i);
 
-		if (decode_mode) {
+		if (decode_mode)
+		{
+			// декодирование коэффициента и признака подрезания
 			node.wc = _decode_spec(spec_LL_model);
 			node.n = _decode_map(map_LL_model);
 
+			// порождение ветвей в соответствии с полученным признаком
+			// подрезания
 			_wtree.uncut_leafs(p_i, node.n);
-		}  else {
+		}
+		else
+		{
+			// кодирование коэффициента и признака подрезания
 			_encode_spec(spec_LL_model, node.wc);
 			_encode_map(map_LL_model, node.n);
 		}
@@ -803,10 +731,11 @@ void encoder::_encode_wtree_root(const bool decode_mode)
 		// очередной саббенд с первого уровня
 		const subbands::subband_t &sb = _wtree.sb().get(subbands::LVL_1, k);
 
-		// цикл по всем элементам из саббенда
+		// цикл по всем элементам из саббенда с первого уровня
 		for (wtree::coefs_iterator i = _wtree.iterator_over_subband(sb);
 			 !i->end(); i->next())
 		{
+			// (де)кодирование очерендного коэффициента
 			if (decode_mode)
 				_wtree.at(i->get()).wc = _decode_spec(spec_1_model);
 			else
@@ -816,104 +745,30 @@ void encoder::_encode_wtree_root(const bool decode_mode)
 }
 
 
-/*!	\param[in] sb Саббенд из которого будут использоваться групповые
-	признаки подрезания ветвей
+/*!	\param[in] lvl Номер уровня, коэффициенты на котором будут
+	закодированы
 	\param[in] decode_mode Если <i>false</i> функция будет выполнять
 	кодирование спектра, иначе (если <i>true</i>) будет выполнять
 	декодирование спектра.
-*/
-void encoder::_encode_wtree_subband(const subbands::subband_t &sb,
-									const bool decode_mode)
-{
-	const sz_t lvl_i = sb.lvl;
-	const sz_t lvl_j = lvl_i + subbands::LVL_NEXT;
-	const sz_t lvl_g = lvl_j + subbands::LVL_NEXT;
 
-	// псевдоним для саббенда sb (для ясности)
-	const subbands::subband_t &sb_i = sb;
-
-	// цикл по всем элементам из саббенда
-	for (wtree::coefs_iterator i = _wtree.iterator_over_subband(sb_i);
-		 !i->end(); i->next())
-	{
-		const p_t &p_i = i->get();
-		const wnode &node_i = _wtree.at(p_i);
-
-		// цикл по дочерним элементам
-		for (wtree::coefs_iterator j = _wtree.iterator_over_children_uni(p_i);
-			 !j->end(); j->next())
-		{
-			const p_t &p_j = j->get();
-
-			// маска подрезания, где текущий элемент не подрезан
-			const n_t mask = _wtree.child_n_mask_uni(p_j, p_i);
-
-			// переходим к следующему потомку, если ветвь подрезана
-			if (!_wtree.test_n_mask(node_i.n, mask)) continue;
-
-			// элементы могут лежать в разных саббендах (случай с LL саббендом)
-			const subbands::subband_t &sb_j = _wtree.sb().from_point(p_j, lvl_j);
-			const subbands::subband_t &sb_g = _wtree.sb().get(lvl_g, sb_j.i);
-
-			for (wtree::coefs_iterator g = _wtree.iterator_over_children(p_j);
-				 !g->end(); g->next())
-			{
-				// координаты (де)кодируемого элемента
-				const p_t &p_g = g->get();
-
-				// номер модели для (де)кодирования
-				const sz_t model = _ind_spec<wnode::member_wc>(p_g, sb_g);
-
-				// (де)кодирование коэффициента
-				if (decode_mode)
-					_wtree.at(p_g).wc = _decode_spec(model);
-				else
-					_encode_spec(model, _wtree.at(p_g).wc);
-			}
-		}
-
-		// (де)кодирование групповых признаков подрезания
-		for (wtree::coefs_iterator j = _wtree.iterator_over_children_uni(p_i);
-			 !j->end(); j->next())
-		{
-			// координаты текущего элемента
-			const p_t &p_j = j->get();
-
-			// маска подрезания, где текущий элемент не подрезан
-			const n_t mask = _wtree.child_n_mask_uni(p_j, p_i);
-
-			// переходим к следующему потомку, если ветвь подрезана
-			if (!_wtree.test_n_mask(node_i.n, mask)) continue;
-
-			// элементы могут лежать в разных саббендах (случай с LL саббендом)
-			const subbands::subband_t &sb_j = _wtree.sb().from_point(p_j, lvl_j);
-			const subbands::subband_t &sb_g = _wtree.sb().get(lvl_g, sb_j.i);
-
-			// номер модели для (де)кодирования
-			const sz_t model = _ind_map<wnode::member_wc>(p_j, sb_g);
-
-			// (де)кодирование группового признака подрезания
-			if (decode_mode)
-				_wtree.at(p_j).n = _decode_map(model);
-			else
-				_encode_map(model, _wtree.at(p_j).n);
-		}
-	}
-}
-
-
-/*!
+	\todo Возможно не стоит делать wtree::uncut_leafs() при попадании в
+	подрезанную ветвь при кодирование групповыйх признаков подрезания.
+	Вместо этого можно перед декодированием проинициализировать все поля
+	wnode::invalid значением <i>true</i>
 */
 void encoder::_encode_wtree_level(const sz_t lvl,
 								  const bool decode_mode)
 {
+	// определение псевдонимов для номеров уровней
 	const sz_t lvl_g = lvl;
 	const sz_t lvl_j = lvl_g + subbands::LVL_PREV;
 	const sz_t lvl_i = lvl_j + subbands::LVL_PREV;
 
-	// цикл по саббендам в уровне
+	// цикл по саббендам на уровне
 	for (sz_t k = 0; _wtree.sb().subbands_on_lvl(lvl) > k; ++k)
 	{
+		// саббенд на уровне коэффициенты из которого будут
+		// закодированы и родительский для для него
 		const subbands::subband_t &sb_g = _wtree.sb().get(lvl_g, k);
 		const subbands::subband_t &sb_j = _wtree.sb().get(lvl_j, k);
 
@@ -921,14 +776,20 @@ void encoder::_encode_wtree_level(const sz_t lvl,
 		for (wtree::coefs_iterator g = _wtree.iterator_over_subband(sb_g);
 			 !g->end(); g->next())
 		{
+			// координаты элемента
 			const p_t &p_g = g->get();
 
+			// сам элемент
 			wnode &node_g = _wtree.at(p_g);
 
+			// переходим к следующему, если коэффициента попал в
+			// подрезанную ветвь
 			if (node_g.invalid) continue;
 
+			// выбираем модель для (де)кодирования коэффициента
 			const sz_t model = _ind_spec<wnode::member_wc>(p_g, sb_g);
 
+			// (де)кодирование коэффициента
 			if (decode_mode)
 				node_g.wc = _decode_spec(model);
 			else
@@ -942,9 +803,13 @@ void encoder::_encode_wtree_level(const sz_t lvl,
 		for (wtree::coefs_iterator j = _wtree.iterator_over_subband(sb_j);
 			 !j->end(); j->next())
 		{
+			// координаты элемента
 			const p_t &p_j = j->get();
 
+			// координаты родительского элемента
 			const p_t &p_i = _wtree.prnt_uni(p_j);
+
+			// ссылка на родительский элемент
 			const wnode &node_i = _wtree.at(p_i);
 
 			// маска подрезания, где текущий элемент не подрезан
@@ -953,20 +818,32 @@ void encoder::_encode_wtree_level(const sz_t lvl,
 			// переходим к следующему потомку, если ветвь подрезана
 			if (!_wtree.test_n_mask(node_i.n, mask))
 			{
-				if (decode_mode) _wtree.uncut_leafs(p_j, 0);
+				// выставление значений поля wnode::invalid в <i>true</i>
+				// так как ветвь подрезана
+				if (decode_mode)
+					_wtree.uncut_leafs(p_j, _wtree.get_clear_n());
 
 				continue;
 			}
 
+			// значение элемента
 			wnode &node_j = _wtree.at(p_j);
 
+			// выбор модели для кодирования группового признака подрезания
 			const sz_t model = _ind_map<wnode::member_wc>(p_j, sb_g);
 
-			if (decode_mode) {
+			if (decode_mode)
+			{
+				// декодирование признака подрезания
 				node_j.n = _decode_map(model);
 
+				// порождение ветвей в соответствии с полученным признаком
+				// подрезания
 				_wtree.uncut_leafs(p_j, node_j.n);
-			} else {
+			}
+			else
+			{
+				// кодирование признака подрезания
 				_encode_map(model, node_j.n);
 			}
 		}
@@ -980,10 +857,10 @@ void encoder::_encode_wtree_level(const sz_t lvl,
 */
 void encoder::_encode_wtree(const bool decode_mode)
 {
-	// кодирование корневых элементов
+	// (де)кодирование корневых элементов
 	_encode_wtree_root(decode_mode);
 
-	// кодирование остальных элементов
+	// (де)кодирование остальных элементов
 	const sz_t first_lvl = subbands::LVL_1 + subbands::LVL_NEXT;
 	const sz_t final_lvl = _wtree.lvls();
 
@@ -991,15 +868,6 @@ void encoder::_encode_wtree(const bool decode_mode)
 	for (sz_t lvl = first_lvl; final_lvl >= lvl; ++lvl)
 	{
 		_encode_wtree_level(lvl, decode_mode);
-		/*
-		// цикл по саббендам в уровне
-		for (sz_t k = 0; _wtree.sb().subbands_on_lvl(lvl) > k; ++k)
-		{
-			const subbands::subband_t &sb = _wtree.sb().get(lvl, k);
-
-			_encode_wtree_subband(sb, decode_mode);
-		}
-		*/
 	}
 }
 

@@ -429,11 +429,6 @@ protected:
 	void _encode_wtree_root(const bool decode_mode = false);
 
 	//!	\brief ¬ыполн€ет кодирование/декодирование не корневых элементов
-	//!	спектра
-	void _encode_wtree_subband(const subbands::subband_t &sb,
-							   const bool decode_mode = false);
-
-	//!	\brief ¬ыполн€ет кодирование/декодирование не корневых элементов
 	//!	спектра всего уровн€
 	void _encode_wtree_level(const sz_t lvl,
 							 const bool decode_mode = false);
