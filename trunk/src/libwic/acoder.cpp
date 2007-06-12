@@ -47,7 +47,7 @@ acoder::acoder(const sz_t buffer_sz):
 	if (0 == _out_stream || 0 == _in_stream) throw std::bad_alloc();
 
 	#ifdef LIBWIC_DEBUG
-	 _dbg_out_stream.open("dumps/[acoder]models.out");
+	_dbg_out_stream.open("dumps/[acoder]models.out");
 	#endif
 }
 
@@ -542,7 +542,7 @@ double acoder::_entropy_eval(arcoder_base *const coder_base,
 
 
 #ifdef LIBWIC_DEBUG
-/*!	\paran[out] out Стандартный поток для вывода
+/*!	\param[out] out Стандартный поток для вывода
 	\param[in] freqs Вектор частот символов
 	\param[in] model Используемая модель
 	\param[in] model_no Номер используемой модели

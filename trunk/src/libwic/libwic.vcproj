@@ -132,6 +132,9 @@
 				RelativePath="..\..\wic\libwic\defines.h">
 			</File>
 			<File
+				RelativePath="..\..\wic\libwic\dpcm.h">
+			</File>
+			<File
 				RelativePath="..\..\wic\libwic\encoder.h">
 			</File>
 			<File

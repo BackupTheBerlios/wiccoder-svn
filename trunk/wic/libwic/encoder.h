@@ -16,7 +16,6 @@
 
 // standard C++ library headers
 #include <assert.h>
-#include <iostream>
 
 // external library header
 // none
@@ -25,6 +24,7 @@
 #include <wic/libwic/types.h>
 #include <wic/libwic/wtree.h>
 #include <wic/libwic/acoder.h>
+#include <wic/libwic/dpcm.h>
 #include <wic/libwic/iterators.h>
 
 
@@ -36,13 +36,15 @@
 //!	макрос не определён, будет проверенно только 3 значения: w, w +/- 1, 0.
 //!	Знак операции выбирается в зависимости от значения коэффициента - плюс для
 //! отрицательных и минус для положительных коэффициентов
-// #define COEF_FIX_USE_4_POINTS
+#define	COEF_FIX_USE_4_POINTS
+// #undef	COEF_FIX_USE_4_POINTS
 
 //!	\brief Если этот макрос определён, то корректировка коэффициентов
 //!	производиться не будет
 /*!	При включенной корректировке получаются лучшее результаты
 */
-// #define COEF_FIX_DISABLED
+#define	COEF_FIX_DISABLED
+#undef	COEF_FIX_DISABLED
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -114,12 +116,20 @@ public:
 	*/
 	const wtree &spectrum() const { return _wtree; }
 
-	const acoder &coder() const { return _acoder; }
-
 	//!	\brief Спектр вейвлет коэффициентов
 	/*!	\return Ссылка на внутренний объект класса wic::wtree
 	*/
 	wtree &spectrum() { return _wtree; }
+
+	//!	\brief Используемый арифметический кодер
+	/*!	\return Константная ссылка на внутренний объект класса wic::acoder
+	*/
+	const acoder &coder() const { return _acoder; }
+
+	//!	\brief Используемый арифметический кодер
+	/*!	\return Ссылка на внутренний объект класса wic::acoder
+	*/
+	acoder &coder() { return _acoder; }
 
 	//@}
 
