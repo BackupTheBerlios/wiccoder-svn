@@ -36,7 +36,13 @@
 //!	макрос не определён, будет проверенно только 3 значения: w, w +/- 1, 0.
 //!	Знак операции выбирается в зависимости от значения коэффициента - плюс для
 //! отрицательных и минус для положительных коэффициентов
-#define COEF_FIX_USE_4_POINTS
+// #define COEF_FIX_USE_4_POINTS
+
+//!	\brief Если этот макрос определён, то корректировка коэффициентов
+//!	производиться не будет
+/*!	При включенной корректировке получаются лучшее результаты
+*/
+// #define COEF_FIX_DISABLED
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -198,20 +204,34 @@ protected:
 	template <const wnode::wnode_members member>
 	acoder::models_t _mk_acoder_models()
 	{
+		// создание моделей для кодирования
+		acoder::models_t models;
+		acoder::model_t model;
+
+		// модели для коэффициентов
+		static const int MAJOR[6] = {1000, 440, 100, 60, 50, 30};
+
+		for (int i = 0; sizeof(MAJOR)/sizeof(int) > i; ++i)
+		{
+			model.min = -MAJOR[i];
+			model.max = +MAJOR[i];
+			models.push_back(model);
+		}
+
+
+		/*
 		// поиск минимального и максимального значений коэффициентов
 		wnode::type_selector<member>::result w_min = 0;
 		wnode::type_selector<member>::result w_max = 0;
 
 		_wtree.minmax<member>(_wtree.iterator_over_wtree(), w_min, w_max);
 
-		// создание моделей для кодирования коэффициентов
-		acoder::models_t models;
-
 		acoder::model_t model;
 		model.min = w_min - 1;
 		model.max = w_max + 1;
 
 		models.insert(models.end(), ACODER_SPEC_MODELS_COUNT, model);
+		*/
 
 		// создание моделей для кодирования групповых признаков подрезания
 		model.min = 0;
@@ -320,9 +340,9 @@ protected:
 			const wnode &node = _wtree.at(i->get());
 
 			if (use_node_j0) {
-				j0 += (node.wc * node.wc + node.j0);
+				j0 += (node.w * node.w + node.j0);
 			} else {
-				j0 += (node.wc * node.wc);
+				j0 += (node.w * node.w);
 			}
 		}
 

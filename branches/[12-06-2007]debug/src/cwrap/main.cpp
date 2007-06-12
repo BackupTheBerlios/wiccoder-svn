@@ -46,11 +46,11 @@ int main() {
 	//		"dumps/lena_eye_64x64.bmp";
 
 	// some constants to use
-	static const int			lvls	= 5;
+	static const int			lvls	= 3;
 
-	static const wic::q_t		q		= 9;
+	static const wic::q_t		q		= 13.74849;
 
-	static const wic::lambda_t	lambda	= 1;
+	static const wic::lambda_t	lambda	= 21.6125;
 
 	// first, load the image
 	imgs::img_rgb rgb_image;
@@ -116,6 +116,18 @@ int main() {
 	imgs::bmp_dump<wic::w_t, wic::sz_t>::txt_dump(image_wt,
 												  rgb_image.w(), rgb_image.h(),
 												  "dumps/[enc]optimized.n");
+
+	encoder.spectrum().save<wic::wnode::member_j0>(image_wt);
+
+	imgs::bmp_dump<wic::w_t, wic::sz_t>::txt_dump(image_wt,
+												  rgb_image.w(), rgb_image.h(),
+												  "dumps/[enc]optimized.j0", 10);
+
+	encoder.spectrum().save<wic::wnode::member_j1>(image_wt);
+
+	imgs::bmp_dump<wic::w_t, wic::sz_t>::txt_dump(image_wt,
+												  rgb_image.w(), rgb_image.h(),
+												  "dumps/[enc]optimized.j1", 10);
 
 	// декодирование
 	encoder.decode();

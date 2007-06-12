@@ -228,7 +228,9 @@ j_t encoder::_calc_rd_iteration(const p_t &p, const wk_t &k,
 wk_t encoder::_coef_fix(const p_t &p, const subbands::subband_t &sb,
 						const lambda_t &lambda)
 {
+	#ifdef COEF_FIX_DISABLED
 	return _wtree.at(p).wq;
+	#endif
 
 	// выбор модели и оригинального значения коэффициента
 	const sz_t	model	= _ind_spec<wnode::member_wc>(p, sb);
@@ -237,11 +239,11 @@ wk_t encoder::_coef_fix(const p_t &p, const subbands::subband_t &sb,
 	// Определение набора подбираемых значений
 	#ifdef COEF_FIX_USE_4_POINTS
 		static const sz_t vals_count	= 4;
-		const wk_t w_vals[vals_count] = {0, wq, wq + 1, wq - 1};
+		const wk_t w_vals[vals_count]	= {0, wq, wq + 1, wq - 1};
 	#else
 		static const sz_t vals_count	= 3;
-		const wk_t w_drift = (0 <= wq)? -1: +1;
-		const wk_t w_vals[vals_count] = {0, wq, wq + w_drift};
+		const wk_t w_drift				= (0 <= wq)? -1: +1;
+		const wk_t w_vals[vals_count]	= {0, wq, wq + w_drift};
 	#endif
 
 	// начальные значения для поиска минимума RD функции

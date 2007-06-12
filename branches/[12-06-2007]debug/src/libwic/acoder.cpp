@@ -277,7 +277,7 @@ void acoder::dbg_encoder_info(std::ostream &out)
 		out << std::endl;
 
 		#ifdef LIBWIC_DEBUG
-		_dbg_freqs_out(model._encoded_freqs, model, out);
+		_dbg_freqs_out(out, model._encoded_freqs, model, i, _aencoder);
 		#endif
 	}
 
@@ -340,7 +340,7 @@ void acoder::dbg_decoder_info(std::ostream &out)
 		out << std::endl;
 
 		#ifdef LIBWIC_DEBUG
-		_dbg_freqs_out(model._decoded_freqs, model, out);
+		_dbg_freqs_out(out, model._decoded_freqs, model, i, _adecoder);
 		#endif
 	}
 
@@ -542,16 +542,21 @@ double acoder::_entropy_eval(arcoder_base *const coder_base,
 
 
 #ifdef LIBWIC_DEBUG
-/*!	\param[in] freqs Вектор частот символов
+/*!	\paran[out] out Стандартный поток для вывода
+	\param[in] freqs Вектор частот символов
 	\param[in] model Используемая модель
-	\paran[out] out Стандартный поток для вывода
+	\param[in] model_no Номер используемой модели
+	\param[in] coder_base Базовый класс используемого арифметического кодера
 
-	\note Функция не раелизованна
+	\note Функция меняет текущую модель арифметического кодера на модель
+	с номером model_no.
 */
-void acoder::_dbg_freqs_out(const std::vector<unsigned int> &freqs,
-							const model_t &model,
-							std::ostream &out)
+void acoder::_dbg_freqs_out(std::ostream &out,
+							const std::vector<unsigned int> &freqs,
+							const model_t &model, const sz_t model_no,
+							arcoder_base *const coder_base)
 {
+	// поиск максимальной частоты
 	unsigned int freq_max = 0;
 
 	for (sz_t i = 0; sz_t(freqs.size()) > i; ++i)
@@ -559,17 +564,28 @@ void acoder::_dbg_freqs_out(const std::vector<unsigned int> &freqs,
 		if (freq_max < freqs[i]) freq_max = freqs[i];
 	}
 
+	// переключение текущей модели
+	if (0 != coder_base) coder_base->model(model_no);
+
+	// вывод частот
 	for (sz_t i = 0; sz_t(freqs.size()) > i; ++i)
 	{
 		const unsigned int freq = freqs[i];
 
 		if (0 == freq) continue;
 
+		// вывод диаграммы
 		out << "\t" << std::setw(5) << (i - model._delta) << "|";
 
 		for (sz_t k = (36 * freq / freq_max); 0 < k;  --k) out << '+';
 
-		out << std::setw(7) << freq << std::endl;
+		// числовое значение частоты
+		out << std::setw(7) << freq;
+
+		// числовое значение энтропии
+		out << "; e=" << std::setprecision(5) << coder_base->entropy_eval(i);
+
+		out << std::endl;
 	}
 }
 #endif

@@ -319,9 +319,10 @@ protected:
 
 	#ifdef LIBWIC_DEBUG
 	//!	\brief Выводит информацию о накопленной статистике
-	static void _dbg_freqs_out(const std::vector<unsigned int> &freqs,
-							   const model_t &model,
-							   std::ostream &out);
+	static void _dbg_freqs_out(std::ostream &out,
+							   const std::vector<unsigned int> &freqs,
+							   const model_t &model, const sz_t model_no,
+							   arcoder_base *const coder_base = 0);
 	#endif
 
 	//@}
