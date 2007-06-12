@@ -26,6 +26,22 @@
 
 
 ////////////////////////////////////////////////////////////////////////////////
+// defines
+
+//!	\brief Если макрос определён, то веса граничных элементов  при подсчёте
+//!	прогноза <i>P<sub>i</sub></i> будут пересчитанны в соответствии с
+//!	количеством элементов вошедших в прогноз
+#define	RECALC_PI_FACTOR_ON_EDGES
+//#undef	RECALC_PI_FACTOR_ON_EDGES
+
+//!	\brief Если макрос определён, то веса граничных элементов  при подсчёте
+//!	прогноза <i>S<sub>j</sub></i> будут пересчитанны в соответствии с
+//!	количеством элементов вошедших в прогноз
+#define	RECALC_SJ_FACTOR_ON_EDGES
+//#undef	RECALC_SJ_FACTOR_ON_EDGES
+
+
+////////////////////////////////////////////////////////////////////////////////
 // wic namespace
 namespace wic {
 
@@ -316,29 +332,40 @@ public:
 	pi_t calc_pi(const sz_t x, const sz_t y,
 				 const subbands::subband_t &sb)
 	{
+		#ifdef RECALC_PI_FACTOR_ON_EDGES
 		int sums	= 4;
+		#endif
 
 		const pi_t i1	= abs(get_safe<member>(x - 1, y,     sb)) + 
 						  abs(get_safe<member>(x + 1, y,     sb)) +
 						  abs(get_safe<member>(x    , y - 1, sb)) + 
 						  abs(get_safe<member>(x    , y + 1, sb));
 
+		#ifdef RECALC_PI_FACTOR_ON_EDGES
 		if (_subbands->test(p_t(x - 1, y    ), sb)) sums += 2;
 		if (_subbands->test(p_t(x + 1, y    ), sb)) sums += 2;
 		if (_subbands->test(p_t(x    , y - 1), sb)) sums += 2;
 		if (_subbands->test(p_t(x    , y + 1), sb)) sums += 2;
+		#endif
 
 		const pi_t i2	= abs(get_safe<member>(x + 1, y + 1, sb)) + 
 						  abs(get_safe<member>(x + 1, y - 1, sb)) +
 						  abs(get_safe<member>(x - 1, y + 1, sb)) + 
 						  abs(get_safe<member>(x - 1, y - 1, sb));
 
+		#ifdef RECALC_PI_FACTOR_ON_EDGES
 		if (_subbands->test(p_t(x + 1, y + 1), sb)) sums += 1;
 		if (_subbands->test(p_t(x + 1, y - 1), sb)) sums += 1;
 		if (_subbands->test(p_t(x - 1, y + 1), sb)) sums += 1;
 		if (_subbands->test(p_t(x - 1, y - 1), sb)) sums += 1;
+		#endif
 
-		return pi_t(4 * abs(get_safe<member>(x, y, sb)) + 2 * i1 + i2) / pi_t(sums);
+		#ifdef RECALC_PI_FACTOR_ON_EDGES
+		return pi_t(4 * abs(get_safe<member>(x, y, sb)) + 2 * i1 + i2) /
+					pi_t(sums);
+		#else
+		return pi_t(4 * abs(get_safe<member>(x, y, sb)) + 2 * i1 + i2) / 16;
+		#endif
 	}
 
 	//!	\brief Вычисляет среднее по дочерним элементам значения прогнозной
@@ -421,25 +448,29 @@ public:
 		// смещение для боковых коэффициентов
 			const dsz_t	side	= (going_left)? (+1): (-1);
 		
+		#ifdef RECALC_SJ_FACTOR_ON_EDGES
 		pi_t sums = 0;
+		#endif
 
 		// подсчёт взвешанной суммы
-		const pi_t sum = 0.4 *
-						 abs(pi_t(get_safe<member>(x + side, y + top, sb))) +
+		pi_t sum = 0.4 * abs(pi_t(get_safe<member>(x + side, y + top, sb))) +
 						 abs(pi_t(get_safe<member>(x + side, y      , sb))) +
 						 abs(pi_t(get_safe<member>(x       , y + top, sb)));
 
+		#ifdef RECALC_SJ_FACTOR_ON_EDGES
 		if (_subbands->test(p_t(x + side, y + top), sb)) sums += 0.4;
 		if (_subbands->test(p_t(x + side, y      ), sb)) sums += 1;
 		if (_subbands->test(p_t(x       , y + top), sb)) sums += 1;
-		if (0 == sums) sums = 1;
+
+		if (0 != sums) sum = (2.4 * sum / sums);
+		#endif
 
 		// родительский коэффициент
 		const p_t p = prnt(p_t(x, y));
 		const subbands::subband_t &prnt_sb = *(sb.prnt);
 
 		return (0.36 * pi_t(calc_pi<member>(p.x, p.y, prnt_sb)) +
-				1.06 * 2.4 * sum / sums);
+				1.06 * sum);
 	}
 
 	//! \brief Высчитывает значение прогнозной величины <i>S<sub>j</sub></i>
