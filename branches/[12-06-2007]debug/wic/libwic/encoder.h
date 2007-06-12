@@ -208,8 +208,9 @@ protected:
 		acoder::models_t models;
 		acoder::model_t model;
 
+		/*
 		// модели для коэффициентов
-		static const int MAJOR[6] = {1000, 440, 100, 60, 50, 30};
+		static const int MAJOR[6] = {1000, 440, 100, 100, 100, 100};
 
 		for (int i = 0; sizeof(MAJOR)/sizeof(int) > i; ++i)
 		{
@@ -217,21 +218,19 @@ protected:
 			model.max = +MAJOR[i];
 			models.push_back(model);
 		}
+		*/
 
-
-		/*
+		// модели для коэффициентов
 		// поиск минимального и максимального значений коэффициентов
 		wnode::type_selector<member>::result w_min = 0;
 		wnode::type_selector<member>::result w_max = 0;
 
 		_wtree.minmax<member>(_wtree.iterator_over_wtree(), w_min, w_max);
 
-		acoder::model_t model;
 		model.min = w_min - 1;
 		model.max = w_max + 1;
 
 		models.insert(models.end(), ACODER_SPEC_MODELS_COUNT, model);
-		*/
 
 		// создание моделей для кодирования групповых признаков подрезания
 		model.min = 0;

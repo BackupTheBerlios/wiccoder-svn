@@ -46,9 +46,9 @@ int main() {
 	//		"dumps/lena_eye_64x64.bmp";
 
 	// some constants to use
-	static const int			lvls	= 3;
+	static const int			lvls	= 5;
 
-	static const wic::q_t		q		= 13.74849;
+	static const wic::q_t		q		= 13.74849f;
 
 	static const wic::lambda_t	lambda	= 21.6125;
 
@@ -171,6 +171,7 @@ int main() {
 	imgs::bmp_write(rgb_image, out_image_file);
 
 	{
+		std::cout << "levels: " << lvls << std::endl;
 		std::cout << "q: " << q << std::endl;
 		std::cout << "lambda: " << lambda << std::endl;
 		const wic::sz_t sz = encoder.coder().encoded_sz();
