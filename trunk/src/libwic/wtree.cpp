@@ -296,7 +296,10 @@ n_t wtree::child_n_mask(const p_t &p, const p_t &branch) const
 	потомками элементов из <i>LL</i> саббенда (которые лежат в <i>1ом</i>
 	уровне разложения).
 */
-n_t wtree::child_n_mask_LL(const p_t &p) const {
+n_t wtree::child_n_mask_LL(const p_t &p) const 
+{
+	assert(subbands::LVL_1 == sb().from_point(p).lvl);
+
 	const subbands::subband_t &sb_LL = sb().get_LL();
 
 	if (p.y <= sb_LL.y_max) return (1 << 0);
