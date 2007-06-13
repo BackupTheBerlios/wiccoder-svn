@@ -144,8 +144,8 @@ int main(int argc, char **args)
 												  "dumps/[enc]optimized.j1", 10);
 
 	// декодирование
-	wic::encoder decoder(rgb_image.w(), rgb_image.h(), lvls);
-	decoder.decode(encoder.coder().buffer(), encoder.coder().buffer_sz(),
+	// wic::encoder decoder(rgb_image.w(), rgb_image.h(), lvls);
+	encoder.decode(encoder.coder().buffer(), encoder.coder().buffer_sz(),
 				   header);
 
 	encoder.spectrum().save<wic::wnode::member_wc>(image_wt);
@@ -272,9 +272,19 @@ int dencode(const int argc, const char *const * const args)
 	// создание кодера
 	wic::encoder encoder(rgb_image.w(), rgb_image.h(), lvls);
 
+	LARGE_INTEGER t1;
+	LARGE_INTEGER t2;
+	LARGE_INTEGER f;
+	QueryPerformanceFrequency(&f);
+
 	// кодирование
+	std::cout << "encoding... ";
 	wic::encoder::header_t header;
+	QueryPerformanceCounter(&t1);
 	encoder.encode(image_wt, q, lambda, header);
+	QueryPerformanceCounter(&t2);
+	std::cout << double(t2.QuadPart - t1.QuadPart) / double(f.QuadPart) << "s";
+	std::cout << std::endl;
 
 	// compressed file ---------------------------------------------------------
 	std::ofstream compressed("temp.out", std::ios::binary|std::ios::binary);
@@ -288,8 +298,13 @@ int dencode(const int argc, const char *const * const args)
 	wic::encoder decoder(rgb_image.w(), rgb_image.h(), lvls);
 
 	// декодирование
+	std::cout << "decoding... ";
+	QueryPerformanceCounter(&t1);
 	decoder.decode(encoder.coder().buffer(), encoder.coder().encoded_sz(),
 				   header);
+	QueryPerformanceCounter(&t2);
+	std::cout << double(t2.QuadPart - t1.QuadPart) / double(f.QuadPart) << "s";
+	std::cout << std::endl;
 
 	// сохранение результатов
 	decoder.spectrum().save<wic::wnode::member_w>(image_wt);

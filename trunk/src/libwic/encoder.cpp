@@ -175,8 +175,8 @@ acoder::models_t encoder::_mk_acoder_models(const header_models_t &desc)
 	models.push_back(model);
 
 	// модели #2..#5 -----------------------------------------------------------
-	model.min = desc.mdl_1_min;
-	model.max = desc.mdl_1_max;
+	model.min = desc.mdl_x_min;
+	model.max = desc.mdl_x_max;
 
 	models.insert(models.end(), ACODER_SPEC_MODELS_COUNT - 2, model);
 
