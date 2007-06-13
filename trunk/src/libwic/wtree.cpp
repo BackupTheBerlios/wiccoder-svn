@@ -31,25 +31,49 @@ namespace wic {
 */
 wtree::wtree(const sz_t width, const sz_t height, const sz_t lvls):
 	_width(width), _height(height), _lvls(lvls),
-	_nodes(0), _subbands(0), _q(0)
+	_nodes_count(width * height),
+	_q(0),
+	_nodes(0), _subbands(0)
 {
-	// сохранение параметров спектра
+	// проверка утверждений
 	assert(0 < _width);
 	assert(0 < _height);
 	assert(0 < _lvls);
+	assert(_nodes_count == (_width * _height));
+	#ifdef LIBWIC_DEBUG
+	{
+		const sz_t factor = (1 << _lvls);
+		assert(0 == (_width  % factor));
+		assert(0 == (_height % factor));
+	}
+	#endif
 
-	// выделение памяти под карту вейвлет коэффициентов (спектр)
-	_nodes = new wnode[coefs()];
-	assert(0 != _nodes);	// для отладки
-	if (0 == _nodes) throw std::bad_alloc();
+	// выделение памяти и создание объектов
+	try
+	{
+		// создание информации о саббендах
+		_subbands = new subbands(_width, _height, _lvls);
+
+		if (0 == _subbands) throw std::bad_alloc();
+
+		// выделение памяти под карту вейвлет коэффициентов (спектр)
+		_nodes = new wnode[nodes_count()];
+
+		if (0 == _nodes) throw std::bad_alloc();
+	}
+	catch (const std::exception &e)
+	{
+		// Освобождение информации о саббендах
+		if (0 != _subbands) delete _subbands;
+
+		// Освобождение памяти под карту вейвлет коэффициентов (спектр)
+		if (0 != _nodes) delete[] _nodes;
+
+		throw e;
+	}
 
 	// сброс всех значений
 	_reset_trees_content();
-
-	// создание информации о саббендах
-	_subbands = new subbands(_width, _height, _lvls);
-	assert(0 != _subbands);	// для отладки
-	if (0 == _subbands) throw std::bad_alloc();
 }
 
 
@@ -64,14 +88,6 @@ wtree::~wtree() {
 }
 
 
-/*!	\return Количество байт, которое было выделенно для хранения всей
-	информации о деревьях (не считая информацию о саббендах)
-*/
-sz_t wtree::nodes_sz() const {
-	return (coefs() * sizeof(wnode));
-}
-
-
 /*!	\param[in] from Вейвлет спектр, значения коэффициентов которого,
 	будут скопированы
 
@@ -81,7 +97,7 @@ sz_t wtree::nodes_sz() const {
 void wtree::load(const w_t *const from) {
 	assert(0 != from);
 
-	for (sz_t i = 0; coefs() > i; ++i) {
+	for (sz_t i = 0; nodes_count() > i; ++i) {
 		_nodes[i].w = from[i];
 	}
 
@@ -98,7 +114,7 @@ void wtree::load(const w_t *const from) {
 	остальных полей элементов дерева.
 */
 void wtree::quantize(const q_t q) {
-	for (sz_t i = 0; coefs() > i; ++i) {
+	for (sz_t i = 0; nodes_count() > i; ++i) {
 		wnode &node = _nodes[i];
 		node.wq = wnode::quantize(node.w, q);
 	}
@@ -114,7 +130,7 @@ void wtree::quantize(const q_t q) {
 void wtree::dequantize(const q_t q) {
 	assert(q == _q);
 
-	for (sz_t i = 0; coefs() > i; ++i) {
+	for (sz_t i = 0; nodes_count() > i; ++i) {
 		wnode &node = _nodes[i];
 		node.w = wnode::dequantize(node.wc, q);
 	}
@@ -133,7 +149,7 @@ void wtree::dequantize(const q_t q) {
 void wtree::refresh()
 {
 	// для каждого элемента из дерева
-	for (sz_t i = 0; coefs() > i; ++i) {
+	for (sz_t i = 0; nodes_count() > i; ++i) {
 		// ссылка на очередной элемент
 		wnode &node = _nodes[i];
 
@@ -418,7 +434,7 @@ wtree::coefs_iterator wtree::iterator_over_wtree() const
 	\warning При вызове этой функции все ветви помечаются как подрезанные
 */
 void wtree::_reset_trees_content() {
-	memset(_nodes, 0, nodes_sz());
+	memset(_nodes, 0, nodes_size());
 }
 
 

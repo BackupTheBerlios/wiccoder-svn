@@ -123,10 +123,13 @@ public:
 	sz_t lvls() const { return _lvls; }
 
 	//! \brief Возвращает количество коэффициентов во всём дереве
-	sz_t coefs() const { return (_width * _height); }
+	const sz_t &nodes_count() const { return _nodes_count; }
 
 	//! \brief Возвращает количество байт занимаемых спектром
-	sz_t nodes_sz() const;
+	/*!	\return Количество байт, которое было выделенно для хранения всей
+		информации о деревьях (не считая информацию о саббендах)
+	*/
+	sz_t nodes_size() const { return (_nodes_count * sizeof(wnode)); }
 
 	//! \brief Возвращает использованный квантователь
 	/*!	\return Квантователь, который был использован для квантования
@@ -165,7 +168,7 @@ public:
 	template <const wnode::wnode_members member, class value_t>
 	void save(value_t *const to) const
 	{
-		for (sz_t i = coefs() - 1; 0 <= i; --i)
+		for (sz_t i = nodes_count() - 1; 0 <= i; --i)
 		{
 			to[i] = static_cast<value_t>(_nodes[i].get<member>());
 		}
@@ -777,6 +780,9 @@ private:
 
 	//! \brief Количество уровней разложения спектра
 	sz_t _lvls;
+
+	//!	\brief Общее количество элементов в спектре
+	sz_t _nodes_count;
 
 	//!	\brief Квантователь, который был использован в последний раз
 	q_t	_q;
