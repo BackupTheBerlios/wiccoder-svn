@@ -53,7 +53,8 @@ encoder::~encoder() {
 */
 void encoder::encode(const lambda_t &lambda)
 {
-	_acoder.use(_mk_acoder_models<wnode::member_wq>());
+	// _acoder.use(_mk_acoder_models<wnode::member_wq>());
+	_acoder.use(_mk_acoder_smart_models());
 
 	_acoder.encode_start();
 
@@ -129,6 +130,83 @@ sz_t encoder::_ind_map(const pi_t &pi, const sz_t lvl) {
 	if (0.3 <= pi) return 2;
 
 	return 1;
+}
+
+
+/*!	\return Модели для арифметического кодера
+*/
+acoder::models_t encoder::_mk_acoder_smart_models()
+{
+	// создание моделей для кодирования
+	acoder::models_t models;
+	acoder::model_t model;
+	
+	// модел #0 ----------------------------------------------------------------
+	{
+		const subbands::subband_t &sb_LL = _wtree.sb().get_LL();
+		wtree::coefs_iterator i = _wtree.iterator_over_subband(sb_LL);
+		_wtree.minmax<wnode::member_wc>(i, model.min, model.max);
+		models.push_back(model);
+	}
+
+	// модели #1..#5 -----------------------------------------------------------
+	{
+		// поиск минимума и максимума на первом уровне
+		wtree::coefs_cumulative_iterator i_cum;
+
+		for (sz_t k = 0; subbands::SUBBANDS_ON_LEVEL > k; ++k)
+		{
+			const subbands::subband_t &sb = _wtree.sb().get(subbands::LVL_1, k);
+			i_cum.add(_wtree.iterator_over_subband(sb));
+		}
+
+		wk_t lvl1_min = 0;
+		wk_t lvl1_max = 0;
+		_wtree.minmax<wnode::member_wc>(some_iterator_adapt(i_cum),
+										lvl1_min, lvl1_max);
+
+		// поиск минимума и максимума на уровнях начиная со второго
+		wtree::coefs_cumulative_iterator j_cum;
+
+		for (sz_t lvl = subbands::LVL_1 + subbands::LVL_NEXT;
+			 _wtree.lvls() >= lvl; ++lvl)
+		{
+			for (sz_t k = 0; subbands::SUBBANDS_ON_LEVEL > k; ++k)
+			{
+				const subbands::subband_t &sb = _wtree.sb().get(lvl, k);
+				j_cum.add(_wtree.iterator_over_subband(sb));
+			}
+		}
+
+		wk_t lvlx_min = 0;
+		wk_t lvlx_max = 0;
+		_wtree.minmax<wnode::member_wc>(some_iterator_adapt(j_cum),
+										lvlx_min, lvlx_max);
+
+		// модель #1
+		model.min = std::min(lvl1_min, lvlx_min);
+		model.max = std::max(lvl1_max, lvlx_max);
+		models.push_back(model);
+
+		model.min = lvlx_min;
+		model.max = lvlx_max;
+
+		// модели #2..#5
+		models.insert(models.end(), ACODER_SPEC_MODELS_COUNT - 2, model);
+	}
+
+	// создание моделей для кодирования групповых признаков подрезания
+	model.min = 0;
+	model.max = 0x7;
+	models.push_back(model);
+
+	model.max = 0xF;
+	models.insert(models.end(), ACODER_MAP_MODELS_COUNT - 1, model);
+
+	// проверка утверждений
+	assert(ACODER_TOTAL_MODELS_COUNT == models.size());
+
+	return models;
 }
 
 

@@ -16,6 +16,7 @@
 
 // standard C++ library headers
 #include <assert.h>
+#include <algorithm>
 
 // external library header
 // none
@@ -147,7 +148,7 @@ protected:
 
 	// protected methods -------------------------------------------------------
 
-	//!	\name Выбор модели арифметического кодера по прогнозу
+	//!	\name Работа с моделями арифметического кодера
 	//@{
 
 	//! \brief Реализует функцию IndSpec(<i>S<sub>j</sub></i>) из 35.pdf
@@ -200,13 +201,8 @@ protected:
 		return _ind_map(pi_avg, children_sb.lvl + subbands::LVL_PREV);
 	}
 
-	//@}
-
-	//!	\name Поддержка арифметического кодирования
-	//@{
-
 	//!	\brief Создаёт модели, используемые арифметическим кодером на
-	//!	основе информации из спектра
+	//!	основе максимального и минимального элементов в спектре
 	/*!	\return Модели для арифметического кодера
 
 		\sa acoder::use()
@@ -218,18 +214,6 @@ protected:
 		acoder::models_t models;
 		acoder::model_t model;
 
-		/*
-		// модели для коэффициентов
-		static const int MAJOR[6] = {1000, 440, 100, 100, 100, 100};
-
-		for (int i = 0; sizeof(MAJOR)/sizeof(int) > i; ++i)
-		{
-			model.min = -MAJOR[i];
-			model.max = +MAJOR[i];
-			models.push_back(model);
-		}
-		*/
-
 		// модели для коэффициентов
 		// поиск минимального и максимального значений коэффициентов
 		wnode::type_selector<member>::result w_min = 0;
@@ -237,6 +221,7 @@ protected:
 
 		_wtree.minmax<member>(_wtree.iterator_over_wtree(), w_min, w_max);
 
+		// +/-1 чтобы учесть корректировку
 		model.min = w_min - 1;
 		model.max = w_max + 1;
 
@@ -255,6 +240,15 @@ protected:
 
 		return models;
 	}
+
+	//!	\brief Создаёт модели, используемые арифметическим кодером,
+	//!	основываясь но многих критериях
+	acoder::models_t _mk_acoder_smart_models();
+
+	//@}
+
+	//!	\name Поддержка арифметического кодирования
+	//@{
 
 	//! \brief Подсчитывает битовые затраты для кодирования коэффициента.
 	//! Реализует функцию <i>H<sub>spec</sub></i>.

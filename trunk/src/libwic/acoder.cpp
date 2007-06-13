@@ -445,8 +445,7 @@ void acoder::_init_models(arcoder_base *const coder_base)
 	coder_base->ResetStatistics();
 
 	// инициализация моделей
-	/*
-	for (sz_t i = 0; coder_base->Models().Size() > i; i++)
+	for (sz_t i = 0; 2/*coder_base->Models().Size()*/ > i; i++)
 	{
 		const model_t &model = _models[i];
 
@@ -457,7 +456,56 @@ void acoder::_init_models(arcoder_base *const coder_base)
 			coder_base->update_model(j);
 		}
 	}
-	*/
+
+	coder_base->model(6);
+	coder_base->update_model(7);
+	coder_base->update_model(7);
+	coder_base->update_model(7);
+	coder_base->update_model(7);
+	coder_base->update_model(7);
+	coder_base->update_model(7);
+	coder_base->update_model(7);
+	coder_base->update_model(7);
+
+	coder_base->model(7);
+	coder_base->update_model(0);
+	coder_base->update_model(0);
+	coder_base->update_model(0);
+	coder_base->update_model(0);
+	coder_base->update_model(0);
+	coder_base->update_model(0);
+	coder_base->update_model(0);
+	coder_base->update_model(0);
+
+	coder_base->model(8);
+	coder_base->update_model(0);
+	coder_base->update_model(0);
+	coder_base->update_model(0);
+	coder_base->update_model(0);
+	coder_base->update_model(0);
+	coder_base->update_model(0);
+	coder_base->update_model(0);
+	coder_base->update_model(0);
+
+	coder_base->model(9);
+	coder_base->update_model(0xf);
+	coder_base->update_model(0xf);
+	coder_base->update_model(0xf);
+	coder_base->update_model(0xf);
+	coder_base->update_model(0xf);
+	coder_base->update_model(0xf);
+	coder_base->update_model(0xf);
+	coder_base->update_model(0xf);
+
+	coder_base->model(10);
+	coder_base->update_model(0xf);
+	coder_base->update_model(0xf);
+	coder_base->update_model(0xf);
+	coder_base->update_model(0xf);
+	coder_base->update_model(0xf);
+	coder_base->update_model(0xf);
+	coder_base->update_model(0xf);
+	coder_base->update_model(0xf);
 }
 
 

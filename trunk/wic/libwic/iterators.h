@@ -18,6 +18,7 @@
 #include <new>							// for std::bad_alloc exception class
 #include <assert.h>
 #include <vector>
+#include <list>
 
 // libwic headers
 #include <wic/libwic/types.h>
@@ -37,7 +38,7 @@ namespace wic {
 */
 template <class ival_t>
 class basic_iterator {
-	public:
+public:
 	// public types ------------------------------------------------------------
 
 	//! \brief Псевдоним для параметра шаблона, который доступен для
@@ -45,6 +46,9 @@ class basic_iterator {
 	typedef ival_t ival_type;
 
 	// public methods ----------------------------------------------------------
+
+	//!	\brief Конструктор (для порядка)
+	basic_iterator() {}
 
 	//!	\brief Деструктор. Виртуальный, как полагается.
 	virtual ~basic_iterator() {}
@@ -55,7 +59,7 @@ class basic_iterator {
 	virtual const ival_t &get() const = 0;
 
 	//! \brief Переходит к следующему значению
-	/*!	\return Новое значение величины
+	/*!	
 
 		Значение итератора может быть неверным (или не существующим), если
 		достигнут конец последовательности итераций и
@@ -63,19 +67,25 @@ class basic_iterator {
 		каждого вызова basic_iterator::next() необходимо проверять
 		условие завершения последовательности итераций.
 
-		Не смотря на это, в <i>wiccoder</i> принято соглашение о
+		Не смотря на это, во многих классах итераторов <i>wiccoder</i>
+		(но не во всех!) принято соглашение о
 		завершении последовательности итераций. По нему не следует
 		возвращать ссылку на несуществующий элемент, а вместо этого
 		возвратить ссылку на предыдущий элемент, на котором закончилась
 		последовательность итераций.
 	*/
-	virtual const ival_t &next() = 0;
+	virtual void next() = 0;
 
 	//! \brief Проверяет, закончилась ли последовательность итереций
 	/*!	\return <i>true</i> если достигли конца последовательности
 	*/
 	virtual const bool end() const = 0;
 
+protected:
+	// protected methods -------------------------------------------------------
+
+	//! Явно запретим копирование итераторов
+	basic_iterator(const basic_iterator &src) {}
 };
 
 
@@ -277,7 +287,7 @@ public:
 	//! \brief Определение виртуального basic_iterator::next()
 	/*! Организует проход змейкой
 	*/
-	virtual const point_type &next() {
+	virtual void next() {
 		if (_going_left) {
 			if (_move_left()) --_points_left;
 			else if (_move_down()) {
@@ -291,8 +301,6 @@ public:
 				_going_left = true;
 			} else _points_left = 0;
 		}
-
-		return get();
 	}
 
 	//! \brief Определение виртуального basic_iterator::end()
@@ -367,10 +375,8 @@ public:
 	virtual const p_t &get() const { return _children[_i]; }
 
 	//! \brief Определение виртуального basic_iterator::next()
-	virtual const p_t &next() {
+	virtual void next() {
 		(0 < _i)? (--_i): (_end = true);
-
-		return get();
 	}
 
 	//! \brief Определение виртуального basic_iterator::end()
@@ -440,10 +446,8 @@ public:
 	virtual const n_t &get() const { return _n; }
 
 	//! \brief Определение виртуального basic_iterator::next()
-	virtual const n_t &next() {
+	virtual void next() {
 		(0 != _n)? --_n: _end = true;
-
-		return _n;
 	}
 
 	//! \brief Определение виртуального basic_iterator::end()
@@ -484,11 +488,15 @@ class some_iterator {
 public:
 	// public types ------------------------------------------------------------
 
+	//! \brief Псевдоним для параметра шаблона, который доступен для
+	//!	пользователей класса
+	typedef ival_t ival_type;
+
 	//! \brief Тип контролируемого итератора
-	typedef basic_iterator<ival_t> iterator_type;
+	typedef basic_iterator<ival_type> iterator_type;
 
 	//! \brief Тип этого итератора (для удобства)
-	typedef some_iterator<ival_t> self_type;
+	typedef some_iterator<ival_type> self_type;
 
 	// public constants --------------------------------------------------------
 
@@ -499,10 +507,13 @@ public:
 
 	//! \brief Конструктор
 	/*!	\param[in] iterator Объект итератора над которым берётся шефство
+		\param[in] no_own Если <i>true</i> Счётчик ссылок увеличится на 1 и
+		контролируемый объект итератора гарантированно не будет уничтожен
+		при вызове деструктора.
 
 		Функция создаёт счётчик ссылок на итератор и инициализирует его в 1
 	*/
-	some_iterator(iterator_type *const iterator):
+	some_iterator(iterator_type *const iterator, const bool no_own = false):
 		_iterator(iterator),
 		_ref_count_ptr(new int(INIT_REF_COUNT))
 	{
@@ -511,6 +522,8 @@ public:
 		assert(0 != _ref_count_ptr);	// для отладки
 
 		if (0 == _ref_count_ptr) throw std::bad_alloc();
+
+		if (no_own) ++(*_ref_count_ptr);
 	}
 
 	//! \brief Копирующий конструктор
@@ -544,13 +557,26 @@ public:
 	}
 
 	//! \brief Возвращает указатель на контролируемый итератор
-	iterator_type *operator->() const { return _iterator; }
+	const iterator_type *operator->() const { return _iterator; }
 
 	//! \brief Возвращает указатель на контролируемый итератор
-	iterator_type *get() const { return _iterator; }
+	iterator_type *operator->() { return _iterator; }
+
+	//! \brief Возвращает указатель на контролируемый итератор
+	const iterator_type *get() const { return _iterator; }
+
+	//! \brief Возвращает указатель на контролируемый итератор
+	iterator_type *get() { return _iterator; }
 
 	//! \brief Возвращает ссылку на контролируемый итератор
-	iterator_type &operator()() const { return (*_iterator); }
+	const iterator_type &operator()() const { return (*_iterator); }
+
+	//! \brief Возвращает ссылку на контролируемый итератор
+	iterator_type &operator()() { return (*_iterator); }
+
+	static self_type adapt(iterator_type &iterator) {
+		return self_type(&iterator, true);
+	}
 
 private:
 	// private data ------------------------------------------------------------
@@ -561,6 +587,117 @@ private:
 	//! \brief Указатель на значение содержащее счётчик ссылок на
 	//!	контролируемый итератор
 	int *const _ref_count_ptr;
+
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
+// some_iterator related functions
+
+//!	\brief Производит приобразование basic_iterator к some_iterator
+/*!	\param[in] i Преобразуемый итератор
+	\return Объект класса some_iterator
+
+	\sa some_iterator::adapt
+*/
+template <class T>
+static some_iterator<T> some_iterator_adapt(basic_iterator<T> &i)
+{
+	return some_iterator<T>::adapt(i);
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// cumulative_iterator class declaration
+//!	\brief Кумулятивный итератор
+/*!	Объекты класса служат для объединения итераторов. Объединяемые итераторы
+	должны быть класса some_iterator (или дочерних от него классов). После
+	объединения итератор последовательно проходит по значениям всех итераторов
+	в порядке из добавления. Проверка на повторные значения не производится.
+
+	\warning Данный класс не подчиняется соглашению о завершении
+	последовательности итераций, описанного в basic_iterator::next() и
+	работает больше как обычный итератор. Поэтому перед каждым вызовом
+	cumulative_iterator::next() или cumulative_iterator::get() необходимо
+	проверять cumulative_iterator::end()
+
+	\sa some_iterator, basic_iterator
+*/
+template <class ival_t>
+class cumulative_iterator: public basic_iterator<ival_t> {
+public:
+	// public types ------------------------------------------------------------
+
+	//!	\brief Тип объединяемых итераторов
+	typedef some_iterator<ival_t> iterator_type;
+
+	// public methods ----------------------------------------------------------
+
+	//!	\name Конструкторы и деструкторы
+	//@{
+
+	//! \brief Конструктор
+	cumulative_iterator()
+	{
+	}
+
+	//! \brief Деструктор
+	~cumulative_iterator()
+	{
+	}
+
+	//@}
+
+	//!	\name Добавление итераторов
+	//@{
+
+	//!	\brief Добавление нового итератора
+	/*!	\param[in,out] iterator Добавляемый итератор
+	*/
+	void add(iterator_type &iterator)
+	{
+		_iterators.push_back(iterator);
+	}
+
+	//@}
+
+	//!	\name Виртуальные методы basic_iterator
+	//@{
+
+	//! \brief Определение виртуального basic_iterator::get()
+	virtual const ival_type &get() const
+	{
+		assert(!_iterators.empty());
+
+		return _iterators.front()->get();
+	}
+
+	//! \brief Определение виртуального basic_iterator::next()
+	virtual void next()
+	{
+		assert(!_iterators.empty());
+
+		if (_iterators.front()->end()) _iterators.pop_front();
+		else _iterators.front()->next();
+	}
+
+	//! \brief Определение виртуального basic_iterator::end()
+	virtual const bool end() const { return _iterators.empty(); }
+
+	//@}
+
+protected:
+	// protected types ---------------------------------------------------------
+
+	//!	\brief Тип для списка итераторов
+	typedef std::list<iterator_type> _iterators_t;
+
+private:
+	// private data ------------------------------------------------------------
+
+	//! \brief Список итераторов
+	_iterators_t _iterators;
 
 };
 

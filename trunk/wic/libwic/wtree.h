@@ -31,12 +31,18 @@
 //!	\brief Если макрос определён, то веса граничных элементов  при подсчёте
 //!	прогноза <i>P<sub>i</sub></i> будут пересчитанны в соответствии с
 //!	количеством элементов вошедших в прогноз
+/*!	\note Было замечано, что при выключение этого макроса результаты
+	ухудшаются.
+*/
 #define	RECALC_PI_FACTOR_ON_EDGES
 //#undef	RECALC_PI_FACTOR_ON_EDGES
 
 //!	\brief Если макрос определён, то веса граничных элементов  при подсчёте
 //!	прогноза <i>S<sub>j</sub></i> будут пересчитанны в соответствии с
 //!	количеством элементов вошедших в прогноз
+/*!	\note Было замечано, что при выключение этого макроса результаты
+	ухудшаются.
+*/
 #define	RECALC_SJ_FACTOR_ON_EDGES
 //#undef	RECALC_SJ_FACTOR_ON_EDGES
 
@@ -81,6 +87,10 @@ public:
 
 	//! \brief Псевдоним для обёртки для итераторов, использующих тип wic::p_t
 	typedef some_iterator<p_t> coefs_iterator;
+
+	//! \brief Псевдоним для кумулятивного итератора, использующего тип
+	//!	wic::p_t
+	typedef cumulative_iterator<p_t> coefs_cumulative_iterator;
 
 	//!	\brief Псевдоним для обёртки для итераторов, использующих тип wic::n_t
 	typedef some_iterator<n_t> n_iterator;
@@ -277,7 +287,7 @@ public:
 		\todo Необходимо протестировать эту функцию
 	*/
 	template <const wnode::wnode_members member>
-	bool minmax(const coefs_iterator &set,
+	bool minmax(coefs_iterator &set,
 				typename wnode::type_selector<member>::result &min,
 				typename wnode::type_selector<member>::result &max) const
 	{

@@ -86,6 +86,10 @@ int main() {
 												  rgb_image.w(), rgb_image.h(),
 												  "dumps/[enc]quantized.wq");
 
+	imgs::bmp_dump<wic::w_t, wic::sz_t>::dump(image_wt,
+												  rgb_image.w(), rgb_image.h(),
+												  "dumps/[enc]quantized.bmp");
+
 	encoder.spectrum().save<wic::wnode::member_n>(image_wt);
 	imgs::bmp_dump<wic::w_t, wic::sz_t>::txt_dump(image_wt,
 												  rgb_image.w(), rgb_image.h(),

@@ -54,7 +54,7 @@ bool test_dpcm()
 
 	dpcm.encode_start(3);
 	dpcm.decode_start(3);
-	for (int i = 0; strlen(data) > i; ++i)
+	for (int i = 0; int(strlen(data)) > i; ++i)
 	{
 		if (data[i] != dpcm.decode(dpcm.encode(data[i])))
 		{
