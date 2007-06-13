@@ -25,6 +25,11 @@ namespace wic {
 ////////////////////////////////////////////////////////////////////////////////
 // wtree class public definitions
 
+/*!	Введён просто так, без хитрого умыслу.
+*/
+const q_t wtree::DEFAULT_Q		= q_t(1);
+
+
 /*!	\param[in] width Ширина вейвлет спектра (в элементах)
 	\param[in] height Высота изображения (в элементах)
 	\param[in] lvls Количество уровней разложения
@@ -72,8 +77,10 @@ wtree::wtree(const sz_t width, const sz_t height, const sz_t lvls):
 		throw e;
 	}
 
+	#ifdef LIBWIC_DEBUG
 	// сброс всех значений
-	_reset_trees_content();
+	memset(_nodes, 0, nodes_size());
+	#endif
 }
 
 
@@ -88,110 +95,17 @@ wtree::~wtree() {
 }
 
 
-/*!	\param[in] from Вейвлет спектр, значения коэффициентов которого,
-	будут скопированы
-
-	Функция также автоматически выполняет квантование с <i>q = 1</i>
-	(вызывает wtree::quantize()).
-*/
-void wtree::load(const w_t *const from) {
-	assert(0 != from);
-
-	for (sz_t i = 0; nodes_count() > i; ++i) {
-		_nodes[i].w = from[i];
-	}
-
-	quantize();
-}
-
-
 /*!	\param[in] q Квантователь
 
 	Функция производит квантование коэффициентов. Исходные коэффициенты
-	берутся из wnode::w, результат квантования помещается в wnode::wq.
+	берутся из поля wnode::w, результат квантования помещается в
+	поле wnode::wq и wnode::wc.
 
-	После квантования функция вызывает wtree::refresh() для сброса
-	остальных полей элементов дерева.
+	\sa _filling_quantize
 */
-void wtree::quantize(const q_t q) {
-	for (sz_t i = 0; nodes_count() > i; ++i) {
-		wnode &node = _nodes[i];
-		node.wq = wnode::quantize(node.w, q);
-	}
-
-	_q = q;
-
-	refresh();
-}
-
-
-/*!	\param[in] q Квантователь
-*/
-void wtree::dequantize(const q_t q) {
-	assert(q == _q);
-
-	for (sz_t i = 0; nodes_count() > i; ++i) {
-		wnode &node = _nodes[i];
-		node.w = wnode::dequantize(node.wc, q);
-	}
-}
-
-
-/*! Функция производит следующие действия:
-	- Выполняет присваивание wnode::wc = wnode::wq и тем самым даёт
-	  начальное значение для откорректированного коэффициента
-	- Обнуляет значения функции Лагранжа (wnode::j0 и wnode::j1)
-	- Устанавливает групповой признак подрезания wnode::n, делая все ветви
-	  дерева подрезанными
-	- Обнуляет признак валидности коэффициента (wnode::invalid), делая
-	  все элементы валидными
-*/
-void wtree::refresh()
+void wtree::quantize(const q_t q)
 {
-	// для каждого элемента из дерева
-	for (sz_t i = 0; nodes_count() > i; ++i) {
-		// ссылка на очередной элемент
-		wnode &node = _nodes[i];
-
-		// восстанавливаем значение откорректированного коэффициента
-		node.wc			= node.wq;
-		// значение функций лагранжа не известно
-		node.j0			= 0;
-		node.j1			= 0;
-		// ничего не подрезано
-		node.n			= 0;
-		// узел хороший
-		node.invalid	= false;
-	}
-}
-
-
-/*!
-	\sa _reset_trees_content()
-*/
-void wtree::reset()
-{
-	_reset_trees_content();
-}
-
-
-/*!	\return Ссылка на объект wiс::subbands
-	\sa subbands
-*/
-subbands &wtree::sb() {
-	assert(0 != _subbands);
-
-	return (*_subbands);
-}
-
-
-/*!	\return Константная ссылка на объект wiс::subbands
-	\sa subbands
-*/
-const subbands &wtree::sb() const {
-	assert(0 != _subbands);
-
-	return (*_subbands);
+	_filling_quantize(q);
 }
 
 
@@ -226,7 +140,7 @@ p_t wtree::get_pos(const wnode &node) const
 
 	const sz_t offset = sz_t(&node - _nodes);
 
-	assert(offset < coefs());
+	assert(offset < nodes_count());
 
 	return p_t(offset % _width, offset / _height);
 }
@@ -362,7 +276,8 @@ void wtree::uncut_leafs(const p_t &branch, const n_t n)
 		const n_t mask = (is_LL)? child_n_mask_LL(p)
 								: child_n_mask(p, branch);
 
-		_uncut_branch(p, !test_n_mask(n, mask));
+		if (test_n_mask(n, mask)) _uncut_branch(p);
+		// _uncut_branch(p, !test_n_mask(n, mask));
 	}
 
 	at(branch).n = n;
@@ -428,13 +343,69 @@ wtree::coefs_iterator wtree::iterator_over_wtree() const
 ////////////////////////////////////////////////////////////////////////////////
 // wtree class protected definitions
 
-/*!	Очищает память, занимаемую деревом коэффициентов. Все значения
-	сбрасываются и устанавливаются в 0.
+/*!	\param[in] q Используемый квантователь
 
-	\warning При вызове этой функции все ветви помечаются как подрезанные
+	Функция проводит квантование полей wnode::w и помещает результат в поля
+	wnode::wq
 */
-void wtree::_reset_trees_content() {
-	memset(_nodes, 0, nodes_size());
+void wtree::_quantize(const q_t q)
+{
+	assert(1 <= q);
+
+	_q = q;
+
+	for (sz_t i = 0; nodes_count() > i; ++i)
+	{
+		wnode &node = _nodes[i];
+		node.wq = wnode::quantize(node.w, q);
+	}
+}
+
+
+/*!	\param[in] q Используемый квантователь
+
+	Функция проводит квантование полей wnode::w и помещает результат в поля
+	wnode::wq. Также производятся следующие действия:
+	- Полученное значение из поля wnode::wq копируется в поле wnode::wc.
+	- Поля wnode::j0 и wnode::j1 сбрасываются в 0.
+	- Все ветви помечаются как подрезанные (wnode::n сбрасываются в 0)
+	- Все элементы помечаются как существующие (wnode::invalid
+	  устанавливаются в <i>false</i>)
+*/
+void wtree::_filling_quantize(const q_t q)
+{
+	assert(1 <= q);
+
+	_q = q;
+
+	for (sz_t i = 0; nodes_count() > i; ++i)
+	{
+		wnode &node		= _nodes[i];
+		node.wc			= node.wq = wnode::quantize(node.w, q);
+		node.j0			= node.j1 = 0;
+		node.n			= 0;
+		node.invalid	= false;
+	}
+}
+
+
+/*!	Выполняет следующие действия:
+	- Значение из поля wnode::wq копируется в поле wnode::wc.
+	- Поля wnode::j0 и wnode::j1 сбрасываются в 0.
+	- Все ветви помечаются как подрезанные (wnode::n сбрасываются в 0)
+	- Все элементы помечаются как существующие (wnode::invalid
+	  устанавливаются в <i>false</i>)
+*/
+void wtree::_filling_refresh()
+{
+	for (sz_t i = 0; nodes_count() > i; ++i)
+	{
+		wnode &node		= _nodes[i];
+		node.wc			= node.wq;
+		node.j0			= node.j1 = 0;
+		node.n			= 0;
+		node.invalid	= false;
+	}
 }
 
 
@@ -513,18 +484,14 @@ bool wtree::_going_left(const sz_t x, const sz_t y) {
 
 
 /*!	\param[in] branch Координаты элемента, порождающего ветвь
-	\param[in] is_cut Флаг указывающий подрезанна ветвь или нет
-	(если <i>true</i>, то подрезана)
 
 	Функция просто устанавливает поле wnode::invalid для дочерних
-	от <i>branch</i> элементов в значение переданное во флаге
-	<i>is_cut</i>.
+	от <i>branch</i> элементов в значение <i>false</i>.
 
-	\note Родительский элемент <i>branch</i> не может быть из
-	<i>LL</i> саббенда или с саббенда находящегося на последнем
-	уровне разложения.
+	\note Элемент <i>branch</i> не может быть из <i>LL</i> саббенда
+	или с саббенда находящегося на последнем уровне разложения.
 */
-void wtree::_uncut_branch(const p_t &branch, const bool is_cut)
+void wtree::_uncut_branch(const p_t &branch)
 {
 	// проверка утверждений
 	assert(sb().from_point(branch).lvl > subbands::LVL_0);
@@ -534,7 +501,7 @@ void wtree::_uncut_branch(const p_t &branch, const bool is_cut)
 	for (coefs_iterator i = iterator_over_children(branch);
 		 !i->end(); i->next())
 	{
-		at(i->get()).invalid = is_cut;
+		at(i->get()).invalid = false;
 	}
 }
 

@@ -63,6 +63,38 @@ namespace wic {
 class encoder {
 public:
 	// public types ------------------------------------------------------------
+
+	//!	\brief Описания моделей арифметического кодера
+	/*!	\todo Более подробно описать эту структуру и её использование
+	*/
+	struct header_models_t
+	{
+		//!	\brief Минимальный коэффициент для модели #0
+		short mdl_0_min;
+		//!	\brief Максимальный коэффициент для модели #0
+		short mdl_0_max;
+		//!	\brief Минимальный коэффициент для модели #1
+		short mdl_1_min;
+		//!	\brief Максимальный коэффициент для модели #1
+		short mdl_1_max;
+		//!	\brief Минимальный коэффициент для моделей #2..#5
+		short mdl_x_min;
+		//!	\brief Максимальный коэффициент для моделей #2..#5
+		short mdl_x_max;
+	};
+
+	//!	\brief Структура для хранения информации необходимой для последующего
+	//!	декодирования закодированных данных
+	/*!	\todo Более подробно описать эту структуру и её использование
+	*/
+	struct header_t
+	{
+		//!	\brief Квантователь
+		q_t q;
+		//!	\brief Модели арифметического кодера
+		header_models_t models;
+	};
+
 	// public constants --------------------------------------------------------
 
 	//!	\brief Минимальное допустимое количество уровней разложения
@@ -86,8 +118,7 @@ public:
 	//@{
 
 	//!	\brief Конструкртор
-	encoder(const w_t *const image,
-			const sz_t width, const sz_t height, const sz_t lvls);
+	encoder(const sz_t width, const sz_t height, const sz_t lvls);
 
 	//!	\brief Деструктор
 	~encoder();
@@ -98,14 +129,17 @@ public:
 	//@{
 
 	//!	\brief Функция осуществляющая непосредственное кодирование изображения
-	void encode(const lambda_t &lambda);
+	void encode(const w_t *const w, const q_t q, const lambda_t &lambda,
+				header_t &header);
 
 	//@}
 
 	//!	\name Функции декодирования
 	//@{
 
-	void decode();
+	//!	\brief Функция осуществляющая непосредственное декодирование изображения
+	void decode(const byte_t *const data, const sz_t data_sz,
+				const header_t &header);
 
 	//@}
 
@@ -205,6 +239,8 @@ protected:
 	//!	основе максимального и минимального элементов в спектре
 	/*!	\return Модели для арифметического кодера
 
+		Простейший метод получения моделей, однако может быть полезен,
+		например, при отладке.
 		\sa acoder::use()
 	*/
 	template <const wnode::wnode_members member>
@@ -241,9 +277,12 @@ protected:
 		return models;
 	}
 
+	//!	\brief Создаёт модели для арифметического кодера по их описанию
+	acoder::models_t _mk_acoder_models(const header_models_t &desc);
+
 	//!	\brief Создаёт модели, используемые арифметическим кодером,
-	//!	основываясь но многих критериях
-	acoder::models_t _mk_acoder_smart_models();
+	//!	основываясь на специальных критериях
+	encoder::header_models_t _mk_acoder_smart_models();
 
 	//@}
 

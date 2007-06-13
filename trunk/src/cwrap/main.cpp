@@ -1,4 +1,5 @@
 #include <iostream>
+#include <string>
 
 #include <wic/libwic/encoder.h>
 #include <imgs/img_rgb.h>
@@ -35,7 +36,13 @@ double psnr(const std::string &file1, const std::string &file2) {
 }
 
 
-int main() {
+int dencode(const int argc, const char *const * const args);
+
+
+int main(int argc, char **args)
+{
+	return dencode(argc, args);
+
 	static const char *const in_image_file	=
 	//		"../res/images/lena_eye_16x16.bmp";
 			"../res/images/lena.bmp";
@@ -76,8 +83,9 @@ int main() {
 												  "dumps/[enc]image_wt.in");
 
 	// создание кодера
-	wic::encoder encoder(image_wt, rgb_image.w(), rgb_image.h(), lvls);
+	wic::encoder encoder(rgb_image.w(), rgb_image.h(), lvls);
 
+	/*
 	// квантование коэффициентов
 	encoder.spectrum().quantize(q);
 
@@ -99,9 +107,11 @@ int main() {
 	imgs::bmp_dump<wic::w_t, wic::sz_t>::txt_dump(image_wt,
 												  rgb_image.w(), rgb_image.h(),
 												  "dumps/[enc]before.wc");
+	*/
 
 	// кодирование
-	encoder.encode(lambda);
+	wic::encoder::header_t header;
+	encoder.encode(image_wt, q, lambda, header);
 
 	encoder.spectrum().save<wic::wnode::member_wc>(image_wt);
 
@@ -134,7 +144,9 @@ int main() {
 												  "dumps/[enc]optimized.j1", 10);
 
 	// декодирование
-	encoder.decode();
+	wic::encoder decoder(rgb_image.w(), rgb_image.h(), lvls);
+	decoder.decode(encoder.coder().buffer(), encoder.coder().buffer_sz(),
+				   header);
 
 	encoder.spectrum().save<wic::wnode::member_wc>(image_wt);
 
@@ -155,7 +167,7 @@ int main() {
 												  "dumps/[dec]decoded.invalid");
 
 	// деквантование
-	encoder.spectrum().dequantize(q);
+	encoder.spectrum().dequantize<wic::wnode::member_wc>(q);
 
 	// сохранение результатов
 	encoder.spectrum().save<wic::wnode::member_w>(image_wt);
@@ -202,6 +214,102 @@ int main() {
 
 	// free memory
 	delete[] image_wt;
+
+	return 0;
+}
+
+
+int dencode(const int argc, const char *const * const args)
+{
+	// check args --------------------------------------------------------------
+	if (5 != argc) {
+		std::cout << "usage: " << std::endl;
+		std::cout << "\tin.bmp out.bmp q lambda" << std::endl;
+		std::cout << "example: " << std::endl;
+		std::cout << "\tlena.bmp lena_restored.bmp 13.7 21.6" << std::endl;
+
+		return - 1;
+	}
+
+	// some values to use ------------------------------------------------------
+	static const int			lvls	= 5;
+
+	wic::q_t q = 0;
+	sscanf(args[3], "%f", &q);
+
+	float lambda_f = 0;
+	sscanf(args[4], "%f", &lambda_f);
+	wic::lambda_t lambda = lambda_f;
+
+	std::cout << "levels: " << lvls << std::endl;
+	std::cout << "q: " << q << std::endl;
+	std::cout << "lambda: " << lambda << std::endl;
+	std::cout << "input image: " << args[1] << std::endl;
+	std::cout << "output image: " << args[2] << std::endl;
+	std::cout << "compressed file: " << "temp.out" << std::endl;
+
+	// encode ------------------------------------------------------------------
+
+	// first, load the image
+	imgs::img_rgb rgb_image;
+	imgs::bmp_read(rgb_image, args[1]);
+
+	// allocate some memory and copy converted to float image there
+	const wic::sz_t image_pixels_count = rgb_image.w() * rgb_image.h();
+
+	float *const image_wt = new float[image_pixels_count];
+
+	imgs::img_rgb::rgb24_t *const rgb_image_bits =
+		(imgs::img_rgb::rgb24_t *)(rgb_image.bits());
+
+	for (wic::sz_t i = 0; image_pixels_count > i; ++i) {
+		image_wt[i] = rgb_image_bits[i].r;
+	}
+
+	// do wavelet transform
+	wt2d_cdf97_fwd(image_wt, rgb_image.h(), rgb_image.w(), lvls);
+
+	// создание кодера
+	wic::encoder encoder(rgb_image.w(), rgb_image.h(), lvls);
+
+	// кодирование
+	wic::encoder::header_t header;
+	encoder.encode(image_wt, q, lambda, header);
+
+	// compressed file ---------------------------------------------------------
+	std::ofstream compressed("temp.out", std::ios::binary|std::ios::binary);
+	compressed.write((char *)&header, sizeof(&header));
+	compressed.write((char *)encoder.coder().buffer(),
+					 encoder.coder().encoded_sz());
+
+	// decode ------------------------------------------------------------------
+
+	// создание декодера
+	wic::encoder decoder(rgb_image.w(), rgb_image.h(), lvls);
+
+	// декодирование
+	decoder.decode(encoder.coder().buffer(), encoder.coder().encoded_sz(),
+				   header);
+
+	// сохранение результатов
+	decoder.spectrum().save<wic::wnode::member_w>(image_wt);
+
+	wt2d_cdf97_inv(image_wt, rgb_image.h(), rgb_image.w(), lvls);
+
+	for (wic::sz_t i = 0; image_pixels_count > i; ++i) {
+		rgb_image_bits[i].r = (unsigned char)(image_wt[i]);
+		rgb_image_bits[i].g = (unsigned char)(image_wt[i]);
+		rgb_image_bits[i].b = (unsigned char)(image_wt[i]);
+	}
+
+	imgs::bmp_write(rgb_image, args[2]);
+
+	// psnr calc ---------------------------------------------------------------
+	const wic::sz_t sz = encoder.coder().encoded_sz();
+	std::cout << "size: " << sz << " bytes" << std::endl;
+	std::cout << "size: " << (sz / 1024) << " kbytes" << std::endl;
+	std::cout << "bpp: " << double(sz * 8) / double(rgb_image.h() * rgb_image.w()) << std::endl;
+	std::cout << "psnr: " << psnr(args[1], args[2]) <<std::endl;
 
 	return 0;
 }

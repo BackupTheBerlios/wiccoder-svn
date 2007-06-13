@@ -25,21 +25,16 @@ namespace wic {
 ////////////////////////////////////////////////////////////////////////////////
 // encoder class public definitions
 
-/*!	\param[in] image Результат вейвлет преобразования изображения для сжатия.
-	\param[in] width Ширина изображения.
+/*!	\param[in] width Ширина изображения.
 	\param[in] height Высота изображения.
 	\param[in] lvls Количество уровней вейвлет преобразования.
 */
-encoder::encoder(const w_t *const image,
-				 const sz_t width, const sz_t height, const sz_t lvls):
+encoder::encoder(const sz_t width, const sz_t height, const sz_t lvls):
 	_wtree(width, height, lvls),
 	_acoder(width * height * sizeof(w_t) * 4)
 {
 	// проверка утверждений
 	assert(MINIMUM_LEVELS <= lvls);
-
-	// загрузка коэффициентов разложения в дерево
-	_wtree.load(image);
 }
 
 
@@ -51,16 +46,23 @@ encoder::~encoder() {
 
 /*!
 */
-void encoder::encode(const lambda_t &lambda)
+void encoder::encode(const w_t *const w, const q_t q, const lambda_t &lambda,
+					 header_t &header)
 {
-	// _acoder.use(_mk_acoder_models<wnode::member_wq>());
-	_acoder.use(_mk_acoder_smart_models());
+	// загрузка спектра и квантование
+	_wtree.load(w, q);
 
+	header.q = q;
+
+	// вычисление характеристик моделей
+	header.models = _mk_acoder_smart_models();
+	_acoder.use(_mk_acoder_models(header.models));
+
+	// оптимизация топологии ветвей
 	_acoder.encode_start();
 
-	const subbands &sb = _wtree.sb();
-
-	for (wtree::coefs_iterator i = _wtree.iterator_over_subband(sb.get_LL());
+	for (wtree::coefs_iterator i =
+				_wtree.iterator_over_subband(_wtree.sb().get_LL());
 		 !i->end(); i->next())
 	{
 		const p_t &root = i->get();
@@ -70,6 +72,7 @@ void encoder::encode(const lambda_t &lambda)
 
 	_acoder.encode_stop();
 
+	// кодирование
 	_acoder.encode_start();
 
 	_encode_wtree();
@@ -77,15 +80,34 @@ void encoder::encode(const lambda_t &lambda)
 	_acoder.encode_stop();
 }
 
-void encoder::decode()
-{
-	_wtree.reset();
 
+/*!
+*/
+void encoder::decode(const byte_t *const data, const sz_t data_sz,
+					 const header_t &header)
+{
+	// проверка утверждений
+	assert(_acoder.buffer_sz() >= data_sz);
+
+	// копирование памяти в арифметический кодер
+	memcpy(_acoder.buffer(), data, data_sz);
+
+	// инициализация спектра перед кодированием
+	_wtree.wipeout();
+
+	// установка характеристик моделей
+	//_acoder.use(_acoder_models(header.models));
+	_acoder.use(_mk_acoder_models(header.models));
+
+	// декодирование
 	_acoder.decode_start();
 
 	_encode_wtree(true);
 
 	_acoder.decode_stop();
+
+	// деквантование
+	_wtree.dequantize<wnode::member_wc>(header.q);
 }
 
 
@@ -133,20 +155,64 @@ sz_t encoder::_ind_map(const pi_t &pi, const sz_t lvl) {
 }
 
 
-/*!	\return Модели для арифметического кодера
+/*!	\param[in] desc Описание моделей арифметического кодера
+	\return Модели для арифметического кодера
 */
-acoder::models_t encoder::_mk_acoder_smart_models()
+acoder::models_t encoder::_mk_acoder_models(const header_models_t &desc)
 {
 	// создание моделей для кодирования
 	acoder::models_t models;
 	acoder::model_t model;
+
+	// модел #0 ----------------------------------------------------------------
+	model.min = desc.mdl_0_min;
+	model.max = desc.mdl_0_max;
+	models.push_back(model);
+
+	// модель #1 ---------------------------------------------------------------
+	model.min = desc.mdl_1_min;
+	model.max = desc.mdl_1_max;
+	models.push_back(model);
+
+	// модели #2..#5 -----------------------------------------------------------
+	model.min = desc.mdl_1_min;
+	model.max = desc.mdl_1_max;
+
+	models.insert(models.end(), ACODER_SPEC_MODELS_COUNT - 2, model);
+
+	// создание моделей для кодирования групповых признаков подрезания ---------
+	model.min = 0;
+	model.max = 0x7;
+	models.push_back(model);
+
+	model.max = 0xF;
+	models.insert(models.end(), ACODER_MAP_MODELS_COUNT - 1, model);
+
+	// проверка утверждений
+	assert(ACODER_TOTAL_MODELS_COUNT == models.size());
+
+	return models;
+}
+
+
+/*!	\return Описание моделей для арифметического кодера
+*/
+encoder::header_models_t encoder::_mk_acoder_smart_models()
+{
+	// создание моделей для кодирования
+	header_models_t desc;
 	
 	// модел #0 ----------------------------------------------------------------
 	{
 		const subbands::subband_t &sb_LL = _wtree.sb().get_LL();
 		wtree::coefs_iterator i = _wtree.iterator_over_subband(sb_LL);
-		_wtree.minmax<wnode::member_wc>(i, model.min, model.max);
-		models.push_back(model);
+
+		wk_t lvl0_min = 0;
+		wk_t lvl0_max = 0;
+		_wtree.minmax<wnode::member_wc>(i, lvl0_min, lvl0_max);
+
+		desc.mdl_0_min = short(lvl0_min);
+		desc.mdl_0_max = short(lvl0_max);
 	}
 
 	// модели #1..#5 -----------------------------------------------------------
@@ -184,29 +250,15 @@ acoder::models_t encoder::_mk_acoder_smart_models()
 										lvlx_min, lvlx_max);
 
 		// модель #1
-		model.min = std::min(lvl1_min, lvlx_min);
-		model.max = std::max(lvl1_max, lvlx_max);
-		models.push_back(model);
-
-		model.min = lvlx_min;
-		model.max = lvlx_max;
+		desc.mdl_1_min = short(std::min(lvl1_min, lvlx_min));
+		desc.mdl_1_max = short(std::max(lvl1_max, lvlx_max));
 
 		// модели #2..#5
-		models.insert(models.end(), ACODER_SPEC_MODELS_COUNT - 2, model);
+		desc.mdl_x_min = lvlx_min;
+		desc.mdl_x_max = lvlx_max;
 	}
 
-	// создание моделей для кодирования групповых признаков подрезания
-	model.min = 0;
-	model.max = 0x7;
-	models.push_back(model);
-
-	model.max = 0xF;
-	models.insert(models.end(), ACODER_MAP_MODELS_COUNT - 1, model);
-
-	// проверка утверждений
-	assert(ACODER_TOTAL_MODELS_COUNT == models.size());
-
-	return models;
+	return desc;
 }
 
 
@@ -896,15 +948,7 @@ void encoder::_encode_wtree_level(const sz_t lvl,
 			const n_t mask = _wtree.child_n_mask_uni(p_j, p_i);
 
 			// переходим к следующему потомку, если ветвь подрезана
-			if (!_wtree.test_n_mask(node_i.n, mask))
-			{
-				// выставление значений поля wnode::invalid в <i>true</i>
-				// так как ветвь подрезана
-				if (decode_mode)
-					_wtree.uncut_leafs(p_j, _wtree.get_clear_n());
-
-				continue;
-			}
+			if (!_wtree.test_n_mask(node_i.n, mask)) continue;
 
 			// значение элемента
 			wnode &node_j = _wtree.at(p_j);

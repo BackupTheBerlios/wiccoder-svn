@@ -97,6 +97,9 @@ public:
 
 	// public constants --------------------------------------------------------
 
+	//!	\brief Значение квантователя по умолчанию
+	static const q_t DEFAULT_Q;
+
 	// public methods ----------------------------------------------------------
 
 	//!	\name Конструкторы и деструкторы
@@ -123,6 +126,8 @@ public:
 	sz_t lvls() const { return _lvls; }
 
 	//! \brief Возвращает количество коэффициентов во всём дереве
+	/*!	\return Количество коэффициентов во всём дереве
+	*/
 	const sz_t &nodes_count() const { return _nodes_count; }
 
 	//! \brief Возвращает количество байт занимаемых спектром
@@ -133,7 +138,8 @@ public:
 
 	//! \brief Возвращает использованный квантователь
 	/*!	\return Квантователь, который был использован для квантования
-		всего дерева c помощью wtree::quantize
+		дерева c помощью wtree::quantize или деквантования с помощью
+		wtree::dequantize
 	*/
 	const q_t &q() const { return _q; }
 
@@ -143,22 +149,44 @@ public:
 
 	//@{
 
-	//! \brief Загружает спектр из памяти
-	void load(const w_t *const from);
+	//! \brief Загружает поля элементов спектра
+	/*!	\param[in] from Блок памяти из которого будут загружены поля
+		элементов
 
-	//! \brief Загружает поля элементов из памяти
-	/*!	\param[in] from Блок памяти с полями элементов, значения которых,
-		будут скопированы
+		Эту функцию следует использовать с осторожностью, так как она
+		может нарушить целостность спектра.
+
+		Параметр шаблона <i>member</i> выбирает используемое поле элементов.
+		Параметр шаблона <i>value_t</i> даёт возможность загружать поля
+		из массивов значений отличных типов от типа поля. Значения будут
+		автоматически преобразованы к нужному типу.
 	*/
 	template <const wnode::wnode_members member, class value_t>
 	void load(const value_t *const from)
 	{
+		assert(0 != from);
+
 		typedef typename wnode::type_selector<member>::result wnm_t;
 
-		for (sz_t i = coefs() - 1; 0 <= i; --i)
+		for (sz_t i = 0; nodes_count() > i; ++i)
 		{
 			_nodes[i].get<member>() = static_cast<wnm_t>(from[i]);
 		}
+	}
+
+	//! \brief Загружает спектр из памяти
+	/*!	\param[in] from Вейвлет спектр, значения коэффициентов которого,
+		будут скопированы
+
+		Функция также автоматически выполняет квантование с <i>q = 1</i>
+		(вызывает wtree::quantize()).
+	*/
+	template <class value_t>
+	void load(const value_t *const from, const q_t q = DEFAULT_Q)
+	{
+		load<wnode::member_w>(from);
+
+		quantize(q);
 	}
 
 	//!	\brief Сохраняет значения полей в память
@@ -175,18 +203,31 @@ public:
 	}
 
 	//! \brief Производит квантование всего спектра
-	void quantize(const q_t q = 1);
+	void quantize(const q_t q = DEFAULT_Q);
 
 	//! \brief Производит деквантование всего спектра
-	void dequantize(const q_t q = 1);
+	/*!	\param[in] q Квантователь
+	*/
+	template <const wnode::wnode_members member>
+	void dequantize(const q_t q = DEFAULT_Q)
+	{
+		_deqantize<member>(q);
+	}
 
 	//! \brief Обновляет дерево, восстанавливая подрезанные вевти,
 	//! приравнивая значения полей wnode::wq и wnode::wk к wnode::w,
 	//!	устанавливая wnode::n и обнуляя остальные поля.
-	void refresh();
-
-	//!	\brief Сбрасывает содержимое дерева
-	void reset();
+	void wipeout()
+	{
+		for (sz_t i = 0; nodes_count() > i; ++i)
+		{
+			wnode &node		= _nodes[i];
+			node.w			= 0;
+			node.wq			= node.wc = 0;
+			node.n			= 0;
+			node.invalid	= true;
+		}
+	}
 
 	//@}
 
@@ -194,10 +235,26 @@ public:
 	//{@
 
 	//! \brief Возвращает информацию о саббендах
-	subbands &sb();
+	/*!	\return Ссылка на объект wiс::subbands
+		\sa subbands
+	*/
+	subbands &sb()
+	{
+		assert(0 != _subbands);
+
+		return (*_subbands);
+	}
 
 	//! \brief Возвращает информацию о саббендах
-	const subbands &sb() const;
+	/*!	\return Константная ссылка на объект wiс::subbands
+		\sa subbands
+	*/
+	const subbands &sb() const
+	{
+		assert(0 != _subbands);
+
+		return (*_subbands);
+	}
 
 	//@}
 
@@ -667,8 +724,35 @@ protected:
 	//!	\name Функции работающие с целым деревом
 	//@{
 
-	//! \brief Сбрасывет всю информацию о деревьях в 0
-	void _reset_trees_content();
+	//!	\brief Производит квантование коэффициентов спектра
+	void _quantize(const q_t q);
+
+	//!	\brief Производит квантование коэффициентов спектра и заполнение других
+	//!	полей элементов (как это необходимо сделать перед началом кодирования)
+	void _filling_quantize(const q_t q);
+
+	//!	\brief Проиводит деквантование коэффициентов спектра
+	/*!	\param[in] q Используемый квантователь
+
+		Функция проводит деквантование поля по выбору (параметр шаблона
+		<i>member</i>) и помещает результат в поле wnode::w
+	*/
+	template <const wnode::wnode_members member>
+	void _deqantize(const q_t q)
+	{
+		assert(1 <= q);
+
+		_q = q;
+
+		for (sz_t i = 0; nodes_count() > i; ++i)
+		{
+			wnode &node = _nodes[i];
+			node.w = wnode::dequantize(node.get<member>(), q);
+		}
+	}
+
+	//! \brief Обновляет спектр
+	void _filling_refresh();
 
 	//@}
 
@@ -751,8 +835,8 @@ protected:
 		branch_n = 0;
 	}
 
-	//!	\brief Выполняет антиподрезание ветви
-	void _uncut_branch(const p_t &branch, const bool is_cut);
+	//!	\brief Выполняет антиподрезание (порождение) ветви
+	void _uncut_branch(const p_t &branch);
 
 	//@}
 
