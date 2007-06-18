@@ -167,6 +167,44 @@ void acoder::put_value(const value_type &value, const sz_t model_no)
 }
 
 
+/*!	\param[in] value «начение дл€ кодировани€
+	\param[in] model_no Ќомер модели
+
+	‘ункци€ не осуществл€ет реального кодировани€, а просто измен€ет
+	накопленную статистику дл€ использованной модели <i>model_no</i>.
+
+	\note ¬ отладочном режиме функци€ измен€ет значени€ полей 
+	model_t::_encoded_symbols и model_t::_encoded_freqs дл€ выбранной
+	модели, несмотр€ на то, что реального кодировани€ не производитс€.
+*/
+void acoder::virtual_put_value(const value_type &value, const sz_t model_no)
+{
+	// проверка утверждений
+	assert(0 != _aencoder);
+	assert(0 != _out_stream);
+
+	assert(0 <= model_no && model_no < sz_t(_models.size()));
+
+	model_t &model = _models[model_no];
+
+	assert(model.min <= value && value <= model.max);
+
+	const value_type enc_val = (value + model._delta);
+
+	assert(0 <= enc_val && enc_val < model._symbols);
+
+	#ifdef LIBWIC_DEBUG
+	++(model._encoded_symbols);
+	++(model._encoded_freqs[enc_val]);
+	#endif
+
+	// выбор модели и виртуальное кодирование (учитыва€ смещение)
+	_aencoder->model(model_no);
+
+	_aencoder->update_model(enc_val);
+}
+
+
 /*!
 */
 void acoder::decode_start()

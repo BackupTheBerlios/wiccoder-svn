@@ -206,6 +206,24 @@ public:
 		put_value(static_cast<const value_type &>(param), model_no);
 	}
 
+	//!	\brief Имитирует кодирование значения
+	void virtual_put_value(const value_type &value, const sz_t model_no);
+
+	//!	\brief Имитирует кодирование значения
+	/*!	\param[in] param Значение для кодирования
+		\param[in] model_no Номер модели
+
+		Функция отличается от acoder::virtual_put_value() тем, что сама
+		может производить допустимые преобразования типов.
+	*/
+	template <class param_t>
+	void virtual_put(const param_t &param, const sz_t model_no)
+	{
+		assert(sizeof(param_t) <= sizeof(value_type));
+
+		virtual_put_value(static_cast<const value_type &>(param), model_no);
+	}
+
 	//!	\brief Производит подсчёт битовых затрат, необходимых для кодирования
 	//!	символа
 	/*!	\param[in] param Символ из алфавита модели
