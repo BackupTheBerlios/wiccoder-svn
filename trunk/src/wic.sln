@@ -30,12 +30,18 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "arcoder", "..\arcoder\arcod
 	ProjectSection(ProjectDependencies) = postProject
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "wictool", "wictool\wictool.vcproj", "{28AC9211-0C0A-46E1-B1D3-C3D05B8E7297}"
+	ProjectSection(ProjectDependencies) = postProject
+		{93749B0E-BEBA-452C-AF9E-94E4F6D0622B} = {93749B0E-BEBA-452C-AF9E-94E4F6D0622B}
+		{AFEA3738-EB23-450B-9E16-81B1BB1A20A6} = {AFEA3738-EB23-450B-9E16-81B1BB1A20A6}
+		{07DA2167-1E9F-4A46-9512-AFABD21DD976} = {07DA2167-1E9F-4A46-9512-AFABD21DD976}
+		{FA912ACC-27C1-4CFF-B314-95E01E6FB783} = {FA912ACC-27C1-4CFF-B314-95E01E6FB783}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfiguration) = preSolution
 		Debug = Debug
 		Release = Release
-	EndGlobalSection
-	GlobalSection(ProjectDependencies) = postSolution
 	EndGlobalSection
 	GlobalSection(ProjectConfiguration) = postSolution
 		{4D46FB41-70DC-461E-AB7E-4DE86E3A6ADE}.Debug.ActiveCfg = Debug|Win32
@@ -62,6 +68,10 @@ Global
 		{AFEA3738-EB23-450B-9E16-81B1BB1A20A6}.Debug.Build.0 = Debug|Win32
 		{AFEA3738-EB23-450B-9E16-81B1BB1A20A6}.Release.ActiveCfg = Release|Win32
 		{AFEA3738-EB23-450B-9E16-81B1BB1A20A6}.Release.Build.0 = Release|Win32
+		{28AC9211-0C0A-46E1-B1D3-C3D05B8E7297}.Debug.ActiveCfg = Debug|Win32
+		{28AC9211-0C0A-46E1-B1D3-C3D05B8E7297}.Debug.Build.0 = Debug|Win32
+		{28AC9211-0C0A-46E1-B1D3-C3D05B8E7297}.Release.ActiveCfg = Release|Win32
+		{28AC9211-0C0A-46E1-B1D3-C3D05B8E7297}.Release.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 	EndGlobalSection
