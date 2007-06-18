@@ -35,7 +35,7 @@
 	ухудшаются.
 */
 #define	RECALC_PI_FACTOR_ON_EDGES
-//#undef	RECALC_PI_FACTOR_ON_EDGES
+// #undef	RECALC_PI_FACTOR_ON_EDGES
 
 //!	\brief Если макрос определён, то веса граничных элементов  при подсчёте
 //!	прогноза <i>S<sub>j</sub></i> будут пересчитанны в соответствии с
@@ -44,7 +44,7 @@
 	ухудшаются.
 */
 #define	RECALC_SJ_FACTOR_ON_EDGES
-//#undef	RECALC_SJ_FACTOR_ON_EDGES
+// #undef	RECALC_SJ_FACTOR_ON_EDGES
 
 
 ////////////////////////////////////////////////////////////////////////////////

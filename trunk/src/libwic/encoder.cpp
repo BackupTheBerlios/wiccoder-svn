@@ -299,6 +299,22 @@ void encoder::_encode_map(const sz_t m, const n_t &n) {
 
 
 /*!	\param[in] m Номер модели для кодирования
+	\param[in] wk Значение коэффициента для кодирования
+*/
+void encoder::_virtual_encode_spec(const sz_t m, const wk_t &wk) {
+	_acoder.virtual_put(wk, m);
+}
+
+
+/*!	\param[in] m Номер модели для кодирования
+	\param[in] n Значение группового признака подрезания ветвей
+*/
+void encoder::_virtual_encode_map(const sz_t m, const n_t &n) {
+	_acoder.virtual_put(n, m + ACODER_SPEC_MODELS_COUNT);
+}
+
+
+/*!	\param[in] m Номер модели для кодирования
 	\return Значение коэффициента для кодирования
 */
 wk_t encoder::_decode_spec(const sz_t m)
@@ -681,57 +697,31 @@ void encoder::_encode_tree_root(const p_t &root)
 	const wnode &root_node = _wtree.at(root);
 
 	// закодировать коэффициент с нулевого уровня
+	#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
+	_virtual_encode_spec(_ind_spec(0, subbands::LVL_0), root_node.wc);
+	#else
 	_encode_spec(_ind_spec(0, subbands::LVL_0), root_node.wc);
+	#endif
 
 	// закодировать групповой признак подрезания с нулевого уровня
+	#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
+	_virtual_encode_map(_ind_map(0, subbands::LVL_0), root_node.n);
+	#else
 	_encode_map(_ind_map(0, subbands::LVL_0), root_node.n);
+	#endif
 
 	// кодирование дочерних коэффициентов с первого уровня
 	for (wtree::coefs_iterator i = _wtree.iterator_over_LL_children(root);
 		 !i->end(); i->next())
 	{
 		// закодировать коэффициенты с первого уровня
+		#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
+		_virtual_encode_spec(_ind_spec(0, subbands::LVL_1),
+							 _wtree.at(i->get()).wc);
+		#else
 		_encode_spec(_ind_spec(0, subbands::LVL_1), _wtree.at(i->get()).wc);
+		#endif
 	}
-
-	/*
-	// кодирование коэффициентов со второго уровня
-	static const sz_t LVL_2 = subbands::LVL_1 + subbands::LVL_NEXT;
-
-	for (wtree::coefs_iterator i = _wtree.iterator_over_LL_children(root);
-		 !i->end(); i->next())
-	{
-		// координаты текущего родительского элемента с первого уровня
-		const p_t &p = i->get();
-
-		// маска подрезания, где текущий элемент не подрезан
-		const n_t mask = _wtree.child_n_mask_LL(p);
-
-		// переходим к следующему потомку, если ветвь подрезана
-		if (!_wtree.test_n_mask(root_node.n, mask)) continue;
-
-		// саббенд в котором лежит текущий родительский элемент
-		const subbands::subband_t &sb_i =
-						_wtree.sb().from_point(p, subbands::LVL_1);
-
-		// саббенд в котором лежат дочерние элементы со второго уровня
-		// (дочерний от sb_i)
-		const subbands::subband_t &sb_j =
-						_wtree.sb().get(LVL_2, sb_i.i);
-
-		// ветвь не подрезана, кодируем дочерние коэффициенты
-		for (wtree::coefs_iterator i = _wtree.iterator_over_children(p);
-			 !i->end(); i->next())
-		{
-			// координаты текущего дочернего элемента со второго уровня
-			const p_t &c = i->get();
-
-			// кодирование коэффициента
-			_encode_spec(_ind_spec<wnode::member_wc>(c, sb_j),
-						 _wtree.at(c).wc);
-		}
-	}
-	*/
 }
 
 
@@ -763,7 +753,11 @@ void encoder::_encode_tree_leafs(const p_t &root, const sz_t lvl)
 
 			const sz_t model = _ind_spec<wnode::member_wc>(p_g, sb_g);
 
+			#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
+			_virtual_encode_spec(model, node_g.wc);
+			#else
 			_encode_spec(model, node_g.wc);
+			#endif
 		}
 
 		// на предпоследнем уровне нет групповых признаков подрезания
@@ -788,7 +782,11 @@ void encoder::_encode_tree_leafs(const p_t &root, const sz_t lvl)
 
 			const sz_t model = _ind_map<wnode::member_wc>(p_j, sb_g);
 
+			#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
+			_virtual_encode_map(model, node_j.n);
+			#else
 			_encode_map(model, node_j.n);
+			#endif
 		}
 	}
 }
