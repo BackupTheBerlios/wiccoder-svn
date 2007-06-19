@@ -138,8 +138,17 @@ void acoder::encode_stop()
 
 /*!	\param[in] value Значение для кодирования
 	\param[in] model_no Номер модели
+	\param[in] virtual_encode Если <i>true</i>, то будет производиться
+	виртуальное кодирование (имитация кодирования с перенастройкой
+	моделей без реального помещения символов в выходной поток).
+
+	\note В отладочном режиме функция изменяет значения полей 
+	model_t::_encoded_symbols и model_t::_encoded_freqs для выбранной
+	модели, даже при виртуальном кодировании, несмотря на то, что
+	реального кодирования не производится.
 */
-void acoder::put_value(const value_type &value, const sz_t model_no)
+void acoder::put_value(const value_type &value, const sz_t model_no,
+					   const bool virtual_encode)
 {
 	// проверка утверждений
 	assert(0 != _aencoder);
@@ -163,44 +172,11 @@ void acoder::put_value(const value_type &value, const sz_t model_no)
 	// выбор модели и кодирование (учитывая смещение)
 	_aencoder->model(model_no);
 
-	(*_aencoder) << enc_val;
-}
+	// при виртуальном кодировании не производится реальная запись
+	// в выходной поток
+	if (!virtual_encode) _aencoder->put(enc_val);
 
-
-/*!	\param[in] value Значение для кодирования
-	\param[in] model_no Номер модели
-
-	Функция не осуществляет реального кодирования, а просто изменяет
-	накопленную статистику для использованной модели <i>model_no</i>.
-
-	\note В отладочном режиме функция изменяет значения полей 
-	model_t::_encoded_symbols и model_t::_encoded_freqs для выбранной
-	модели, несмотря на то, что реального кодирования не производится.
-*/
-void acoder::virtual_put_value(const value_type &value, const sz_t model_no)
-{
-	// проверка утверждений
-	assert(0 != _aencoder);
-	assert(0 != _out_stream);
-
-	assert(0 <= model_no && model_no < sz_t(_models.size()));
-
-	model_t &model = _models[model_no];
-
-	assert(model.min <= value && value <= model.max);
-
-	const value_type enc_val = (value + model._delta);
-
-	assert(0 <= enc_val && enc_val < model._symbols);
-
-	#ifdef LIBWIC_DEBUG
-	++(model._encoded_symbols);
-	++(model._encoded_freqs[enc_val]);
-	#endif
-
-	// выбор модели и виртуальное кодирование (учитывая смещение)
-	_aencoder->model(model_no);
-
+	// обновление модели арифметического кодера
 	_aencoder->update_model(enc_val);
 }
 

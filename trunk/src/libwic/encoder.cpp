@@ -284,33 +284,27 @@ h_t encoder::_h_map(const sz_t m, const n_t &n) {
 
 /*!	\param[in] m Номер модели для кодирования
 	\param[in] wk Значение коэффициента для кодирования
+	\param[in] virtual_encode Если <i>true</i> то будет производиться
+	виртуальное кодирование (только перенастройка моделей, без помещения
+	кодируемого символа в выходной поток).
 */
-void encoder::_encode_spec(const sz_t m, const wk_t &wk) {
-	_acoder.put(wk, m);
+void encoder::_encode_spec(const sz_t m, const wk_t &wk,
+						   const bool virtual_encode)
+{
+	_acoder.put(wk, m, virtual_encode);
 }
 
 
 /*!	\param[in] m Номер модели для кодирования
 	\param[in] n Значение группового признака подрезания ветвей
+	\param[in] virtual_encode Если <i>true</i> то будет производиться
+	виртуальное кодирование (только перенастройка моделей, без помещения
+	кодируемого символа в выходной поток).
 */
-void encoder::_encode_map(const sz_t m, const n_t &n) {
-	_acoder.put(n, m + ACODER_SPEC_MODELS_COUNT);
-}
-
-
-/*!	\param[in] m Номер модели для кодирования
-	\param[in] wk Значение коэффициента для кодирования
-*/
-void encoder::_virtual_encode_spec(const sz_t m, const wk_t &wk) {
-	_acoder.virtual_put(wk, m);
-}
-
-
-/*!	\param[in] m Номер модели для кодирования
-	\param[in] n Значение группового признака подрезания ветвей
-*/
-void encoder::_virtual_encode_map(const sz_t m, const n_t &n) {
-	_acoder.virtual_put(n, m + ACODER_SPEC_MODELS_COUNT);
+void encoder::_encode_map(const sz_t m, const n_t &n,
+						  const bool virtual_encode)
+{
+	_acoder.put(n, m + ACODER_SPEC_MODELS_COUNT, virtual_encode);
 }
 
 

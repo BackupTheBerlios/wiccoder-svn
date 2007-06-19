@@ -56,7 +56,7 @@
 	затруднять отладку.
 */
 #define	OPTIMIZATION_USE_VIRTUAL_ENCODING
-// #undef	OPTIMIZATION_USE_VIRTUAL_ENCODING
+#undef	OPTIMIZATION_USE_VIRTUAL_ENCODING
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -318,18 +318,13 @@ protected:
 	h_t _h_map(const sz_t m, const n_t &n);
 
 	//!	\brief Кодирует коэффициент арифметическим енкодером
-	void _encode_spec(const sz_t m, const wk_t &wk);
+	void _encode_spec(const sz_t m, const wk_t &wk,
+					  const bool virtual_encode = false);
 
 	//!	\brief Кодирует групповой признак подрезания ветвей арифметическим
 	//!	енкодером
-	void _encode_map(const sz_t m, const n_t &n);
-
-	//!	\brief Имитирует кодирование коэффициента арифметическим енкодером
-	void _virtual_encode_spec(const sz_t m, const wk_t &wk);
-
-	//!	\brief Имитирует кодирование группового признака подрезания ветвей
-	//!	арифметическим енкодером
-	void _virtual_encode_map(const sz_t m, const n_t &n);
+	void _encode_map(const sz_t m, const n_t &n,
+					 const bool virtual_encode = false);
 
 	//!	\brief Декодирует коэффициент арифметическим декодером
 	wk_t _decode_spec(const sz_t m);

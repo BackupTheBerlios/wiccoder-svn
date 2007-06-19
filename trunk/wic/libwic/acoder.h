@@ -189,39 +189,24 @@ public:
 	void encode_stop();
 
 	//!	\brief Кодирует значение и помещает его в битовый поток
-	void put_value(const value_type &value, const sz_t model_no);
+	void put_value(const value_type &value, const sz_t model_no,
+				   const bool virtual_encode = false);
 
 	//!	\brief Кодирует значение и помещает его в битовый поток
 	/*!	\param[in] param Значение для кодирования
 		\param[in] model_no Номер модели
-
-		Функция отличается от acoder::put_value() тем, что сама может
-		производить допустимые преобразования типов.
+		\param[in] virtual_encode Если <i>true</i>, то будет производиться
+		виртуальное кодирование (имитация кодирования с перенастройкой
+		моделей без реального помещения символов в выходной поток).
 	*/
 	template <class param_t>
-	void put(const param_t &param, const sz_t model_no)
+	void put(const param_t &param, const sz_t model_no,
+			 const bool virtual_encode = false)
 	{
 		assert(sizeof(param_t) <= sizeof(value_type));
 
-		put_value(static_cast<const value_type &>(param), model_no);
-	}
-
-	//!	\brief Имитирует кодирование значения
-	void virtual_put_value(const value_type &value, const sz_t model_no);
-
-	//!	\brief Имитирует кодирование значения
-	/*!	\param[in] param Значение для кодирования
-		\param[in] model_no Номер модели
-
-		Функция отличается от acoder::virtual_put_value() тем, что сама
-		может производить допустимые преобразования типов.
-	*/
-	template <class param_t>
-	void virtual_put(const param_t &param, const sz_t model_no)
-	{
-		assert(sizeof(param_t) <= sizeof(value_type));
-
-		virtual_put_value(static_cast<const value_type &>(param), model_no);
+		put_value(static_cast<const value_type &>(param), model_no,
+				  virtual_encode);
 	}
 
 	//!	\brief Производит подсчёт битовых затрат, необходимых для кодирования
