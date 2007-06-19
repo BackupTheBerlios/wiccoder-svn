@@ -477,6 +477,7 @@ void acoder::_init_models(arcoder_base *const coder_base)
 	assert(0 != coder_base);
 	assert(coder_base->Models().Size() == _models.size());
 
+	// обновление внутренней информации моделей
 	_refresh_models(_models);
 
 	// сброс статистик

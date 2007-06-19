@@ -109,6 +109,33 @@ void wtree::quantize(const q_t q)
 }
 
 
+/*!	Это действие может быть полезно для подготовки спектра
+	к кодированию.
+
+	\sa _filling_refresh
+*/
+void wtree::filling_refresh()
+{
+	_filling_refresh();
+}
+
+
+/*!	Это действие может быть полезно для подготовки спектра
+	к декодированию.
+*/
+void wtree::wipeout()
+{
+	for (sz_t i = 0; nodes_count() > i; ++i)
+	{
+		wnode &node		= _nodes[i];
+		node.w			= 0;
+		node.wq			= node.wc = 0;
+		node.n			= 0;
+		node.invalid	= true;
+	}
+}
+
+
 /*!	\param[in] x X координата
 	\param[in] y Y координата
 	\return Константная ссылка на значение элемента спектра

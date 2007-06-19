@@ -214,20 +214,15 @@ public:
 		_deqantize<member>(q);
 	}
 
-	//! \brief ќбновл€ет дерево, восстанавлива€ подрезанные вевти,
-	//! приравнива€ значени€ полей wnode::wq и wnode::wk к wnode::w,
-	//!	устанавлива€ wnode::n и обнул€€ остальные пол€.
-	void wipeout()
-	{
-		for (sz_t i = 0; nodes_count() > i; ++i)
-		{
-			wnode &node		= _nodes[i];
-			node.w			= 0;
-			node.wq			= node.wc = 0;
-			node.n			= 0;
-			node.invalid	= true;
-		}
-	}
+	//! \brief ќбновл€ет дерево, приравнива€ значени€ пол€ wnode::wc
+	//!	к wnode::wq, обнул€ет значени€ функции <i>Ћагранжа</i>, помечает
+	//!	все ветви как подрезанные, а элементы как корректные
+	void filling_refresh();
+
+	//! \brief ќбновл€ет дерево, обнул€€ значени€ полей wnode::w, wnode::wq
+	//!	и wnode::wc, отмечает все ветви как подрезанные, а элементы как
+	//!	не корректные.
+	void wipeout();
 
 	//@}
 

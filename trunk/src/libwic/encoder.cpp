@@ -1121,5 +1121,59 @@ j_t encoder::_optimize_tree(const p_t &root, const lambda_t &lambda)
 }
 
 
+/*! \param[in] lambda Параметр <i>lambda</i> используемый для
+	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
+	собой баланс между ошибкой и битовыми затратами.
+	\return Результат проведённого кодирования
+
+	Для корректной работы этой функции необходимо, чтобы поля wnode::w и
+	wnode::wq элементов спектра были корректны. В спектре все ветви должны
+	быть отмечены как подрезанные, а элементы как корректные. Значения
+	функций <i>Лагранжа</i> в спектре должны быть обнулены. Арифметический
+	кодер должен быть настроен на корректные модели (смотри acoder::use()).
+*/
+encoder::_encode_result_t encoder::_encode(const lambda_t &lambda)
+{
+	// инициализация возвращаемого результата
+	_encode_result_t result;
+	result.j	= 0;
+	result.bpp	= 0;
+
+	// подготовка спектра к кодированию
+	_wtree.filling_refresh();
+
+	// оптимизация топологии ветвей с кодированием
+	_acoder.encode_start();
+
+	for (wtree::coefs_iterator i =
+				_wtree.iterator_over_subband(_wtree.sb().get_LL());
+		 !i->end(); i->next())
+	{
+		const p_t &root = i->get();
+
+		// оптимизация топологии отдельной ветви
+		result.j += _optimize_tree(root, lambda);
+
+		// кодирование отдельной ветви
+		_encode_tree(root);
+	}
+
+	_acoder.encode_stop();
+
+	// кодирование всего спектра
+	_acoder.encode_start();
+
+	_encode_wtree();
+
+	_acoder.encode_stop();
+
+	// подсчёт bpp
+	assert(false);
+
+	// возврат результата
+	return result;
+}
+
+
 
 }	// end of namespace wic
