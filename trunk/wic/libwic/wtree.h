@@ -189,6 +189,28 @@ public:
 		quantize(q);
 	}
 
+	//!	\brief Быстрая загрузка спектра с квантованием
+	/*!	\param[in] from Вейвлет спектр, значения коэффициентов которого,
+		будут скопированы
+		param[in] q Квантователь
+
+		Функция производит быструю загрузку спектра без инициализации,
+		как это делает функция wtree::load(). Значения всех полей кроме
+		wnode::w (помещаются загруженные коэффициенты) и wnode::wq
+		(помещаются проквантованные коэффициенты) не изменяются.
+	*/
+	template <class value_t>
+	void cheap_load(const value_t *const from, const q_t q = DEFAULT_Q)
+	{
+		assert(0 != from);
+
+		for (sz_t i = 0; nodes_count() > i; ++i) {
+			wnode &node = _nodes[i];
+			node.w	= static_cast<w_t>(from[i]);
+			node.wq	= wnode::quantize(node.w, q);
+		}
+	}
+
 	//!	\brief Сохраняет значения полей в память
 	/*!	\param[out] to Блок памяти, в который будут сохранены значения поля
 		элементов

@@ -35,6 +35,17 @@ encoder::encoder(const sz_t width, const sz_t height, const sz_t lvls):
 {
 	// проверка утверждений
 	assert(MINIMUM_LEVELS <= lvls);
+
+	#ifdef LIBWIC_DEBUG
+	_dbg_out_stream.open("dumps/[encoder]debug.out",
+						 std::ios_base::out | std::ios_base::app);
+
+	if (_dbg_out_stream.good()) {
+		time_t t;
+		time(&t);
+		_dbg_out_stream << std::endl << ctime(&t) << std::endl;
+	}
+	#endif
 }
 
 
@@ -59,20 +70,15 @@ void encoder::encode(const w_t *const w, const q_t q, const lambda_t &lambda,
 	_acoder.use(_mk_acoder_models(header.models));
 
 	// оптимизация топологии ветвей
-	_acoder.encode_start();
+	#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
+	// _optimize_wtree(lambda, true);
+	#else
+	// _optimize_wtree(lambda, false);
+	#endif
 
-	for (wtree::coefs_iterator i =
-				_wtree.iterator_over_subband(_wtree.sb().get_LL());
-		 !i->end(); i->next())
-	{
-		const p_t &root = i->get();
-		_optimize_tree(root, lambda);
-		_encode_tree(root);
-	}
+	_search_lambda(0.5);
 
-	_acoder.encode_stop();
-
-	// кодирование
+	// кодирование всего дерева
 	_acoder.encode_start();
 
 	_encode_wtree();
@@ -677,52 +683,48 @@ encoder::_optimize_branch_topology(const p_t &branch,
 
 
 /*!	\param[in] root Координаты корневого элемента
+	\param[in] virtual_encode Если <i>true</i>, то будет производиться
+	виртуальное кодирование (только перенастройка моделей, без помещения
+	кодируемого символа в выходной поток).
 
 	Функция выполняет кодирование:
 	- Коэффициента при корневом элементе
 	- Группового признака подрезания при корневом элементе
 	- Коэффициентов принадлежащих дереву с первого уровня разложения
-	- Коэффициентов принадлежащих дереву со второго уровня разложения
-	  если те не попали в подрезанные ветви
 */
-void encoder::_encode_tree_root(const p_t &root)
+void encoder::_encode_tree_root(const p_t &root,
+								const bool virtual_encode)
 {
 	// получение корневого элемента
 	const wnode &root_node = _wtree.at(root);
 
 	// закодировать коэффициент с нулевого уровня
-	#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
-	_virtual_encode_spec(_ind_spec(0, subbands::LVL_0), root_node.wc);
-	#else
-	_encode_spec(_ind_spec(0, subbands::LVL_0), root_node.wc);
-	#endif
+	_encode_spec(_ind_spec(0, subbands::LVL_0), root_node.wc,
+				 virtual_encode);
 
 	// закодировать групповой признак подрезания с нулевого уровня
-	#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
-	_virtual_encode_map(_ind_map(0, subbands::LVL_0), root_node.n);
-	#else
-	_encode_map(_ind_map(0, subbands::LVL_0), root_node.n);
-	#endif
+	_encode_map(_ind_map(0, subbands::LVL_0), root_node.n,
+				virtual_encode);
 
 	// кодирование дочерних коэффициентов с первого уровня
 	for (wtree::coefs_iterator i = _wtree.iterator_over_LL_children(root);
 		 !i->end(); i->next())
 	{
 		// закодировать коэффициенты с первого уровня
-		#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
-		_virtual_encode_spec(_ind_spec(0, subbands::LVL_1),
-							 _wtree.at(i->get()).wc);
-		#else
-		_encode_spec(_ind_spec(0, subbands::LVL_1), _wtree.at(i->get()).wc);
-		#endif
+		_encode_spec(_ind_spec(0, subbands::LVL_1), _wtree.at(i->get()).wc,
+					 virtual_encode);
 	}
 }
 
 
 /*!	\param[in] root Координаты корнвого элемента
 	\param[in] lvl Номер уровня разложения
+	\param[in] virtual_encode Если <i>true</i>, то будет производиться
+	виртуальное кодирование (только перенастройка моделей, без помещения
+	кодируемого символа в выходной поток).
 */
-void encoder::_encode_tree_leafs(const p_t &root, const sz_t lvl)
+void encoder::_encode_tree_leafs(const p_t &root, const sz_t lvl,
+								 const bool virtual_encode)
 {
 	// псевдонимы для номеров уровней
 	const sz_t lvl_g = lvl;
@@ -747,11 +749,7 @@ void encoder::_encode_tree_leafs(const p_t &root, const sz_t lvl)
 
 			const sz_t model = _ind_spec<wnode::member_wc>(p_g, sb_g);
 
-			#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
-			_virtual_encode_spec(model, node_g.wc);
-			#else
-			_encode_spec(model, node_g.wc);
-			#endif
+			_encode_spec(model, node_g.wc, virtual_encode);
 		}
 
 		// на предпоследнем уровне нет групповых признаков подрезания
@@ -776,22 +774,22 @@ void encoder::_encode_tree_leafs(const p_t &root, const sz_t lvl)
 
 			const sz_t model = _ind_map<wnode::member_wc>(p_j, sb_g);
 
-			#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
-			_virtual_encode_map(model, node_j.n);
-			#else
-			_encode_map(model, node_j.n);
-			#endif
+			_encode_map(model, node_j.n, virtual_encode);
 		}
 	}
 }
 
 
 /*!	\param[in] root Координаты корневого элемента дерева
+	\param[in] virtual_encode Если <i>true</i>, то будет производиться
+	виртуальное кодирование (только перенастройка моделей, без помещения
+	кодируемого символа в выходной поток).
 */
-void encoder::_encode_tree(const p_t &root)
+void encoder::_encode_tree(const p_t &root,
+						   const bool virtual_encode)
 {
 	// кодирование корневого и дочерних элементов дерева
-	_encode_tree_root(root);
+	_encode_tree_root(root, virtual_encode);
 
 	// кодирование элементов дерева на остальных уровнях
 	const sz_t first_lvl = subbands::LVL_1 + subbands::LVL_NEXT;
@@ -799,7 +797,7 @@ void encoder::_encode_tree(const p_t &root)
 
 	for (sz_t lvl = first_lvl; final_lvl >= lvl; ++lvl)
 	{
-		_encode_tree_leafs(root, lvl);
+		_encode_tree_leafs(root, lvl, virtual_encode);
 	}
 }
 
@@ -1104,6 +1102,14 @@ void encoder::_optimize_tree_step_3(const p_t &root, const lambda_t &lambda)
 	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
 	собой баланс между ошибкой и битовыми затратами.
 	\return Значение <i>RD-функций Лагранжа</i> для дерева
+
+	Для корректной работы функции необходимо, чтобы в дереве все ветви
+	были отмечены как подрезанные, а элементы как корректные. Значения
+	функций <i>Лагранжа</i> в спектре должны быть обнулены. Арифметический
+	кодер должен быть настроен на корректные модели (смотри acoder::use()).
+
+	\note Необходимую подготовку выполняет функция wnode::filling_refresh(),
+	при условии, что поля wnode::w и wnode::wq корректны.
 */
 j_t encoder::_optimize_tree(const p_t &root, const lambda_t &lambda)
 {
@@ -1115,26 +1121,27 @@ j_t encoder::_optimize_tree(const p_t &root, const lambda_t &lambda)
 }
 
 
-/*! \param[in] lambda Параметр <i>lambda</i> используемый для
+/*!	\param[in] lambda Параметр <i>lambda</i> используемый для
 	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
 	собой баланс между ошибкой и битовыми затратами.
-	\return Результат проведённого кодирования
+	\return Результат проведённой оптимизации
 
 	Для корректной работы этой функции необходимо, чтобы поля wnode::w и
 	wnode::wq элементов спектра были корректны. В спектре все ветви должны
 	быть отмечены как подрезанные, а элементы как корректные. Значения
 	функций <i>Лагранжа</i> в спектре должны быть обнулены. Арифметический
 	кодер должен быть настроен на корректные модели (смотри acoder::use()).
+
+	\note Необходимую подготовку выполняет функция wnode::filling_refresh(),
+	при условии, что поля wnode::w и wnode::wq корректны.
 */
-encoder::_encode_result_t encoder::_encode(const lambda_t &lambda)
+encoder::_encode_result_t encoder::_optimize_wtree(const lambda_t &lambda,
+												   const bool virtual_encode)
 {
 	// инициализация возвращаемого результата
 	_encode_result_t result;
 	result.j	= 0;
 	result.bpp	= 0;
-
-	// подготовка спектра к кодированию
-	_wtree.filling_refresh();
 
 	// оптимизация топологии ветвей с кодированием
 	_acoder.encode_start();
@@ -1149,23 +1156,59 @@ encoder::_encode_result_t encoder::_encode(const lambda_t &lambda)
 		result.j += _optimize_tree(root, lambda);
 
 		// кодирование отдельной ветви
-		_encode_tree(root);
+		_encode_tree(root, virtual_encode);
 	}
 
 	_acoder.encode_stop();
 
-	// кодирование всего спектра
-	_acoder.encode_start();
+	// подсчёт bpp, если производилось реальное кодирование
+	if (!virtual_encode)
+	{
+		result.bpp = h_t(_acoder.encoded_sz() * BITS_PER_BYTE) / 
+					 h_t(_wtree.nodes_count());
+	}
 
-	_encode_wtree();
-
-	_acoder.encode_stop();
-
-	// подсчёт bpp
-	assert(false);
+	#ifdef LIBWIC_DEBUG
+	if (_dbg_out_stream.good())
+	{
+		_dbg_out_stream << "q: " << std::setw(8) << _wtree.q();
+		_dbg_out_stream << " lambda: " << std::setw(8) << lambda;
+		_dbg_out_stream << " j: " << std::setw(8) << result.j;
+		_dbg_out_stream << " bpp: " << std::setw(8) << result.bpp;
+		_dbg_out_stream << std::endl;
+	}
+	#endif
 
 	// возврат результата
 	return result;
+}
+
+
+/*!
+*/
+encoder::_encode_result_t encoder::_search_lambda(const h_t &bpp)
+{
+	const q_t q2		= _wtree.q() * _wtree.q();
+	lambda_t lambda_a	= 0.05 * q2;
+	lambda_t lambda_b	= 0.20 * q2;
+
+	_wtree.filling_refresh();
+	_encode_result_t result_a = _optimize_wtree(lambda_a, false);
+	_wtree.filling_refresh();
+	_encode_result_t result_b = _optimize_wtree(lambda_b, false);
+
+	for (;;) {
+		const lambda_t lambda_c = (lambda_b + lambda_a) / 2;
+		_wtree.filling_refresh();
+		_encode_result_t result_c = _optimize_wtree(lambda_c, false);
+
+		if (0.001 >= abs(result_c.bpp - bpp)) return result_c;
+
+		if (0 < (lambda_b - bpp)*(lambda_c - bpp))
+			lambda_a = lambda_c;
+		else
+			lambda_b = lambda_c;
+	}
 }
 
 

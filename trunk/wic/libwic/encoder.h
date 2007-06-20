@@ -17,6 +17,10 @@
 // standard C++ library headers
 #include <assert.h>
 #include <algorithm>
+#include <string>						// for debug output only
+#include <fstream>						// for debug output only
+#include <iomanip>						// for debug output only
+#include <time.h>						// for debug output only
 
 // external library header
 // none
@@ -54,6 +58,8 @@
 //!	кодером
 /*!	Включение этой опции даёт прирост производительности, но иногда может
 	затруднять отладку.
+
+	\note Пока не используется
 */
 #define	OPTIMIZATION_USE_VIRTUAL_ENCODING
 #undef	OPTIMIZATION_USE_VIRTUAL_ENCODING
@@ -495,13 +501,16 @@ protected:
 
 	//!	\brief Выполняет кодирование корневого элемента и элементов
 	//!	с первого уровня разложения.
-	void _encode_tree_root(const p_t &root);
+	void _encode_tree_root(const p_t &root,
+						   const bool virtual_encode = false);
 
 	//!	\brief Выполняет кодирование уровня дерева
-	void _encode_tree_leafs(const p_t &root, const sz_t lvl);
+	void _encode_tree_leafs(const p_t &root, const sz_t lvl,
+							const bool virtual_encode = false);
 
 	//!	\brief Выполняет кодирование отдельного дерева
-	void _encode_tree(const p_t &root);
+	void _encode_tree(const p_t &root,
+					  const bool virtual_encode = false);
 
 	//@}
 
@@ -542,9 +551,11 @@ protected:
 	//!	\name Оптимизация параметров <i>q</i> и <i>lambda</i>
 	//@{
 
-	//!	\brief Производит оптимизацию топологии всех ветвей в спектре и
-	//!	последующее кодирование
-	_encode_result_t _encode(const lambda_t &lambda);
+	//!	\brief Производит оптимизацию топологии всех ветвей в спектре
+	_encode_result_t _optimize_wtree(const lambda_t &lambda,
+									 const bool virtual_encode = false);
+
+	_encode_result_t _search_lambda(const h_t &bpp);
 
 	//@}
 
@@ -556,6 +567,12 @@ private:
 
 	//! \brief Арифметический кодер
 	acoder _acoder;
+
+	#ifdef LIBWIC_DEBUG
+	//!	\brief Стандартный файловый поток для вывода информации в
+	//!	отладочном режиме
+	std::ofstream _dbg_out_stream;
+	#endif
 };
 
 
