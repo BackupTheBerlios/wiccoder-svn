@@ -76,7 +76,7 @@ void encoder::encode(const w_t *const w, const q_t q, const lambda_t &lambda,
 	// _optimize_wtree(lambda, false);
 	#endif
 
-	_search_lambda(0.5);
+	_search_lambda(0.50);
 
 	// кодирование всего дерева
 	_acoder.encode_start();
@@ -1202,12 +1202,12 @@ encoder::_encode_result_t encoder::_search_lambda(const h_t &bpp)
 		_wtree.filling_refresh();
 		_encode_result_t result_c = _optimize_wtree(lambda_c, false);
 
-		if (0.001 >= abs(result_c.bpp - bpp)) return result_c;
+		if (0.01 >= abs(result_c.bpp - bpp)) return result_c;
 
-		if (0 < (lambda_b - bpp)*(lambda_c - bpp))
-			lambda_a = lambda_c;
-		else
+		if (0 < (result_b.bpp - bpp)*(result_c.bpp - bpp))
 			lambda_b = lambda_c;
+		else
+			lambda_a = lambda_c;
 	}
 }
 
