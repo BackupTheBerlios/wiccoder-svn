@@ -6,7 +6,7 @@
 	Данный заголовочный файл включает почти всё необходимое для
 	использования библиотеки wiccoder.
 
-	\todo     Более подробно описать файл coder.h
+	\todo     Более подробно описать файл codec.h
 */
 
 #pragma once
@@ -73,7 +73,7 @@ namespace wic {
 	\section mainpage_sectContacts Контакты
 
 	Вопросы, пожелания и предложения принимаются на электронный почтовый
-	ящик <a href="mailto:wonder.mice@gmail.com">wonder.mice@gmail.com</i>.
+	ящик <a href="mailto:wonder.mice@gmail.com">wonder.mice@gmail.com</a>.
 */
 
 /*!	\page pgTerminology Терминология

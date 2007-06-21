@@ -162,7 +162,7 @@ public:
 		автоматически преобразованы к нужному типу.
 	*/
 	template <const wnode::wnode_members member, class value_t>
-	void load(const value_t *const from)
+	void load_field(const value_t *const from)
 	{
 		assert(0 != from);
 
@@ -174,9 +174,10 @@ public:
 		}
 	}
 
-	//! \brief Загружает спектр из памяти
+	//! \brief Загружает спектр из памяти с квантованием
 	/*!	\param[in] from Вейвлет спектр, значения коэффициентов которого,
 		будут скопированы
+		\param[in] q Квантователь
 
 		Функция также автоматически выполняет квантование с <i>q = 1</i>
 		(вызывает wtree::quantize()).
@@ -184,7 +185,7 @@ public:
 	template <class value_t>
 	void load(const value_t *const from, const q_t q = DEFAULT_Q)
 	{
-		load<wnode::member_w>(from);
+		load_field<wnode::member_w>(from);
 
 		quantize(q);
 	}
@@ -192,7 +193,7 @@ public:
 	//!	\brief Быстрая загрузка спектра с квантованием
 	/*!	\param[in] from Вейвлет спектр, значения коэффициентов которого,
 		будут скопированы
-		param[in] q Квантователь
+		\param[in] q Квантователь
 
 		Функция производит быструю загрузку спектра без инициализации,
 		как это делает функция wtree::load(). Значения всех полей кроме
