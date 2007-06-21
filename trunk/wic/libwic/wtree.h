@@ -353,16 +353,14 @@ public:
 	//@{
 
 	//!	\brief Ќаходит минимальное и максимальное значени€ в спектре
-	/*!	\param[in] set »тератор, задающий множество дл€ поиска максимального
-		и минимального элементов
+	/*!	\param[in,out] set »тератор, задающий множество дл€ поиска
+		максимального и минимального элементов
 		\param[out] min ѕеременна€ котора€ примет найденное минимальное
 		значение
 		\param[out] max ѕеременна€ котора€ примет найденное максимальное
 		значение
 		\return <i>true</i> если множество не пустое и переменные <i>min</i>
 		и <i>max</i> получили некоторые значени€, иначе <i>false</i>
-
-		\todo Ќеобходимо протестировать эту функцию
 	*/
 	template <const wnode::wnode_members member>
 	bool minmax(coefs_iterator &set,
@@ -376,14 +374,12 @@ public:
 		if (set->end()) return false;
 
 		// инициализаци€ переменных
-		coefs_iterator i = set;
-
-		min = max = at(i->get()).get<member>();
+		min = max = at(set->get()).get<member>();
 
 		// поиск минимального и максимального значений
-		for (i->next(); !i->end(); i->next())
+		for (set->next(); !set->end(); set->next())
 		{
-			const wnode &node = at(i->get());
+			const wnode &node = at(set->get());
 			const value_t &value = node.get<member>();
 
 			if (value < min) min = value;
@@ -391,6 +387,55 @@ public:
 		}
 
 		return true;
+	}
+
+	//!	\brief —читает квадратичное отклонение между двум€ пол€ми элементов
+	//!	из указанного множества
+	/*!	\param[in,out] set »тератор, задающий множество элементов
+		\return  вадратичное отклонение
+
+		ѕараметры шаблона <i>member1</i> и <i>member2</i> определ€ют пол€
+		элементов, между которыми будет искатьс€ квадратичное отклонение.
+		ѕараметр шаблона <i>result_t</i> очень важен, так как он вли€ет на
+		точность производимых вычислений (внутри функци€ оперирует
+		значени€ми именно этого типа), поэтому имеет смысл €вно указывать
+		этот параметр.
+	*/
+	template <const wnode::wnode_members member, class result_t>
+	result_t distortion(coefs_iterator &set) const
+	{
+		// проверка утверждений
+		assert(member != wnode::member_w);
+		assert(member == wnode::member_wq || member == wnode::member_wc);
+
+		// инициализаци€ переменных
+		result_t d = 0;
+
+		// подсчЄт квадратичного отклонени€
+		while (!set->end())
+		{
+			const wnode &node = at(set->get());
+
+			const result_t dw = (node.w - node.get<member>());
+
+			d += (dw * dw);
+
+			set->next();
+		}
+
+		return d;
+	}
+
+	template <class result_t>
+	result_t distortion_wq() const
+	{
+		return distortion<wnode::member_wq, result_t>(iterator_over_wtree());
+	}
+
+	template <class result_t>
+	result_t distortion_wc() const
+	{
+		return distortion<wnode::member_wc, result_t>(iterator_over_wtree());
 	}
 
 	//@}

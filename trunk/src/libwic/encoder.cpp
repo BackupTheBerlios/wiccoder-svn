@@ -71,12 +71,13 @@ void encoder::encode(const w_t *const w, const q_t q, const lambda_t &lambda,
 
 	// оптимизация топологии ветвей
 	#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
-	// _optimize_wtree(lambda, true);
+	_optimize_wtree(lambda, true);
 	#else
-	// _optimize_wtree(lambda, false);
+	_optimize_wtree(lambda, false);
 	#endif
 
-	_search_lambda(0.50);
+	// _search_lambda(0.50);
+	// _search_q_and_lambda(0.50, header);
 
 	// кодирование всего дерева
 	_acoder.encode_start();
@@ -1200,6 +1201,9 @@ encoder::_encode_result_t encoder::_search_lambda(const h_t &bpp)
 	_wtree.filling_refresh();
 	_encode_result_t result_b = _optimize_wtree(lambda_b, false);
 
+	if (bpp <= result_a.bpp && bpp <=  result_b.bpp) return result_b;
+	if (bpp >= result_a.bpp && bpp >=  result_b.bpp) return result_b;
+
 	for (;;) {
 		const lambda_t lambda_c = (lambda_b + lambda_a) / 2;
 		_wtree.filling_refresh();
@@ -1212,6 +1216,70 @@ encoder::_encode_result_t encoder::_search_lambda(const h_t &bpp)
 		else
 			lambda_a = lambda_c;
 	}
+}
+
+
+/*!
+*/
+encoder::_encode_result_t encoder::_search_q_and_lambda(const h_t &bpp,
+														header_t &header)
+{
+	static const q_t factor_a = q_t((3.0 - sqrt(5.0)) / 2.0);
+    static const q_t factor_b = q_t((sqrt(5.0) - 1.0) / 2.0);
+
+	q_t q_a	= 4;
+	q_t q_b	= 64;
+
+	q_t q_g = q_a + factor_a * (q_b - q_a);
+	q_t q_h = q_a + factor_b * (q_b - q_a);
+
+    _wtree.quantize(q_g);
+	header.q = q_g;
+	header.models = _mk_acoder_smart_models();
+	_acoder.use(_mk_acoder_models(header.models));
+	_encode_result_t result_g = _search_lambda(bpp);
+	w_t dw_g = _wtree.distortion_wc<w_t>();
+
+	_wtree.quantize(q_h);
+	header.q = q_h;
+	header.models = _mk_acoder_smart_models();
+	_acoder.use(_mk_acoder_models(header.models));
+	_encode_result_t result_h = _search_lambda(bpp);
+	w_t dw_h = _wtree.distortion_wc<w_t>();
+
+	for (int i = 0; 10 > i; ++i)
+    {
+        if (dw_g >= dw_h)
+        {
+            q_b = q_h;
+            q_h = q_g;
+            dw_h = dw_g;
+			q_g = q_a + factor_a * (q_b - q_a);
+            
+			_wtree.quantize(q_g);
+			header.q = q_g;
+			header.models = _mk_acoder_smart_models();
+			_acoder.use(_mk_acoder_models(header.models));
+			_encode_result_t result_g = _search_lambda(bpp);
+			w_t dw_g = _wtree.distortion_wc<w_t>();
+        }
+        else
+        {
+            q_a = q_g;
+            q_g = q_h;
+            dw_g = dw_h;
+			q_h = q_a + factor_b * (q_b - q_a);
+            
+			_wtree.quantize(q_h);
+			header.q = q_h;
+			header.models = _mk_acoder_smart_models();
+			_acoder.use(_mk_acoder_models(header.models));
+			_encode_result_t result_h = _search_lambda(bpp);
+			w_t dw_h = _wtree.distortion_wc<w_t>();
+        }
+    }
+
+	return result_g;
 }
 
 

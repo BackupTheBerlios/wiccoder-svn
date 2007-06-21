@@ -557,6 +557,8 @@ protected:
 
 	_encode_result_t _search_lambda(const h_t &bpp);
 
+	_encode_result_t _search_q_and_lambda(const h_t &bpp, header_t &header);
+
 	//@}
 
 private:

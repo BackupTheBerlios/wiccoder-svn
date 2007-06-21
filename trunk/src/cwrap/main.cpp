@@ -286,6 +286,10 @@ int dencode(const int argc, const char *const * const args)
 	std::cout << double(t2.QuadPart - t1.QuadPart) / double(f.QuadPart) << "s";
 	std::cout << std::endl;
 
+	const wic::w_t dw = encoder.spectrum().distortion_wc<wic::w_t>();
+	std::cout << "dw: " << (dw / encoder.spectrum().nodes_count()) << std::endl;
+	std::cout << "q: " << (encoder.spectrum().q()) << std::endl;
+
 	// compressed file ---------------------------------------------------------
 	std::ofstream compressed("temp.out", std::ios::binary|std::ios::binary);
 	compressed.write((char *)&header, sizeof(&header));
