@@ -557,6 +557,16 @@ protected:
 
 	_encode_result_t _search_lambda(const h_t &bpp);
 
+	_encode_result_t _search_lambda(const h_t &bpp, const q_t &q,
+									header_t &header)
+	{
+		_wtree.quantize(q);
+		header.q = q;
+		header.models = _mk_acoder_smart_models();
+		_acoder.use(_mk_acoder_models(header.models));
+		return _search_lambda(bpp);
+	}
+
 	_encode_result_t _search_q_and_lambda(const h_t &bpp, header_t &header);
 
 	//@}

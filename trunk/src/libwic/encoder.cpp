@@ -1227,24 +1227,16 @@ encoder::_encode_result_t encoder::_search_q_and_lambda(const h_t &bpp,
 	static const q_t factor_a = q_t((3.0 - sqrt(5.0)) / 2.0);
     static const q_t factor_b = q_t((sqrt(5.0) - 1.0) / 2.0);
 
-	q_t q_a	= 4;
-	q_t q_b	= 64;
+	q_t q_a	= 10;
+	q_t q_b	= 15;
 
 	q_t q_g = q_a + factor_a * (q_b - q_a);
 	q_t q_h = q_a + factor_b * (q_b - q_a);
 
-    _wtree.quantize(q_g);
-	header.q = q_g;
-	header.models = _mk_acoder_smart_models();
-	_acoder.use(_mk_acoder_models(header.models));
-	_encode_result_t result_g = _search_lambda(bpp);
+	_encode_result_t result_g = _search_lambda(bpp, q_g, header);
 	w_t dw_g = _wtree.distortion_wc<w_t>();
 
-	_wtree.quantize(q_h);
-	header.q = q_h;
-	header.models = _mk_acoder_smart_models();
-	_acoder.use(_mk_acoder_models(header.models));
-	_encode_result_t result_h = _search_lambda(bpp);
+	_encode_result_t result_h = _search_lambda(bpp, q_h, header);
 	w_t dw_h = _wtree.distortion_wc<w_t>();
 
 	for (int i = 0; 10 > i; ++i)
@@ -1255,12 +1247,8 @@ encoder::_encode_result_t encoder::_search_q_and_lambda(const h_t &bpp,
             q_h = q_g;
             dw_h = dw_g;
 			q_g = q_a + factor_a * (q_b - q_a);
-            
-			_wtree.quantize(q_g);
-			header.q = q_g;
-			header.models = _mk_acoder_smart_models();
-			_acoder.use(_mk_acoder_models(header.models));
-			_encode_result_t result_g = _search_lambda(bpp);
+
+			_encode_result_t result_g = _search_lambda(bpp, q_g, header);
 			w_t dw_g = _wtree.distortion_wc<w_t>();
         }
         else
@@ -1269,12 +1257,8 @@ encoder::_encode_result_t encoder::_search_q_and_lambda(const h_t &bpp,
             q_g = q_h;
             dw_g = dw_h;
 			q_h = q_a + factor_b * (q_b - q_a);
-            
-			_wtree.quantize(q_h);
-			header.q = q_h;
-			header.models = _mk_acoder_smart_models();
-			_acoder.use(_mk_acoder_models(header.models));
-			_encode_result_t result_h = _search_lambda(bpp);
+
+			_encode_result_t result_h = _search_lambda(bpp, q_h, header);
 			w_t dw_h = _wtree.distortion_wc<w_t>();
         }
     }
