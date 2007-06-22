@@ -197,6 +197,29 @@ protected:
 		j_t j;
 	};
 
+	//!	\brief Структура описывает результат проведённой оптимизации
+	//!	топологии ветвей всего спектра
+	struct _optimize_result_t {
+		//!	\brief Значение квантователя, при котором была
+		//!	произведена оптимизация
+		q_t q;
+		//!	\brief Значение параметра <i>lambda</i> используемого для
+		//!	вычисления <i>RD</i> критерия (функции Лагранжа)
+		lambda_t lambda;
+		//!	\brief Значение функции <i>Лагранжа</i> для всего спектра
+		j_t j;
+		//!	\brief Среднее количество бит, затрачиваемых на кодирование
+		//!	одного пиксела (элемента изображения)
+		h_t bpp;
+	};
+
+	//!	\brief Структура описывает результат поиска (подбора) параметра
+	//!	кодирования
+	struct _search_result_t {
+		//!	\brief Результат проведённой оптимизации топологии ветвей
+		_optimize_result_t optimized;
+	};
+
 	//!	\brief Структура описывает результат кодирования
 	struct _encode_result_t {
 		//!	\brief Значение функции <i>Лагранжа</i> для всего спектра
@@ -548,26 +571,36 @@ protected:
 
 	//@}
 
-	//!	\name Оптимизация параметров <i>q</i> и <i>lambda</i>
+	//!	\name Оптимизация параметров кодирования
 	//@{
 
 	//!	\brief Производит оптимизацию топологии всех ветвей в спектре
-	_encode_result_t _optimize_wtree(const lambda_t &lambda,
-									 const bool virtual_encode = false);
+	_optimize_result_t _optimize_wtree(const lambda_t &lambda,
+									   const bool virtual_encode = false);
 
-	_encode_result_t _search_lambda(const h_t &bpp);
+	//!	\brief Производит поиск параметра <i>lambda</i>, подбирая его
+	//! под битрейт <i>bpp</i>
+	_search_result_t _search_lambda(const h_t &bpp,
+									const lambda_t &lambda_min,
+									const lambda_t &lambda_max,
+									const lambda_t &eps);
 
-	_encode_result_t _search_lambda(const h_t &bpp, const q_t &q,
+	_search_result_t _search_q_min_j(const q_t &q_min, const q_t &q_max,
+									 const q_t &eps);
+
+	_search_result_t _search_lambda(const h_t &bpp, const q_t &q,
 									header_t &header)
 	{
 		_wtree.quantize(q);
 		header.q = q;
 		header.models = _mk_acoder_smart_models();
 		_acoder.use(_mk_acoder_models(header.models));
-		return _search_lambda(bpp);
+		return _search_lambda(bpp, 0, 1000, 0.001);
 	}
 
+	/*
 	_encode_result_t _search_q_and_lambda(const h_t &bpp, header_t &header);
+	*/
 
 	//@}
 

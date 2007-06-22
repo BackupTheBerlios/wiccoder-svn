@@ -71,12 +71,12 @@ void encoder::encode(const w_t *const w, const q_t q, const lambda_t &lambda,
 
 	// оптимизация топологии ветвей
 	#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
-	_optimize_wtree(lambda, true);
+	// _optimize_wtree(lambda, true);
 	#else
-	_optimize_wtree(lambda, false);
+	// _optimize_wtree(lambda, false);
 	#endif
 
-	// _search_lambda(0.50);
+	_search_lambda(0.50, 0, 1000, 0.001);
 	// _search_q_and_lambda(0.50, header);
 
 	// кодирование всего дерева
@@ -1127,7 +1127,10 @@ j_t encoder::_optimize_tree(const p_t &root, const lambda_t &lambda)
 	собой баланс между ошибкой и битовыми затратами.
 	\param[in] virtual_encode Если <i>true</i>, то будет производиться
 	виртуальное кодирование (только перенастройка моделей, без помещения
-	кодируемого символа в выходной поток).
+	кодируемого символа в выходной поток). При включённом виртуальном
+	кодировании, поле _optimize_result_t::bpp выставляется в 0, так как
+	без проведения реального кодирование невозможно оценить битовые
+	затраты.
 	\return Результат проведённой оптимизации
 
 	Для корректной работы этой функции необходимо, чтобы поля wnode::w и
@@ -1139,13 +1142,16 @@ j_t encoder::_optimize_tree(const p_t &root, const lambda_t &lambda)
 	\note Необходимую подготовку выполняет функция wnode::filling_refresh(),
 	при условии, что поля wnode::w и wnode::wq корректны.
 */
-encoder::_encode_result_t encoder::_optimize_wtree(const lambda_t &lambda,
-												   const bool virtual_encode)
+encoder::_optimize_result_t
+encoder::_optimize_wtree(const lambda_t &lambda,
+						 const bool virtual_encode)
 {
 	// инициализация возвращаемого результата
-	_encode_result_t result;
-	result.j	= 0;
-	result.bpp	= 0;
+	_optimize_result_t result;
+	result.q		= _wtree.q();
+	result.lambda	= lambda;
+	result.j		= 0;
+	result.bpp		= 0;
 
 	// оптимизация топологии ветвей с кодированием
 	_acoder.encode_start();
@@ -1172,9 +1178,11 @@ encoder::_encode_result_t encoder::_optimize_wtree(const lambda_t &lambda,
 					 h_t(_wtree.nodes_count());
 	}
 
+	// вывод отладочной информации
 	#ifdef LIBWIC_DEBUG
 	if (_dbg_out_stream.good())
 	{
+		_dbg_out_stream << "[O]: ";
 		_dbg_out_stream << "q: " << std::setw(8) << _wtree.q();
 		_dbg_out_stream << " lambda: " << std::setw(8) << lambda;
 		_dbg_out_stream << " j: " << std::setw(8) << result.j;
@@ -1188,39 +1196,152 @@ encoder::_encode_result_t encoder::_optimize_wtree(const lambda_t &lambda,
 }
 
 
-/*!
+/*! \param[in] bpp Необходимый битрейт (Bits Per Pixel), для достижения
+	которого будет подбираться параметр <i>lambda</i>
+	\param[in] lambda_min Нижняя граница интервала поиска (минимальное
+	значение)
+	\param[in] lambda_max Верхняя граница интервала поиска (максимальное
+	значение)
+	\param[in] eps Эпсилон, значение необходимой точности подбора параметра
+	<i>lambda</i>. Поиск будет считаться успешным, если найдено значение
+	<i>lambda</i>, при котором значение <i>bpp</i> меньше чем на <i>eps</i>
+	отличается от заданного.
+	\return Результат проведённого поиска
+
+	Поиск оптимального значения <i>lambda</i> производится дихотомией
+	(методом половинного деления).
+
+	\note Для корректной работы этой функции необходимо, чтобы поля
+	wnode::w и wnode::wq элементов спектра были корректны. Для этого
+	можно использовать функцию wtree::cheap_load().
 */
-encoder::_encode_result_t encoder::_search_lambda(const h_t &bpp)
+encoder::_search_result_t
+encoder::_search_lambda(const h_t &bpp,
+						const lambda_t &lambda_min,
+						const lambda_t &lambda_max,
+						const lambda_t &eps)
 {
-	const q_t q2		= _wtree.q() * _wtree.q();
-	lambda_t lambda_a	= 0.05 * q2;
-	lambda_t lambda_b	= 0.20 * q2;
+	// проверка утверждений
+	assert(0 < bpp);
+	assert(0 < lambda_min && 0 < lambda_max);
+	assert(0 < eps);
 
+	// установка диапазона для поиска
+	lambda_t lambda_a	= lambda_min;
+	lambda_t lambda_b	= lambda_max;
+
+	// вычисление значений bpp на границах диапазона
 	_wtree.filling_refresh();
-	_encode_result_t result_a = _optimize_wtree(lambda_a, false);
+	_optimize_result_t result_a = _optimize_wtree(lambda_a, false);
 	_wtree.filling_refresh();
-	_encode_result_t result_b = _optimize_wtree(lambda_b, false);
+	_optimize_result_t result_b = _optimize_wtree(lambda_b, false);
 
-	if (bpp <= result_a.bpp && bpp <=  result_b.bpp) return result_b;
-	if (bpp >= result_a.bpp && bpp >=  result_b.bpp) return result_b;
+	// результат последней оптимизации
+	_optimize_result_t result	= result_b;
 
-	for (;;) {
-		const lambda_t lambda_c = (lambda_b + lambda_a) / 2;
-		_wtree.filling_refresh();
-		_encode_result_t result_c = _optimize_wtree(lambda_c, false);
+	// небольшая хитрость, позволяющая использовать удобный оператор
+	// break
+	do {
+		// необходимо проверить, лежит ли нужное значение bpp в
+		// предлагаемом диапазоне поиска
+		if (bpp <= result_a.bpp && bpp <=  result_b.bpp)
+		{
+			result = result_a;
+			break;
+		}
+		if (bpp >= result_b.bpp && bpp >=  result_a.bpp)
+		{
+			result = result_b;
+			break;
+		}
 
-		if (0.01 >= abs(result_c.bpp - bpp)) return result_c;
+		// поиск оптимального значения lamda
+		for (;;) {
+			// подсчёт значения bpp для середины диапазона
+			const lambda_t lambda_c = (lambda_b + lambda_a) / 2;
 
-		if (0 < (result_b.bpp - bpp)*(result_c.bpp - bpp))
-			lambda_b = lambda_c;
-		else
-			lambda_a = lambda_c;
+			_wtree.filling_refresh();
+			_optimize_result_t result_c = _optimize_wtree(lambda_c, false);
+
+			// проверить, достигнута ли нужная точность
+			if (eps > abs(result_c.bpp - bpp) ||
+				eps > abs(result_c.bpp - result.bpp))
+			{
+				result = result_c;
+
+				break;
+			}
+
+			// сужение диапазона поиска
+			if (0 < (result_b.bpp - bpp)*(result_c.bpp - bpp))
+				lambda_b = lambda_c;
+			else
+				lambda_a = lambda_c;
+
+			// запоминание текущего значения
+			result = result_c;
+		}
+	} while (false);
+
+	// возвращение полученного результата
+	_search_result_t search_result;
+
+	search_result.optimized = result;
+
+	// вывод отладочной информации
+	#ifdef LIBWIC_DEBUG
+	if (_dbg_out_stream.good())
+	{
+		_dbg_out_stream << "[S]: ";
+		_dbg_out_stream << "q: " << std::setw(8) << result.q;
+		_dbg_out_stream << " lambda: " << std::setw(8) << result.lambda;
+		_dbg_out_stream << " j: " << std::setw(8) << result.j;
+		_dbg_out_stream << " bpp: " << std::setw(8) << result.bpp;
+		_dbg_out_stream << std::endl;
 	}
+	#endif
+
+	return search_result;
 }
 
 
 /*!
 */
+encoder::_search_result_t
+encoder::_search_q_min_j(const q_t &q_min, const q_t &q_max,
+						 const q_t &eps)
+{
+	// проверка утверждений
+	assert(0 < q_min && 0 < q_max);
+	assert(0 < eps);
+
+	_optimize_result_t result;
+
+	// возвращение полученного результата
+	_search_result_t search_result;
+
+	search_result.optimized = result;
+
+	// вывод отладочной информации
+	#ifdef LIBWIC_DEBUG
+	if (_dbg_out_stream.good())
+	{
+		_dbg_out_stream << "[S]: ";
+		_dbg_out_stream << "q: " << std::setw(8) << result.q;
+		_dbg_out_stream << " lambda: " << std::setw(8) << result.lambda;
+		_dbg_out_stream << " j: " << std::setw(8) << result.j;
+		_dbg_out_stream << " bpp: " << std::setw(8) << result.bpp;
+		_dbg_out_stream << std::endl;
+	}
+	#endif
+
+	return search_result;
+}
+
+
+/*!
+*/
+/*
 encoder::_encode_result_t encoder::_search_q_and_lambda(const h_t &bpp,
 														header_t &header)
 {
@@ -1265,6 +1386,7 @@ encoder::_encode_result_t encoder::_search_q_and_lambda(const h_t &bpp,
 
 	return result_g;
 }
+*/
 
 
 
