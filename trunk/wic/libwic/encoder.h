@@ -64,6 +64,8 @@
 #define	OPTIMIZATION_USE_VIRTUAL_ENCODING
 #undef	OPTIMIZATION_USE_VIRTUAL_ENCODING
 
+#define LIBWIC_DEBUG
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // wic namespace
@@ -578,29 +580,24 @@ protected:
 	_optimize_result_t _optimize_wtree(const lambda_t &lambda,
 									   const bool virtual_encode = false);
 
+	//!	\brief Производит оптимизацию топологии всех ветвей в спектре
+	//! с предварительным квантованием и настройкой арифметического
+	//!	кодера.
+	_optimize_result_t _optimize_wtree(const lambda_t &lambda,
+									   const q_t &q, header_t &header,
+									   const bool virtual_encode = false);
+
 	//!	\brief Производит поиск параметра <i>lambda</i>, подбирая его
 	//! под битрейт <i>bpp</i>
 	_search_result_t _search_lambda(const h_t &bpp,
 									const lambda_t &lambda_min,
 									const lambda_t &lambda_max,
-									const lambda_t &eps);
+									const h_t &bpp_eps,
+									const lambda_t &lambda_eps);
 
-	_search_result_t _search_q_min_j(const q_t &q_min, const q_t &q_max,
-									 const q_t &eps);
-
-	_search_result_t _search_lambda(const h_t &bpp, const q_t &q,
-									header_t &header)
-	{
-		_wtree.quantize(q);
-		header.q = q;
-		header.models = _mk_acoder_smart_models();
-		_acoder.use(_mk_acoder_models(header.models));
-		return _search_lambda(bpp, 0, 1000, 0.001);
-	}
-
-	/*
-	_encode_result_t _search_q_and_lambda(const h_t &bpp, header_t &header);
-	*/
+	_search_result_t _search_q_min_j(const lambda_t &lambda, header_t &header,
+									 const q_t &q_min, const q_t &q_max,
+									 const q_t &j_eps, const q_t &q_eps);
 
 	//@}
 
