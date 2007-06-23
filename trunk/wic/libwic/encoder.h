@@ -84,9 +84,11 @@ public:
 	// public types ------------------------------------------------------------
 
 	//!	\brief Описания моделей арифметического кодера
-	/*!	\todo Более подробно описать эту структуру и её использование
+	/*!	Структура содержит необходимые описания моделей арифметического кодера.
+		Используя эту информацию, енкодер воссоздаёт модели, которые декодер
+		использовал для кодирования.
 	*/
-	struct header_models_t
+	struct models_desc_t
 	{
 		//!	\brief Минимальный коэффициент для модели #0
 		short mdl_0_min;
@@ -111,7 +113,7 @@ public:
 		//!	\brief Квантователь
 		q_t q;
 		//!	\brief Модели арифметического кодера
-		header_models_t models;
+		models_desc_t models;
 	};
 
 	// public constants --------------------------------------------------------
@@ -329,11 +331,11 @@ protected:
 	}
 
 	//!	\brief Создаёт модели для арифметического кодера по их описанию
-	acoder::models_t _mk_acoder_models(const header_models_t &desc);
+	acoder::models_t _mk_acoder_models(const models_desc_t &desc);
 
 	//!	\brief Создаёт модели, используемые арифметическим кодером,
 	//!	основываясь на специальных критериях
-	encoder::header_models_t _mk_acoder_smart_models();
+	encoder::models_desc_t _mk_acoder_smart_models();
 
 	//@}
 
@@ -584,7 +586,7 @@ protected:
 	//! с предварительным квантованием и настройкой арифметического
 	//!	кодера.
 	_optimize_result_t _optimize_wtree(const lambda_t &lambda,
-									   const q_t &q, header_t &header,
+									   const q_t &q, models_desc_t &models,
 									   const bool virtual_encode = false);
 
 	//!	\brief Производит поиск параметра <i>lambda</i>, подбирая его
@@ -595,7 +597,8 @@ protected:
 									const h_t &bpp_eps,
 									const lambda_t &lambda_eps);
 
-	_search_result_t _search_q_min_j(const lambda_t &lambda, header_t &header,
+	_search_result_t _search_q_min_j(const lambda_t &lambda,
+									 models_desc_t &models,
 									 const q_t &q_min, const q_t &q_max,
 									 const q_t &j_eps, const q_t &q_eps);
 

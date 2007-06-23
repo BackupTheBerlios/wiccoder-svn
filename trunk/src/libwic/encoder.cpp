@@ -60,23 +60,19 @@ encoder::~encoder() {
 void encoder::encode(const w_t *const w, const q_t q, const lambda_t &lambda,
 					 header_t &header)
 {
-	// загрузка спектра и квантование
-	_wtree.load(w, q);
+	// быстрая загрузка спектра
+	_wtree.cheap_load(w, q);
 
 	header.q = q;
 
-	// вычисление характеристик моделей
-	header.models = _mk_acoder_smart_models();
-	_acoder.use(_mk_acoder_models(header.models));
-
 	// оптимизация топологии ветвей
 	#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
-	// _optimize_wtree(lambda, true);
+	_optimize_wtree(lambda, q, header.models, true);
 	#else
-	// _optimize_wtree(lambda, false);
+	_optimize_wtree(lambda, q, header.models, false);
 	#endif
 
-	_search_q_min_j(lambda, header, 4.0f, 64.0f, 0.01f, 0.1f);
+	// _search_q_min_j(lambda, header, 4.0f, 64.0f, 0.01f, 0.1f);
 	// _search_lambda(0.50, 0, 1000, 0.001);
 	// _search_q_and_lambda(0.50, header);
 
@@ -166,7 +162,7 @@ sz_t encoder::_ind_map(const pi_t &pi, const sz_t lvl) {
 /*!	\param[in] desc Описание моделей арифметического кодера
 	\return Модели для арифметического кодера
 */
-acoder::models_t encoder::_mk_acoder_models(const header_models_t &desc)
+acoder::models_t encoder::_mk_acoder_models(const models_desc_t &desc)
 {
 	// создание моделей для кодирования
 	acoder::models_t models;
@@ -205,10 +201,10 @@ acoder::models_t encoder::_mk_acoder_models(const header_models_t &desc)
 
 /*!	\return Описание моделей для арифметического кодера
 */
-encoder::header_models_t encoder::_mk_acoder_smart_models()
+encoder::models_desc_t encoder::_mk_acoder_smart_models()
 {
 	// создание моделей для кодирования
-	header_models_t desc;
+	models_desc_t desc;
 	
 	// модел #0 ----------------------------------------------------------------
 	{
@@ -1197,21 +1193,33 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 }
 
 
-/*!
+/*!	\param[in] lambda Параметр <i>lambda</i> используемый для
+	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
+	собой баланс между ошибкой и битовыми затратами.
+	\param[in] q Квантователь
+	\param[out] models Описание моделей арифметического кодера
+	\param[in] virtual_encode Если <i>true</i> то будет производиться
+	виртуальное кодирование (только перенастройка моделей, без помещения
+	кодируемого символа в выходной поток).
+
+	Эта версия функции <i>%encoder::_optimize_wtree()</i> сама производит
+	квантование и настройку моделей арифметического кодера. Для корректной
+	работы функции достаточно загруженных коэффициентов в поле wnode::w
+	элементов спектра.
 */
 encoder::_optimize_result_t
 encoder::_optimize_wtree(const lambda_t &lambda,
-						 const q_t &q, header_t &header,
+						 const q_t &q, models_desc_t &models,
 						 const bool virtual_encode)
 {
 	// квантование коэффициентов
-	_wtree.quantize(header.q = q);
+	_wtree.quantize(q);
 
 	// определение суб-оптимальных моделей для арифметического кодера
-	header.models = _mk_acoder_smart_models();
+	models = _mk_acoder_smart_models();
 
 	// загрузка моделей в арифметический кодер
-	_acoder.use(_mk_acoder_models(header.models));
+	_acoder.use(_mk_acoder_models(models));
 
 	// оптимизация топологии ветвей
 	return _optimize_wtree(lambda, virtual_encode);
@@ -1224,19 +1232,21 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 	значение)
 	\param[in] lambda_max Верхняя граница интервала поиска (максимальное
 	значение)
-	\param[in] bpp_eps Точность, которую необходимо достичь необходимая для подбора параметра <i>bpp</i>
-	Эпсилон, значение необходимой точности подбора параметра
-	<i>lambda</i>. Поиск будет считаться успешным, если найдено значение
-	<i>lambda</i>, при котором значение <i>bpp</i> меньше чем на <i>eps</i>
-	отличается от заданного.
-	\param[in] lambda_eps
+	\param[in] bpp_eps Точность, c которой <i>bpp</i> полученнй в результате
+	оптимизации топологии будет соответствовать искомому.
+	\param[in] lambda_eps Точность, с которой будет подбираться параметр
+	<i>lambda</i>.
 	\return Результат проведённого поиска
 
 	Поиск оптимального значения <i>lambda</i> производится дихотомией
-	(методом половинного деления).
+	(методом половинного деления). Поиск будет считаться успешным, если
+	найдено такое значение <i>lambda</i>, при котором полученный <i>bpp</i>
+	меньше чем на <i>bpp_eps</i> отличается от заданного <i>или</i> в
+	процессе поиска диапазон значений <i>lambda</i> сузился до
+	<i>lambda_eps</i>.
 
-	Меньшие значения <i>lambda</i> соответствуют большему значению
-	<i>bpp</i>.
+	\note Меньшие значения <i>lambda</i> соответствуют большему
+	значению <i>bpp</i>.
 
 	\note Для корректной работы этой функции необходимо, чтобы поля
 	wnode::w и wnode::wq элементов спектра были корректны. Для этого
@@ -1252,7 +1262,7 @@ encoder::_search_lambda(const h_t &bpp,
 	// проверка утверждений
 	assert(0 < bpp);
 	assert(0 <= lambda_min && lambda_min <= lambda_max);
-	assert(0 <= eps);
+	assert(0 <= bpp_eps && 0 <= lambda_eps);
 
 	// установка диапазона для поиска
 	lambda_t lambda_a	= lambda_min;
@@ -1339,7 +1349,8 @@ encoder::_search_lambda(const h_t &bpp,
 /*!
 */
 encoder::_search_result_t
-encoder::_search_q_min_j(const lambda_t &lambda, header_t &header,
+encoder::_search_q_min_j(const lambda_t &lambda,
+						 models_desc_t &models,
 						 const q_t &q_min, const q_t &q_max,
 						 const q_t &j_eps, const q_t &q_eps)
 {
@@ -1360,8 +1371,8 @@ encoder::_search_q_min_j(const lambda_t &lambda, header_t &header,
 	q_t q_b = q_a + factor_b * (q_d - q_a);
 	q_t q_c = q_a + factor_c * (q_d - q_a);
 
-	_optimize_result_t result_b = _optimize_wtree(lambda, q_b, header, false);
-	_optimize_result_t result_c = _optimize_wtree(lambda, q_c, header, false);
+	_optimize_result_t result_b = _optimize_wtree(lambda, q_b, models, false);
+	_optimize_result_t result_c = _optimize_wtree(lambda, q_c, models, false);
 
 	// запоминание последнего результата
 	_optimize_result_t result = result_c;
@@ -1379,7 +1390,8 @@ encoder::_search_q_min_j(const lambda_t &lambda, header_t &header,
 
 			result_c = result_b;
 
-			last_result = result_b = _optimize_wtree(lambda, q_b, header, false);
+			last_result = result_b = _optimize_wtree(lambda, q_b,
+													 models, false);
 		}
 		else
 		{
@@ -1389,8 +1401,8 @@ encoder::_search_q_min_j(const lambda_t &lambda, header_t &header,
 
 			result_b = result_c;
 
-			_wtree.quantize(q_c);
-			last_result = result_c = _optimize_wtree(lambda, q_c, header, false);
+			last_result = result_c = _optimize_wtree(lambda, q_c,
+													 models, false);
 		}
 
 		//
