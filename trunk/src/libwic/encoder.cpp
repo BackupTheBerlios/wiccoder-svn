@@ -1284,7 +1284,7 @@ encoder::_search_lambda(const h_t &bpp,
 		// предлагаемом диапазоне поиска
 		if (bpp <= result_a.bpp && bpp <=  result_b.bpp)
 		{
-			result = result_a;
+			result = result_b;
 			break;
 		}
 		if (bpp >= result_b.bpp && bpp >=  result_a.bpp)
