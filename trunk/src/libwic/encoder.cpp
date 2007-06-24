@@ -63,8 +63,6 @@ void encoder::encode(const w_t *const w, const q_t q, const lambda_t &lambda,
 	// быстрая загрузка спектра
 	_wtree.cheap_load(w, q);
 
-	header.q = q;
-
 	// оптимизация топологии ветвей
 	#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
 	_optimize_wtree(lambda, q, header.models, true);
@@ -72,9 +70,21 @@ void encoder::encode(const w_t *const w, const q_t q, const lambda_t &lambda,
 	_optimize_wtree(lambda, q, header.models, false);
 	#endif
 
-	// _search_q_min_j(lambda, header, 4.0f, 64.0f, 0.01f, 0.1f);
-	// _search_lambda(0.50, 0, 1000, 0.001);
-	// _search_q_and_lambda(0.50, header);
+	/*
+	// квантование коэффициентов
+	_wtree.quantize(q);
+
+	// определение суб-оптимальных моделей для арифметического кодера
+	header.models = _mk_acoder_smart_models();
+
+	// загрузка моделей в арифметический кодер
+	_acoder.use(_mk_acoder_models(header.models));
+
+	_search_lambda(0.50, 0, 1000, 0.001, 0.001);
+	*/
+
+	// _search_q_min_j(200, header.models, 4.0f, 64.0f, 0.1f, 0.1f);
+	// _search_q_and_lambda(0.50, header.models);
 
 	// кодирование всего дерева
 	_acoder.encode_start();
@@ -82,6 +92,8 @@ void encoder::encode(const w_t *const w, const q_t q, const lambda_t &lambda,
 	_encode_wtree();
 
 	_acoder.encode_stop();
+
+	header.q = _wtree.q();
 }
 
 
@@ -1236,7 +1248,13 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 	оптимизации топологии будет соответствовать искомому.
 	\param[in] lambda_eps Точность, с которой будет подбираться параметр
 	<i>lambda</i>.
-	\return Результат проведённого поиска
+	\param[in] virtual_encode Если <i>true</i> то будет производиться
+	виртуальное кодирование (только перенастройка моделей, без помещения
+	кодируемого символа в выходной поток).
+	\return Результат проведённого поиска. Возможна ситуация, когда нужная
+	<i>lambda</i> лежит вне указанного диапазона. В этом случае, функция
+	подберёт такую <i>lambda</i>, которая максимально удовлетворяет условиям
+	поиска.
 
 	Поиск оптимального значения <i>lambda</i> производится дихотомией
 	(методом половинного деления). Поиск будет считаться успешным, если
@@ -1245,8 +1263,18 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 	процессе поиска диапазон значений <i>lambda</i> сузился до
 	<i>lambda_eps</i>.
 
-	\note Меньшие значения <i>lambda</i> соответствуют большему
-	значению <i>bpp</i>.
+	Меньшие значения <i>lambda</i> соответствуют большему
+	значению <i>bpp</i>:
+	\verbatim
+	   |_____
+	   |     \________
+	   |       |      \_________
+	bpp+-------+----------------\-----------------------
+	   |       |                 \_______
+	   |       |                   |     \______________
+	---+-------+-------------------+--------------------
+	  0|       lambda_min          lambda_max
+	\endverbatim
 
 	\note Для корректной работы этой функции необходимо, чтобы поля
 	wnode::w и wnode::wq элементов спектра были корректны. Для этого
@@ -1257,7 +1285,8 @@ encoder::_search_lambda(const h_t &bpp,
 						const lambda_t &lambda_min,
 						const lambda_t &lambda_max,
 						const h_t &bpp_eps,
-						const lambda_t &lambda_eps)
+						const lambda_t &lambda_eps,
+						const bool virtual_encode)
 {
 	// проверка утверждений
 	assert(0 < bpp);
@@ -1268,42 +1297,49 @@ encoder::_search_lambda(const h_t &bpp,
 	lambda_t lambda_a	= lambda_min;
 	lambda_t lambda_b	= lambda_max;
 
-	// вычисление значений bpp на границах диапазона
-	_wtree.filling_refresh();
-	_optimize_result_t result_a = _optimize_wtree(lambda_a, false);
-	_wtree.filling_refresh();
-	_optimize_result_t result_b = _optimize_wtree(lambda_b, false);
-
 	// результат последней оптимизации
-	_optimize_result_t result	= result_b;
+	_optimize_result_t result;
 
 	// небольшая хитрость, позволяющая использовать удобный оператор
 	// break
 	do {
-		// необходимо проверить, лежит ли нужное значение bpp в
-		// предлагаемом диапазоне поиска
-		if (bpp <= result_a.bpp && bpp <=  result_b.bpp)
+		// вычисление значений bpp на левой границе диапазона
+		_wtree.filling_refresh();
+		_optimize_result_t result_a = _optimize_wtree(lambda_a,
+													  virtual_encode);
+
+		// проверка на допустимость входного диапазона
+		if (result_a.bpp <= (bpp + bpp_eps))
 		{
 			result = result_a;
-			break;
-		}
-		if (bpp >= result_b.bpp && bpp >=  result_a.bpp)
-		{
-			result = result_b;
+
 			break;
 		}
 
-		// поиск оптимального значения lamda
+		// вычисление значений bpp на правой границе диапазона
+		_wtree.filling_refresh();
+		_optimize_result_t result_b = _optimize_wtree(lambda_b,
+													  virtual_encode);
+
+		// проверка на допустимость входного диапазона
+		if (result_b.bpp >= (bpp - bpp_eps))
+		{
+			result = result_b;
+
+			break;
+		}
+
+		// поиск оптимального значения lamda (дихотомия)
 		for (;;) {
 			// подсчёт значения bpp для середины диапазона
 			const lambda_t lambda_c = (lambda_b + lambda_a) / 2;
 
 			_wtree.filling_refresh();
-			_optimize_result_t result_c = _optimize_wtree(lambda_c, false);
+			_optimize_result_t result_c = _optimize_wtree(lambda_c,
+														  virtual_encode);
 
 			// проверить, достигнута ли нужная точность по bpp
-			if (bpp_eps >= abs(result_c.bpp - bpp) ||
-				bpp_eps >= abs(result_c.bpp - result.bpp))
+			if (bpp_eps >= abs(result_c.bpp - bpp))
 			{
 				result = result_c;
 
@@ -1311,10 +1347,9 @@ encoder::_search_lambda(const h_t &bpp,
 			}
 
 			// сужение диапазона поиска
-			if (0 < (result_b.bpp - bpp)*(result_c.bpp - bpp))
-				lambda_b = lambda_c;
-			else
-				lambda_a = lambda_c;
+			// if (0 < (result_b.bpp - bpp)*(result_c.bpp - bpp))
+			if (bpp > result_c.bpp) lambda_b = lambda_c;
+			else lambda_a = lambda_c;
 
 			// запоминание текущего значения
 			result = result_c;
@@ -1333,7 +1368,7 @@ encoder::_search_lambda(const h_t &bpp,
 	#ifdef LIBWIC_DEBUG
 	if (_dbg_out_stream.good())
 	{
-		_dbg_out_stream << "[S]: ";
+		_dbg_out_stream << "[SLFB]: ";
 		_dbg_out_stream << "q: " << std::setw(8) << result.q;
 		_dbg_out_stream << " lambda: " << std::setw(8) << result.lambda;
 		_dbg_out_stream << " j: " << std::setw(8) << result.j;
@@ -1346,18 +1381,40 @@ encoder::_search_lambda(const h_t &bpp,
 }
 
 
-/*!
+/*!	\param[in] lambda Параметр <i>lambda</i> используемый для
+	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
+	собой баланс между ошибкой и битовыми затратами.
+	\param[out] models Описание моделей арифметического кодера
+	\param[in] q_min Нижняя граница интервала поиска (минимальное
+	значение)
+	\param[in] q_max Верхняя граница интервала поиска (максимальное
+	значение)
+	\param[in] q_eps Необходимая погрешность определения квантователя
+	<i>q</i> при котором значение <i>RD функции Лагранжа</i> минимально
+	(при фиксированном параметре <i>lambda</i>).
+	\param[in] j_eps Необходимая погрешность нахождения минимума <i>RD
+	функции Лагранжа</i>. Так как абсолютная величина функции <i>J</i>
+	зависит от многих факторов (таких как размер изображения, его тип,
+	величины параметра <i>lambda</i>), использовать это параметр
+	затруднительно. Поэтому его значение по умолчанию равно <i>0</i>,
+	чтобы при поиске оптимального квантователя учитывалась погрешность
+	только по <i>q</i>.
+	\param[in] virtual_encode Если <i>true</i> то будет производиться
+	виртуальное кодирование (только перенастройка моделей, без помещения
+	кодируемого символа в выходной поток).
+	\return Результат произведённого поиска.
 */
 encoder::_search_result_t
 encoder::_search_q_min_j(const lambda_t &lambda,
 						 models_desc_t &models,
 						 const q_t &q_min, const q_t &q_max,
-						 const q_t &j_eps, const q_t &q_eps)
+						 const q_t &q_eps, const j_t &j_eps,
+						 const bool virtual_encode)
 {
 	// проверка утверждений
 	assert(0 <= lambda);
 	assert(1 <= q_min && q_min <= q_max);
-	assert(0 <= j_eps && 0 <= q_eps);
+	assert(0 <= q_eps && 0 <= j_eps);
 
 	// коэффициенты золотого сечения
 	static const q_t factor_b	= (q_t(3) - sqrt(q_t(5))) / q_t(2);
@@ -1371,17 +1428,29 @@ encoder::_search_q_min_j(const lambda_t &lambda,
 	q_t q_b = q_a + factor_b * (q_d - q_a);
 	q_t q_c = q_a + factor_c * (q_d - q_a);
 
-	_optimize_result_t result_b = _optimize_wtree(lambda, q_b, models, false);
-	_optimize_result_t result_c = _optimize_wtree(lambda, q_c, models, false);
+	_optimize_result_t result_b = _optimize_wtree(lambda, q_b, models,
+												  virtual_encode);
+	_optimize_result_t result_c = _optimize_wtree(lambda, q_c, models,
+												  virtual_encode);
 
-	// запоминание последнего результата
-	_optimize_result_t result = result_c;
+	// запоминание предыдущего и последнего результатов
+	_optimize_result_t result_prev	= result_b;
+	_optimize_result_t result		= result_c;
 
 	// поиск оптимального значения q
 	for (;;)
 	{
-		_optimize_result_t last_result;
+		// проверка, достигнута ли нужная точность
+		if (q_eps >= abs(q_c - q_b) ||
+			j_eps >= abs(result.j - result_prev.j))
+		{
+			break;
+		}
 
+		// скоро будет получен новый результат
+		result_prev = result;
+
+		// выбор очередного значений q
 		if (result_b.j < result_c.j)
 		{
 			q_d = q_c;
@@ -1390,8 +1459,8 @@ encoder::_search_q_min_j(const lambda_t &lambda,
 
 			result_c = result_b;
 
-			last_result = result_b = _optimize_wtree(lambda, q_b,
-													 models, false);
+			result = result_b = _optimize_wtree(lambda, q_b,
+												models, virtual_encode);
 		}
 		else
 		{
@@ -1401,20 +1470,9 @@ encoder::_search_q_min_j(const lambda_t &lambda,
 
 			result_b = result_c;
 
-			last_result = result_c = _optimize_wtree(lambda, q_c,
-													 models, false);
+			result = result_c = _optimize_wtree(lambda, q_c,
+												models, virtual_encode);
 		}
-
-		//
-		if (j_eps >= abs(last_result.j - result.j) ||
-			q_eps >= abs(q_c - q_b))
-		{
-			result = last_result;
-
-			break;
-		}
-
-		result = last_result;
 	}
 
 	// возвращение полученного результата
@@ -1441,26 +1499,29 @@ encoder::_search_q_min_j(const lambda_t &lambda,
 
 /*!
 */
-/*
-encoder::_encode_result_t encoder::_search_q_and_lambda(const h_t &bpp,
-														header_t &header)
+encoder::_search_result_t
+encoder::_search_q_and_lambda(const h_t &bpp,
+							  models_desc_t &models)
 {
 	static const q_t factor_a = q_t((3.0 - sqrt(5.0)) / 2.0);
     static const q_t factor_b = q_t((sqrt(5.0) - 1.0) / 2.0);
 
-	q_t q_a	= 10;
-	q_t q_b	= 15;
+	q_t q_a	= 4;
+	q_t q_b	= 64;
 
 	q_t q_g = q_a + factor_a * (q_b - q_a);
 	q_t q_h = q_a + factor_b * (q_b - q_a);
 
-	_encode_result_t result_g = _search_lambda(bpp, q_g, header);
-	w_t dw_g = _wtree.distortion_wc<w_t>();
+	w_t dw_g = 0;
+	_search_result_t result_g = _search_q_and_lambda_iter(bpp, q_g, models,
+														  dw_g);
+	w_t dw_h = 0;
+	_search_result_t result_h = _search_q_and_lambda_iter(bpp, q_h, models,
+														  dw_h);
 
-	_encode_result_t result_h = _search_lambda(bpp, q_h, header);
-	w_t dw_h = _wtree.distortion_wc<w_t>();
+	_search_result_t result = result_h;
 
-	for (int i = 0; 10 > i; ++i)
+	while (0.001 < abs(result.optimized.bpp - bpp))
     {
         if (dw_g >= dw_h)
         {
@@ -1469,8 +1530,7 @@ encoder::_encode_result_t encoder::_search_q_and_lambda(const h_t &bpp,
             dw_h = dw_g;
 			q_g = q_a + factor_a * (q_b - q_a);
 
-			_encode_result_t result_g = _search_lambda(bpp, q_g, header);
-			w_t dw_g = _wtree.distortion_wc<w_t>();
+			result = result_g = _search_q_and_lambda_iter(bpp, q_g, models, dw_g);
         }
         else
         {
@@ -1479,14 +1539,12 @@ encoder::_encode_result_t encoder::_search_q_and_lambda(const h_t &bpp,
             dw_g = dw_h;
 			q_h = q_a + factor_b * (q_b - q_a);
 
-			_encode_result_t result_h = _search_lambda(bpp, q_h, header);
-			w_t dw_h = _wtree.distortion_wc<w_t>();
+			result = result_h = _search_q_and_lambda_iter(bpp, q_h, models, dw_h);
         }
     }
 
-	return result_g;
+	return result;
 }
-*/
 
 
 

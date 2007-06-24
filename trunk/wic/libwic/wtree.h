@@ -426,12 +426,20 @@ public:
 		return d;
 	}
 
+	//!	\brief Считает квадратичное отклонение между полями wnode::w и
+	//!	wnode::wq
+	/*!	\return Квадратичное отклонение
+	*/
 	template <class result_t>
 	result_t distortion_wq() const
 	{
 		return distortion<wnode::member_wq, result_t>(iterator_over_wtree());
 	}
 
+	//!	\brief Считает квадратичное отклонение между полями wnode::w и
+	//!	wnode::wc
+	/*!	\return Квадратичное отклонение
+	*/
 	template <class result_t>
 	result_t distortion_wc() const
 	{

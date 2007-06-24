@@ -595,12 +595,49 @@ protected:
 									const lambda_t &lambda_min,
 									const lambda_t &lambda_max,
 									const h_t &bpp_eps,
-									const lambda_t &lambda_eps);
+									const lambda_t &lambda_eps,
+									const bool virtual_encode = false);
 
+	//!	\brief Производит поиск квантователя <i>q</i> при фиксированном
+	//!	параметре <i>lambda</i> минимизируя значение <i>RD</i> функции
+	//!	Лагранжа</i> <i>J</i>
 	_search_result_t _search_q_min_j(const lambda_t &lambda,
 									 models_desc_t &models,
 									 const q_t &q_min, const q_t &q_max,
-									 const q_t &j_eps, const q_t &q_eps);
+									 const q_t &q_eps, const j_t &j_eps = 0,
+									 const bool virtual_encode = false);
+
+	_search_result_t _search_q_and_lambda_iter(const h_t &bpp, const q_t &q,
+											   models_desc_t &models,
+											   w_t &d)
+	{
+		static const h_t bpp_eps			= 0.01f;
+		static const lambda_t lambda_eps	= 0.0f;
+
+		_wtree.quantize(q);
+		models = _mk_acoder_smart_models();
+		_acoder.use(_mk_acoder_models(models));
+
+		const q_t lambda_min = 0.05f*q*q;
+		const q_t lambda_max = 0.20f*q*q;
+
+		_search_result_t result = _search_lambda(bpp, lambda_min, lambda_max,
+												 bpp_eps, lambda_eps);
+
+		if (result.optimized.bpp > bpp + 2*bpp_eps)
+			d = 0;
+		else if (result.optimized.bpp < bpp - 2*bpp_eps)
+			d = 3.402823466e+38F;
+		else
+			d = _wtree.distortion_wc<w_t>();
+
+		_dbg_out_stream << "\td = " << d << std::endl;
+
+		return result;
+	}
+
+	_search_result_t _search_q_and_lambda(const h_t &bpp,
+										  models_desc_t &models);
 
 	//@}
 
