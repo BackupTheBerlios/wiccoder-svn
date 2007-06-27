@@ -17,6 +17,7 @@
 // standard C++ library headers
 #include <assert.h>
 #include <algorithm>
+#include <iostream>
 #include <string>						// for debug output only
 #include <fstream>						// for debug output only
 #include <iomanip>						// for debug output only
@@ -612,7 +613,7 @@ protected:
 											   w_t &d)
 	{
 		static const h_t bpp_eps			= 0.01f;
-		static const lambda_t lambda_eps	= 0.0f;
+		static const lambda_t lambda_eps	= 0.001f;
 
 		_wtree.quantize(q);
 		models = _mk_acoder_smart_models();
@@ -624,14 +625,20 @@ protected:
 		_search_result_t result = _search_lambda(bpp, lambda_min, lambda_max,
 												 bpp_eps, lambda_eps);
 
-		if (result.optimized.bpp > bpp + 2*bpp_eps)
-			d = 0;
-		else if (result.optimized.bpp < bpp - 2*bpp_eps)
-			d = 3.402823466e+38F;
+		if (result.optimized.bpp >= bpp + bpp_eps)
+		{
+			d = 1000000000;
+			_dbg_out_stream << "\tbad" << std::endl;
+		}
+		else if (result.optimized.bpp <= bpp - bpp_eps)
+		{
+			d = 1000000000;
+			_dbg_out_stream << "\tbad" << std::endl;
+		}
 		else
+		{
 			d = _wtree.distortion_wc<w_t>();
-
-		_dbg_out_stream << "\td = " << d << std::endl;
+		}
 
 		return result;
 	}

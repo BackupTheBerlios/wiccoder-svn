@@ -400,6 +400,10 @@ public:
 		точность производимых вычислений (внутри функция оперирует
 		значениями именно этого типа), поэтому имеет смысл явно указывать
 		этот параметр.
+
+		\note Метод требует чтобы для спектра был установлен корректный
+		квантователь (возвращаемый функцией wtree::q()), так он производит
+		деквантование выбранного поля для подсчёта квадратичного отклонения.
 	*/
 	template <const wnode::wnode_members member, class result_t>
 	result_t distortion(coefs_iterator &set) const
@@ -416,7 +420,8 @@ public:
 		{
 			const wnode &node = at(set->get());
 
-			const result_t dw = (node.w - node.get<member>());
+			const result_t dw = (wnode::dequantize(node.get<member>(), q())
+								 - node.w);
 
 			d += (dw * dw);
 

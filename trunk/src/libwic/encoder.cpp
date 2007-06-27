@@ -65,14 +65,14 @@ void encoder::encode(const w_t *const w, const q_t q, const lambda_t &lambda,
 
 	// оптимизация топологии ветвей
 	#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
-	_optimize_wtree(lambda, q, header.models, true);
+	// _optimize_wtree(lambda, q, header.models, true);
 	#else
-	_optimize_wtree(lambda, q, header.models, false);
+	// _optimize_wtree(lambda, q, header.models, false);
 	#endif
 
 	/*
 	// квантование коэффициентов
-	_wtree.quantize(q);
+	_wtree.quantize(1);
 
 	// определение суб-оптимальных моделей для арифметического кодера
 	header.models = _mk_acoder_smart_models();
@@ -80,11 +80,11 @@ void encoder::encode(const w_t *const w, const q_t q, const lambda_t &lambda,
 	// загрузка моделей в арифметический кодер
 	_acoder.use(_mk_acoder_models(header.models));
 
-	_search_lambda(0.50, 0, 1000, 0.001, 0.001);
+	_search_lambda(0.50, 0, 200, 0.01, 0.001);
 	*/
 
 	// _search_q_min_j(200, header.models, 4.0f, 64.0f, 0.1f, 0.1f);
-	// _search_q_and_lambda(0.50, header.models);
+	_search_q_and_lambda(0.50, header.models);
 
 	// кодирование всего дерева
 	_acoder.encode_start();
@@ -1503,43 +1503,71 @@ encoder::_search_result_t
 encoder::_search_q_and_lambda(const h_t &bpp,
 							  models_desc_t &models)
 {
-	static const q_t factor_a = q_t((3.0 - sqrt(5.0)) / 2.0);
-    static const q_t factor_b = q_t((sqrt(5.0) - 1.0) / 2.0);
+	/*
+	{
+		std::cout << std::endl;
+		_search_result_t result;
+		for (q_t q = 1; 20 > q; q +=0.5) {
+			w_t d = 0;
+			result = _search_q_and_lambda_iter(bpp, q, models, d);
+			std::cout << "q: " << q << "; d: " << (d / 1000);
+			std::cout << "; bpp: " << result.optimized.bpp << std::endl;
+		}
+
+		return result;
+	}
+	*/
+
+	static const q_t factor_b = q_t((3.0 - sqrt(5.0)) / 2.0);
+    static const q_t factor_c = q_t((sqrt(5.0) - 1.0) / 2.0);
 
 	q_t q_a	= 4;
-	q_t q_b	= 64;
+	q_t q_d	= 64;
 
-	q_t q_g = q_a + factor_a * (q_b - q_a);
-	q_t q_h = q_a + factor_b * (q_b - q_a);
+	q_t q_b = q_a + factor_b * (q_d - q_a);
+	q_t q_c = q_a + factor_c * (q_d - q_a);
 
-	w_t dw_g = 0;
-	_search_result_t result_g = _search_q_and_lambda_iter(bpp, q_g, models,
-														  dw_g);
-	w_t dw_h = 0;
-	_search_result_t result_h = _search_q_and_lambda_iter(bpp, q_h, models,
-														  dw_h);
+	w_t dw_b = 0;
+	_search_result_t result_b = _search_q_and_lambda_iter(bpp, q_b, models,
+														  dw_b);
+	w_t dw_c = 0;
+	_search_result_t result_c = _search_q_and_lambda_iter(bpp, q_c, models,
+														  dw_c);
 
-	_search_result_t result = result_h;
+	_search_result_t result = result_c;
 
-	while (0.001 < abs(result.optimized.bpp - bpp))
+	while (0.25 < abs(q_b - q_c))
     {
-        if (dw_g >= dw_h)
-        {
-            q_b = q_h;
-            q_h = q_g;
-            dw_h = dw_g;
-			q_g = q_a + factor_a * (q_b - q_a);
+		_dbg_out_stream << "\td_b: " << dw_b << "; d_c: " << dw_c << std::endl;
+		_dbg_out_stream << "\t[" << q_a << ", " << q_b << ", ";
+		_dbg_out_stream << q_c << ", " << q_d << "] -> ";
 
-			result = result_g = _search_q_and_lambda_iter(bpp, q_g, models, dw_g);
+        if (dw_b <= dw_c)
+        {
+			_dbg_out_stream << "{dw_b <= dw_c}" << std::endl;
+
+            q_d = q_c;
+            q_c = q_b;
+            dw_c = dw_b;
+			q_b = q_a + factor_b * (q_d - q_a);
+			// a         b    c    d
+			// a    b    c    d
+
+			w_t tmp_dw_b = 0;
+			result = result_b = _search_q_and_lambda_iter(bpp, q_b, models, dw_b);
         }
         else
         {
-            q_a = q_g;
-            q_g = q_h;
-            dw_g = dw_h;
-			q_h = q_a + factor_b * (q_b - q_a);
+			_dbg_out_stream << "{dw_b > dw_c}" << std::endl;
 
-			result = result_h = _search_q_and_lambda_iter(bpp, q_h, models, dw_h);
+            q_a = q_b;
+            q_b = q_c;
+            dw_b = dw_c;
+			q_c = q_a + factor_c * (q_d - q_a);
+			// a    b    c         d
+			//      a    b    c    d
+
+			result = result_c = _search_q_and_lambda_iter(bpp, q_c, models, dw_c);
         }
     }
 
