@@ -107,10 +107,11 @@ public:
 	M2DArray( int i, int j ) : array_base<T>(i*j), I(i), J(j) {}
 	inline T* operator [] ( int i ) const {
 		assert( i < I );
-		return data() + i * J;
+		return this->data() + i * J;
 	}
 	int getI( void ) const { return I; }
 	int getJ( void ) const { return J; }
 };
 
 #endif  /* _INC_MMEMORY_ */
+

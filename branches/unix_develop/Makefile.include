@@ -1,0 +1,43 @@
+objects 	:= $(addprefix $(obj_dir)/, $(patsubst %.cpp, %.o, $(wildcard *.cpp)) $(patsubst %.c, %.o, $(wildcard *.c)))
+static_lib	:= $(addprefix $(lib_dir)/, $(static_lib))
+dynamic_lib	:= $(addprefix $(lib_dir)/, $(dynamic_lib))
+binary		:= $(addprefix $(bin_dir)/, $(binary))
+ldlibs		:= $(patsubst lib%, -l%, $(ldlibs))
+
+all: $(dynamic_lib) $(static_lib) $(binary)
+
+$(dynamic_lib): $(objects)
+	$(MKDIR) $(lib_dir)
+	$(LD) $(LDFLAGS) -shared $(addprefix -L, $(LIBPATHS)) -o $@ $< $(ldlibs)
+
+$(static_lib): $(objects)
+	$(MKDIR) $(lib_dir)
+	$(AR) $@ $<
+
+$(binary): $(objects)
+	$(MKDIR) $(bin_dir)
+	$(LD) $(LDFLAGS) $(LIBPATHS) -o $@ $< $(ldlibs)
+
+$(obj_dir)/%.o: %.cpp
+	$(MKDIR) $(obj_dir)
+	$(CPP) $(CPPFLAGS) $(addprefix -I, $(CPP_INCLPATHS)) -MD -pipe -o $@ -c $<
+
+$(obj_dir)/%.o: %.c
+	$(MKDIR) $(obj_dir)
+	$(CC)  $(CFLAGS) $(addprefix -I, $(C_INCLPATHS)) -MD -pipe -o $@ -c $<
+
+include $(wildcard $(obj_dir)/*.d)
+
+clean:
+ifdef static_lib
+	$(RM) $(static_lib)
+endif
+ifdef dynamic_lib
+	$(RM) $(dynamic_lib)
+endif
+ifdef binary
+	$(RM) $(binary)
+endif
+	$(RM) $(wildcard $(obj_dir)/*.d)
+	$(RM) $(wildcard $(obj_dir)/*.o)
+

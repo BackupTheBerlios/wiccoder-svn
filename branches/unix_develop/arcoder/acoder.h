@@ -155,3 +155,4 @@ inline void acoder<v_t, b_t>::_rm_buf(const bool init) {
 
 
 #endif	// WTC_ACODER_INCLUDED
+

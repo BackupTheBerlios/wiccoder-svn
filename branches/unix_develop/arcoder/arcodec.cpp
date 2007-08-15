@@ -1,5 +1,5 @@
-#include "ArCodec.h"
-#include "ArBitStream.h"	// for explicit instantiation of ArCoder and ArDecoder
+#include "arcodec.h"
+#include "arbitstream.h"	// for explicit instantiation of ArCoder and ArDecoder
 
 #include <stdio.h>
 
@@ -442,34 +442,34 @@ void ArCoder<BITOutStreamClass>::EndPacking()
 template <class BITOutStreamClass>
 void ArCoderWithBitCounter<BITOutStreamClass>::encode_symbol(int symbol, DWORD* contextPtr)
 {
-	int range = high-low+1;
+	int range = this->high - this->low + 1;
 	if (symbol != 1) {
-		high=low+range*contextPtr[symbol-1]/contextPtr[0] -1;
+		this->high = this->low + range * contextPtr[symbol-1] / contextPtr[0] -1;
 	}
-	low += range*contextPtr[symbol]/contextPtr[0];
+	this->low += range*contextPtr[symbol]/contextPtr[0];
 	for (;;) {
-		assert(low < high);
-		if ( high < HALF ) {
-			output_bit_plus_follow(0);
-			model()->bit_counter++;	// Статистика
+		assert(this->low < this->high);
+		if ( this->high < HALF ) {
+			this->output_bit_plus_follow(0);
+			this->model()->bit_counter++;	// Статистика
 		}
-		else if ( low >= HALF ) {
-			output_bit_plus_follow(1);
-			low-=HALF;
-			high-=HALF;
-			model()->bit_counter++;	// Статистика
+		else if ( this->low >= HALF ) {
+			this->output_bit_plus_follow(1);
+			this->low -= HALF;
+			this->high -= HALF;
+			this->model()->bit_counter++;	// Статистика
 		}
-		else if ( low >= FIRST_QTR && high < THIRD_QTR ) {		
-			high-=FIRST_QTR;
-			low-=FIRST_QTR;
-			bits_to_follow++;
-			model()->bit_counter++;	// Статистика
+		else if ( this->low >= FIRST_QTR && this->high < THIRD_QTR ) {		
+			this->high -= FIRST_QTR;
+			this->low -= FIRST_QTR;
+			this->bits_to_follow++;
+			this->model()->bit_counter++;	// Статистика
 		}
 		else {
 			return;
 		}
-		low <<= 1;
-		(high <<= 1)++;
+		this->low <<= 1;
+		(this->high <<= 1)++;
 	}
 }
 
@@ -477,14 +477,14 @@ void ArCoderWithBitCounter<BITOutStreamClass>::encode_symbol(int symbol, DWORD* 
 template <class BITOutStreamClass>
 void ArCoderWithBitCounter<BITOutStreamClass>::put ( int ch )
 {	
-	assert( ch < ESCAPE_SYMBOL() );
-	int symbol = char_to_index()[ch];
+	assert( ch < this->ESCAPE_SYMBOL() );
+	int symbol = this->char_to_index()[ch];
 	if (symbol==0)	{
-		encode_symbol(char_to_index()[ESCAPE_SYMBOL()], context());
-		encode_symbol(ch+1,escape_context());
+		encode_symbol(this->char_to_index()[this->ESCAPE_SYMBOL()], this->context());
+		encode_symbol(ch + 1, this->escape_context());
 	}
 	else {
-		encode_symbol(symbol,context());
+		encode_symbol(symbol, this->context());
 	}
 }
 
@@ -541,33 +541,33 @@ int ArDecoderWithBitCounter<BITInStreamClass>::decode_symbol(DWORD* contextPtr)
 {
 	DWORD range, cum;
 	int symbol;
-	range=high-low+1;
-	assert( low<=(unsigned long)value && (unsigned long)value<=high );
-	cum=( (value-low+1)*contextPtr[0] -1 )/range;
+	range = this->high - this->low + 1;
+	assert( this->low <= (unsigned long)this->value && (unsigned long)this->value <= this->high );
+	cum=( (this->value - this->low + 1) * contextPtr[0] -1 )/range;
 	for (symbol=1; contextPtr[symbol]>cum; symbol++);
 	if (symbol != 1) {
-		high=low+range*contextPtr[symbol-1]/contextPtr[0] -1;
+		this->high = this->low + range * contextPtr[symbol-1] / contextPtr[0] -1;
 	}
-	low =low+range*contextPtr[symbol]/contextPtr[0];
+	this->low = this->low + range * contextPtr[symbol] / contextPtr[0];
 	for (;;) {
-		if (high<HALF)
-			model()->bit_counter++;	// Статистика
-		else if (low>=HALF) {
-			value-=HALF;
-			low-=HALF;
-			high-=HALF;
-			model()->bit_counter++;	// Статистика
+		if (this->high < HALF)
+			this->model()->bit_counter++;	// Статистика
+		else if (this->low >= HALF) {
+			this->value-=HALF;
+			this->low -= HALF;
+			this->high -= HALF;
+			this->model()->bit_counter++;	// Статистика
 		}
-		else if (low>=FIRST_QTR && high<THIRD_QTR) {
-			value-=FIRST_QTR;
-			low-=FIRST_QTR;
-			high-=FIRST_QTR;
-			model()->bit_counter++;	// Статистика
+		else if (this->low >= FIRST_QTR && this->high < THIRD_QTR) {
+			this->value -= FIRST_QTR;
+			this->low -= FIRST_QTR;
+			this->high -= FIRST_QTR;
+			this->model()->bit_counter++;	// Статистика
 		}
 		else return(symbol);
-		low<<=1;
-		(high<<=1)++;
-		value=(value<<1)+is.input_bit();
+		this->low <<= 1;
+		(this->high <<= 1)++;
+		this->value = (this->value << 1) + this->is.input_bit();
 	}
 }
 
@@ -582,3 +582,4 @@ template class ArDecoderWithBitCounter<BITInMemStream>;
 template class ArCoderWithBitCounter<BITOutFileStream>;
 template class ArCoder<BITOutStubStream>;
 template class ArCoderWithBitCounter<BITOutStubStream>;
+

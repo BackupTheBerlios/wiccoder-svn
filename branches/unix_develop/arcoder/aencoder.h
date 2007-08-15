@@ -226,3 +226,4 @@ inline void aencoder<v_t, b_t>::_rm_coder(const bool init) {
 
 
 #endif	// WTC_AENCODER_INCLUDED
+

@@ -205,7 +205,7 @@ acoder::models_t encoder::_mk_acoder_models(const models_desc_t &desc)
 	models.insert(models.end(), ACODER_MAP_MODELS_COUNT - 1, model);
 
 	// проверка утверждений
-	assert(ACODER_TOTAL_MODELS_COUNT == models.size());
+	assert((acoder::models_t::size_type)ACODER_TOTAL_MODELS_COUNT == models.size());
 
 	return models;
 }
@@ -239,13 +239,15 @@ encoder::models_desc_t encoder::_mk_acoder_smart_models()
 		for (sz_t k = 0; subbands::SUBBANDS_ON_LEVEL > k; ++k)
 		{
 			const subbands::subband_t &sb = _wtree.sb().get(subbands::LVL_1, k);
-			i_cum.add(_wtree.iterator_over_subband(sb));
+			wtree::coefs_iterator tmp_it = _wtree.iterator_over_subband(sb);
+			i_cum.add(tmp_it);
 		}
 
 		wk_t lvl1_min = 0;
 		wk_t lvl1_max = 0;
-		_wtree.minmax<wnode::member_wc>(some_iterator_adapt(i_cum),
-										lvl1_min, lvl1_max);
+
+		wtree::coefs_iterator tmp_it_i = some_iterator_adapt(i_cum);
+		_wtree.minmax<wnode::member_wc>(tmp_it_i, lvl1_min, lvl1_max);
 
 		// поиск минимума и максимума на уровнях начиная со второго
 		wtree::coefs_cumulative_iterator j_cum;
@@ -256,14 +258,15 @@ encoder::models_desc_t encoder::_mk_acoder_smart_models()
 			for (sz_t k = 0; subbands::SUBBANDS_ON_LEVEL > k; ++k)
 			{
 				const subbands::subband_t &sb = _wtree.sb().get(lvl, k);
-				j_cum.add(_wtree.iterator_over_subband(sb));
+				wtree::coefs_iterator tmp_it = _wtree.iterator_over_subband(sb);
+				j_cum.add(tmp_it);
 			}
 		}
 
 		wk_t lvlx_min = 0;
 		wk_t lvlx_max = 0;
-		_wtree.minmax<wnode::member_wc>(some_iterator_adapt(j_cum),
-										lvlx_min, lvlx_max);
+		wtree::coefs_iterator tmp_it_j = some_iterator_adapt(j_cum);
+		_wtree.minmax<wnode::member_wc>(tmp_it_j, lvlx_min, lvlx_max);
 
 		// модель #1
 		desc.mdl_1_min = short(std::min(lvl1_min, lvlx_min));

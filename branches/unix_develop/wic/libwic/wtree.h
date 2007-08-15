@@ -368,7 +368,7 @@ public:
 				typename wnode::type_selector<member>::result &max) const
 	{
 		// используемый тип
-		typedef wnode::type_selector<member>::result value_t;
+		typedef typename wnode::type_selector<member>::result value_t;
 
 		// проверка на пустое множество
 		if (set->end()) return false;
@@ -438,6 +438,7 @@ public:
 	template <class result_t>
 	result_t distortion_wq() const
 	{
+		// wic::wtree::coefs_iterator it = _wtree.iterator_over_wtree();
 		return distortion<wnode::member_wq, result_t>(iterator_over_wtree());
 	}
 
@@ -448,7 +449,9 @@ public:
 	template <class result_t>
 	result_t distortion_wc() const
 	{
-		return distortion<wnode::member_wc, result_t>(iterator_over_wtree());
+		coefs_iterator it = iterator_over_wtree();
+		// return distortion<wnode::member_wc, result_t>(iterator_over_wtree());
+		return distortion<wnode::member_wc, result_t>(it);
 	}
 
 	//@}

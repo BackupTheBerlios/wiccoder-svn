@@ -1,8 +1,9 @@
 #include <iostream>
-#include "MExcept.h"
+#include "mexcept.h"
+
 using namespace std;
 
-static const char *sExceptMsg[] = {
+const char *sExceptMsg[] = {
 	"\nUndefined exception occurred.",
 	"\nFile error.",
 	"\nNot enough memory for this operation.",
@@ -23,3 +24,4 @@ void MException::print( void ) {
 		cerr << sExceptMsg[iExceptCode];
 	}
 }
+

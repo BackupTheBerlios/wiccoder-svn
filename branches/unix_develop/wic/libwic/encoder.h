@@ -306,8 +306,8 @@ protected:
 
 		// модели для коэффициентов
 		// поиск минимального и максимального значений коэффициентов
-		wnode::type_selector<member>::result w_min = 0;
-		wnode::type_selector<member>::result w_max = 0;
+		typename wnode::type_selector<member>::result w_min = 0;
+		typename wnode::type_selector<member>::result w_max = 0;
 
 		_wtree.minmax<member>(_wtree.iterator_over_wtree(), w_min, w_max);
 
@@ -637,6 +637,8 @@ protected:
 		}
 		else
 		{
+			// wic::wtree::coefs_iterator it = _wtree.iterator_over_wtree();
+			// d = _wtree.distortion < wic::wnode::member_wc, float > (it);
 			d = _wtree.distortion_wc<w_t>();
 		}
 

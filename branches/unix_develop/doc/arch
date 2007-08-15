@@ -1,0 +1,15 @@
+arcoder - library for arithm. compression
+doc - documentation
+lib - libraries (arcoder, imgs, libwic, cdf97, devis)
+obj - temporary compilation files
+imgs - library for bitmap processing (24b) (by cwrap, wictool, qatest)
+src: - source files and private headers 
+	* cwrap - utility for codec developing
+	* libwic - codec (deps: arcoder)
+	* qatest - quality tests
+	* wictool - console utility for image compressing
+wavelets - wavelet libraries
+	* cdf97 (C lang.) (by cwrap, wictool, qatest)
+	* devis (obs)
+wic: - public headers
+	* libwic - headers of libwic

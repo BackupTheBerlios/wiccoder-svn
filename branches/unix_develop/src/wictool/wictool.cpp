@@ -91,6 +91,8 @@ int decode(const std::string &compressed_path,
 		return -1;
 	}
 
+	// ### rak: 0 - just to make gcc not produce error. TODO.
+	return 0;
 }
 
 

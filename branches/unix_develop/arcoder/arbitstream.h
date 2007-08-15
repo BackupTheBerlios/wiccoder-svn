@@ -4,7 +4,7 @@
 #ifndef _INC_ARBITSTREAM_
 #define _INC_ARBITSTREAM_
 
-#include "MEXCEPT.H"
+#include "mexcept.h"
 #include <fstream>
 #include <assert.h>
 
@@ -301,3 +301,4 @@ private:
 };
 
 #endif /* _INC_ARBITSTREAM_ */
+

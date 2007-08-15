@@ -6,13 +6,13 @@
  * 
  * Версия 1.5
  */
-#include "MMemory.h"
+#include "mmemory.h"
 #include <math.h>
 #include <assert.h>
 #include <istream>
 #include <ostream>
 //llama:
-#include "ArBitStream.h"
+#include "arbitstream.h"
 
 typedef unsigned long DWORD;
 
@@ -288,13 +288,13 @@ public:
 
 	void operator << ( int ch ) {
 		put(ch);
-		update_model(ch);
+		this->update_model(ch);
 	}
 
 	// Как в базовом классе, но вызывается переопределенная операция encode_symbol()
 	void PutEOF() {
-		encode_symbol(char_to_index()[ESCAPE_SYMBOL()],context());	
-		encode_symbol(EOF_SYMBOL()+1,escape_context());
+		encode_symbol(this->char_to_index()[this->ESCAPE_SYMBOL()], this->context());	
+		encode_symbol(this->EOF_SYMBOL() + 1, this->escape_context());
 	}
 
 private:
@@ -370,16 +370,16 @@ public:
 	// Как в базовом классе, но вызывается переопределенная операция decode_symbol()
 	int get () {
 		int ch;
-		ch = index_to_char()[decode_symbol(context())];	// код символа по индексу
-		if (ch==ESCAPE_SYMBOL()) {
-			ch=decode_symbol(escape_context())-1;
+		ch = this->index_to_char()[decode_symbol(this->context())];	// код символа по индексу
+		if (ch == this->ESCAPE_SYMBOL()) {
+			ch = decode_symbol(this->escape_context()) - 1;
 		}
 		return ch;
 	}
 
 	void operator >> ( int &ch ) {
 		ch = get();
-		update_model(ch);
+		this->update_model(ch);
 	}
 
 private:
@@ -389,3 +389,4 @@ private:
 typedef ArCoderWithBitCounter<BITOutStubStream> ArEncoder;
 
 #endif /* _INC_ARCODEC_ */
+

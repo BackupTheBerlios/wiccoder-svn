@@ -210,3 +210,4 @@ inline void adecoder<v_t, b_t>::_rm_coder(const bool init) {
 
 
 #endif	// WTC_adecoder_INCLUDED
+

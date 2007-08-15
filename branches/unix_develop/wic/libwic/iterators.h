@@ -757,6 +757,13 @@ public:
 		return self_type(&iterator, true);
 	}
 
+private:	
+	// forbidden operators -----------------------------------------------------
+
+	some_iterator< ival_t >& operator = (const some_iterator< ival_t > &it) {
+		return *this;
+	}
+
 private:
 	// private data ------------------------------------------------------------
 
@@ -848,7 +855,7 @@ public:
 	//@{
 
 	//! \brief Определение виртуального basic_iterator::get()
-	virtual const ival_type &get() const
+	virtual const ival_t &get() const
 	{
 		assert(!_iterators.empty());
 
