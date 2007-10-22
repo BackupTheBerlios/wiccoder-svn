@@ -642,8 +642,8 @@ int get_wavelet_transform(const int argc, const char *const *const args,
 	- fixed_lambda
 	- fixed_bpp
 */
-int get_compression_method(const int argc, const char *const *const args,
-						   std::string &result, std::ostream *const err)
+int get_encode_method(const int argc, const char *const *const args,
+					  std::string &result, std::ostream *const err)
 {
 	// определяем поток для вывода ошибок
 	std::ostream &out = (0 == err)? std::cerr: (*err);
@@ -684,6 +684,15 @@ int get_compression_method(const int argc, const char *const *const args,
 	}
 
 	return arg_i;
+}
+
+
+/*!
+*/
+int get_encode_params(const int argc, const char *const *const args,
+					  std::string &result, std::ostream *const err)
+{
+	return 0;
 }
 
 
@@ -761,7 +770,8 @@ int usage(std::ostream &out)
 	out << std::endl;
 	out << "Filters are: cdf97 (default), Haar, Daub4, Daub6, Daub8"
 		<< std::endl;
-	out << "Methods are: manual, fixed_lambda, fixed_bpp" << std::endl;
+	out << "Methods are: manual (default), fixed_lambda, fixed_bpp"
+		<< std::endl;
 
 	/*
 	1. lambda + q
@@ -871,8 +881,8 @@ int main(int argc, char **args)
 
 			// method name
 			std::string method_name;
-			argx = get_compression_method(argc - argk, args + argk,
-										  method_name);
+			argx = get_encode_method(argc - argk, args + argk,
+									 method_name);
 
 			if (0 > argx) return usage(std::cout);
 			else argk += argx;
