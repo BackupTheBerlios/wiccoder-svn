@@ -18,8 +18,13 @@
 #include <iostream>
 #include <iomanip>
 
+// imgs library headers
 #include <imgs/img_rgb.h>
 #include <imgs/bmp_file.h>
+
+// libwic headers
+#include <wic/libwic/encoder.h>
+#include <wic/wicfilters/wavelets.h>
 
 // wictool headers
 #include "wictool.h"
@@ -547,7 +552,7 @@ int stat(const bmp_file_diff_src_t &diff_src,
 
 	Формат:
 	\verbatim
-	[-w|--wavelet <name>]
+	[-f|--filter <name>]
 	\endverbatim
 
 	Возможные значения параметра <i>name</i>:
@@ -595,14 +600,14 @@ int get_wavelet_transform(const int argc, const char *const *const args,
 	}
 
 	// получение названия преобразования
-	if (0 == strcmp("-w", args[arg_i]) ||
-		0 == strcmp("--wavelet", args[arg_i]))
+	if (0 == strcmp("-f", args[arg_i]) ||
+		0 == strcmp("--filter", args[arg_i]))
 	{
 		// переход к следующему аргументу и проверка, что аргументы ещё
 		// не подошли к концу
 		if (argc <= ++arg_i)
 		{
-			out << "Error: not enough arguments for [-w|--wavelet]"
+			out << "Error: not enough arguments for [-f|--filter]"
 				<< std::endl;
 			return -1;
 		}
@@ -616,6 +621,95 @@ int get_wavelet_transform(const int argc, const char *const *const args,
 	}
 
 	return arg_i;
+}
+
+
+/*!	\param[in] argc Количество параметров доступных в массиве <i>args</i>
+	\param[in] args Массив строковых параметров
+	\param[out] result Результирующее имя (название) метода сжатия
+	\param[in,out] err Указатель на поток для вывода ошибок. Если равен
+	<i>0</i> будет использован стандартный поток для вывода ошибок.
+	\return Количество использованных аргументов в случае успеха, иначе
+	<i>-1</i>.
+
+	Формат:
+	\verbatim
+	[-m|--method <name>]
+	\endverbatim
+
+	Возможные значения параметра <i>name</i>:
+	- manual (используется по умолчанию)
+	- fixed_lambda
+	- fixed_bpp
+*/
+int get_compression_method(const int argc, const char *const *const args,
+						   std::string &result, std::ostream *const err)
+{
+	// определяем поток для вывода ошибок
+	std::ostream &out = (0 == err)? std::cerr: (*err);
+
+	// значение по умолчанию
+	static const std::string &def_result = "manual";
+
+	// номер текущего аргумента
+	int arg_i = 0;
+
+	// проверка, что хватает аргументов
+	if (argc <= arg_i)
+	{
+		result = def_result;
+
+		return arg_i;
+	}
+
+	// получение названия преобразования
+	if (0 == strcmp("-m", args[arg_i]) ||
+		0 == strcmp("--method", args[arg_i]))
+	{
+		// переход к следующему аргументу и проверка, что аргументы ещё
+		// не подошли к концу
+		if (argc <= ++arg_i)
+		{
+			out << "Error: not enough arguments for [-m|--method]"
+				<< std::endl;
+			return -1;
+		}
+
+		// сохранение результата
+		result = args[arg_i++];
+	}
+	else
+	{
+		result = def_result;
+	}
+
+	return arg_i;
+}
+
+
+/*!	\param[in,out] Поток в который будет выведена цитата
+*/
+void crazy_ones(std::ostream &out)
+{
+	out <<
+	"Here's to the crazy ones, the misfits, the rebels, the troublemakers, the"
+	<< std::endl <<
+	"round pegs in the square holes... the ones who see things differently - "
+	<< std::endl <<
+	"they're not fond of rules... You can quote them, disagree with them, "
+	<< std::endl <<
+	"glorify or vilify them, but the only thing you can't do is ignore them"
+	<< std::endl <<
+	"because they change things... they push the human race forward, and while"
+	<< std::endl <<
+	"some may see them as the crazy ones, we see genius, because the ones who"
+	<< std::endl <<
+	"are crazy enough to think that they can change the world, are the ones who"
+	<< std::endl <<
+	"do."
+	<< std::endl << std::endl <<
+	"Apple Computers"
+	<< std::endl << std::endl;
 }
 
 
@@ -651,12 +745,23 @@ int usage(std::ostream &out)
 
 	out << "wictool -a|--about" << std::endl;
 	out << "wictool -h|--help" << std::endl;
-	out << "wictool -e|--encode [-l|--lambda] [-b|-bpp] <image> <file.wic>" << std::endl;
+	out << "wictool -e|--encode [<filter>] [<method>] <params> <image> "
+		<< "<file.wic>" << std::endl;
 	out << "wictool -d|--decode <file.wic> <image>" << std::endl;
 	out << "wictool -p|--psnr <image1> <image2>" << std::endl;
 	out << "wictool -s|--stat <image1> <image2>" << std::endl;
-	out << "\t<image>: [-c|--channel {x|r|g|b|f}] <file.bmp>[:{x|r|g|b|f}]"
+	out << std::endl;
+	out << "<image>:  [-c|--channel {x|r|g|b|f}] <file.bmp>[:{x|r|g|b|f}]"
 		<< std::endl;
+	out << "<filter>: [-f|--filter name]" << std::endl;
+	out << "<method>: [-m|--method name]" << std::endl;
+	out << "<params>: [-q|--quantizer] quantizer [-a|--lambda] lambda "
+		<< "[-b|--bpp] bpp " << std::endl
+		<< "          [-l|levels] levels [-f|--filter] filter" << std::endl;
+	out << std::endl;
+	out << "Filters are: cdf97 (default), Haar, Daub4, Daub6, Daub8"
+		<< std::endl;
+	out << "Methods are: manual, fixed_lambda, fixed_bpp" << std::endl;
 
 	/*
 	1. lambda + q
@@ -671,6 +776,131 @@ int usage(std::ostream &out)
 	return -1;
 }
 
+
+//!	\brief Точка входа
+/*!	\param[in] argc Количество параметров командной строки
+	\param[in] args Параметры командной строки
+*/
+int main(int argc, char **args)
+{
+	// количество использованных аргументов командной строки
+	int argk = 1;
+
+	// проверка на наличие агрументов
+	if (argk >= argc) return usage(std::cout);
+
+	// Флаг "многословности"
+	bool verbose = false;
+
+	// Главный цикл обработки параметров командной строки
+	while (argk < argc)
+	{
+		// выбор режима работы
+		const std::string mode = args[argk++];
+
+		if (0 == mode.compare("-!") || 0 == mode.compare("--crazy"))
+		{
+			crazy_ones(std::cout);
+		}
+		else if (0 == mode.compare("-v") || 0 == mode.compare("--verbose"))
+		{
+			verbose = true;
+			std::cout << "Verbose output enabled." << std::endl;
+		}
+		else if (0 == mode.compare("-a") || 0 == mode.compare("--about"))
+		{
+			about(std::cout);
+		}
+		else if (0 == mode.compare("-h") || 0 == mode.compare("--help"))
+		{
+			usage(std::cout);
+		}
+		else if (0 == mode.compare("-p") || 0 == mode.compare("--psnr"))
+		{
+			// -p | --psnr
+			bmp_file_diff_src_t res;
+
+			const int argx = get_bmp_file_diff_src(argc - argk , args + argk,
+												   res);
+
+			if (0 > argx) return usage(std::cout);
+			else argk += argx;
+
+			std::cout << "image 1: " << res.file1 << ":" << res.channel1
+					  << std::endl;
+			std::cout << "image 2: " << res.file2 << ":" << res.channel2
+					  << std::endl;
+
+			if (0 != psnr(res)) return -1;
+		}
+		else if (0 == mode.compare("-s") || 0 == mode.compare("--stat"))
+		{
+			// -s | --stat
+			bmp_file_diff_src_t res;
+
+			const int argx = get_bmp_file_diff_src(argc - argk , args + argk,
+												   res);
+
+			if (0 > argx) return usage(std::cout);
+			else argk += argx;
+
+			std::cout << "image 1: " << res.file1 << ":" << res.channel1
+					  << std::endl;
+			std::cout << "image 2: " << res.file2 << ":" << res.channel2
+					  << std::endl;
+
+			if (0 != stat(res)) return -1;
+		}
+		else if (0 == mode.compare("-e") || 0 == mode.compare("--encode"))
+		{
+			// -e | --encode
+			int argx = -1;
+
+			// filter name
+			std::string filter_name;
+			argx = get_wavelet_transform(argc - argk, args + argk,
+										 filter_name);
+
+			if (0 > argx) return usage(std::cout);
+			else argk += argx;
+
+			if (verbose)
+			{
+				std::cout << "Filter: " << filter_name << std::endl;
+			}
+
+			// method name
+			std::string method_name;
+			argx = get_compression_method(argc - argk, args + argk,
+										  method_name);
+
+			if (0 > argx) return usage(std::cout);
+			else argk += argx;
+
+			if (verbose)
+			{
+				std::cout << "Method: " << method_name << std::endl;
+			}
+		}
+		else if (0 == mode.compare("-d") || 0 == mode.compare("--decode"))
+		{
+			std::string wf_name;
+			const int argx = get_wavelet_transform(argc - argk, args + argk,
+												   wf_name);
+
+			if (0 > argx) return usage(std::cout);
+			else argk += argx;
+
+			std::cout << "wf_name: " << wf_name << std::endl;
+		}
+		else
+		{
+			return usage(std::cout);
+		}
+	}
+
+	return 0;
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -732,7 +962,7 @@ wic::encoder *mk_encoder(const std::string &src_path,
 
 //!	\brief  Осуществляет запись закодированного в файл
 int encode(const wic::encoder &encoder,
-		   const wic::encoder::header_t &header,
+		   const wic::encoder::tunes_t &header,
 		   const std::string &result_path);
 
 //!	\brief Осуществляет декодирование файла
@@ -743,60 +973,6 @@ int decode(const std::string &compressed_path,
 
 ///////////////////////////////////////////////////////////////////////////////
 // functions definitions
-
-
-
-
-double psnr(const std::string &file1, const std::string &file2) {
-	imgs::img_rgb rgb1;
-	imgs::img_rgb rgb2;
-
-	if (0 != imgs::bmp_read(rgb1, file1)) return -1.0;
-	if (0 != imgs::bmp_read(rgb2, file2)) return -1.0;
-
-	imgs::img_yuv yuv1;
-	imgs::img_yuv yuv2;
-
-	// imgs::rgb2yuv(rgb1, yuv1, imgs::img_yuv::YUV_FRMT_444);
-	yuv1.reset(rgb1.w(), rgb1.h(), imgs::img_yuv::YUV_FRMT_444);
-	for (int i = 0; yuv1.w() * yuv1.h() > i; ++i) {
-		yuv1.y()[i] = ((imgs::img_rgb::rgb24_t *)rgb1.bits())[i].r;
-	}
-	// imgs::rgb2yuv(rgb2, yuv2, imgs::img_yuv::YUV_FRMT_444);
-	yuv2.reset(rgb2.w(), rgb2.h(), imgs::img_yuv::YUV_FRMT_444);
-	for (int i = 0; yuv2.w() * yuv2.h() > i; ++i) {
-		yuv2.y()[i] = ((imgs::img_rgb::rgb24_t *)rgb2.bits())[i].r;
-	}
-
-	int y_sz = yuv1.w() * yuv1.h();
-
-	return imgs::psnr<imgs::img_yuv::sample_t>::ptr(yuv1.y(), yuv2.y(), y_sz);
-}
-
-
-/*!	\param[in] argc Number of arguments
-	\param[in] args Arguments list
-	\return <i>-1</i>, предполагая, что указанные аргументы не корректны
-*/
-int usage1(int argc, char **args)
-{
-	std::cout << "Usage:" << std::endl << std::endl;
-
-	std::cout << "Encoding:" << std::endl;
-	std::cout << "wictool -e -m manual -q <quantizer> -l <lambda> lena.bmp lena.wic" << std::endl;
-	std::cout << "wictool -e -m fixed_bpp -b <bpp> lena.bmp lena.wic" << std::endl;
-	std::cout << "wictool -e -m fixed_lambda -l <lambda> lena.bmp lena.wic" << std::endl;
-	std::cout << std::endl;
-	std::cout << "Decoding:" << std::endl;
-	std::cout << "wictool -d lena.wic lena.bmp" << std::endl;
-	std::cout << std::endl;
-	std::cout << "Measuring compression quality (PSNR, dB):" << std::endl;
-	std::cout << "wictool -p lena_source.bmp lena_decoded.bmp" << std::endl;
-	std::cout << std::endl;
-
-	return (-1);
-}
-
 
 /*!	\param[in] src_path Путь к файлу с исходным изображением
 	\param[in] lvls Количество уровней разложения
@@ -893,7 +1069,7 @@ wic::encoder *mk_encoder(const std::string &src_path,
 	закодированные данные
 */
 int encode(const wic::encoder &encoder,
-		   const wic::encoder::header_t &header,
+		   const wic::encoder::tunes_t &header,
 		   const std::string &result_path)
 {
 	// open file for writing
@@ -1019,8 +1195,8 @@ int decode(const std::string &compressed_path,
 	}
 
 	// get header
-	const wic::encoder::header_t &header = 
-						*((wic::encoder::header_t *)data);
+	const wic::encoder::tunes_t &header = 
+						*((wic::encoder::tunes_t *)data);
 
 	std::cout << "q: " << header.q << std::endl;
 
@@ -1082,7 +1258,7 @@ int decode(const std::string &compressed_path,
 
 ///////////////////////////////////////////////////////////////////////////////
 // main() function definition
-int main(int argc, char **args)
+int main1(int argc, char **args)
 {
 	// количество использованных аргументов командной строки
 	int argk = 1;
@@ -1191,20 +1367,20 @@ int main(int argc, char **args)
 	std::cout << "www.miet.ru" << std::endl;
 	std::cout << std::endl;
 
-	if (1 >= argc) return usage1(argc, args);
+	if (1 >= argc) return 0;
 
 	if (0 == strcmp(args[1], "-p") || 0 == strcmp(args[1], "--psnr"))
 	{
-		if (4 > argc) return usage1(argc, args);
+		if (4 > argc) return 0;
 
-		std::cout << "PSNR: " << psnr(args[2], args[3]) << " dB" << std::endl;
+		std::cout << "PSNR: " << 0 << " dB" << std::endl;
 
 		return 0;
 	}
 
 	if (0 == strcmp(args[1], "-d") || 0 == strcmp(args[1], "--decode"))
 	{
-		if (4 > argc) return usage1(argc, args);
+		if (4 > argc) return 0;
 
 		return decode(args[2], args[3]);
 	}
@@ -1215,7 +1391,7 @@ int main(int argc, char **args)
 	if (0 == strcmp(args[arg_i], "-e") ||
 		0 == strcmp(args[arg_i], "--encode"))
 	{
-		if (argc <= ++arg_i) return usage1(argc, args);
+		if (argc <= ++arg_i) return 0;
 	}
 
 	// метод сжатия
@@ -1224,7 +1400,7 @@ int main(int argc, char **args)
 	if (0 == strcmp(args[arg_i], "-m") ||
 		0 == strcmp(args[arg_i], "--method"))
 	{
-		if (argc <= ++arg_i) return usage1(argc, args);
+		if (argc <= ++arg_i) return 0;
 
 		if (0 == strcmp(args[arg_i], "manual") ||
 			0 == strcmp(args[arg_i], "0"))
@@ -1240,9 +1416,9 @@ int main(int argc, char **args)
 		{
 			method = 2;
 		}
-		else return usage1(argc, args);
+		else return 0;
 
-		if (argc <= ++arg_i) return usage1(argc, args);
+		if (argc <= ++arg_i) return 0;
 	}
 
 	// количество уровней разложения
@@ -1251,11 +1427,11 @@ int main(int argc, char **args)
 	if (0 == strcmp(args[arg_i], "-v") ||
 		0 == strcmp(args[arg_i], "--levels"))
 	{
-		if (argc <= ++arg_i) return usage1(argc, args);
+		if (argc <= ++arg_i) return 0;
 
 		lvls = atoi(args[arg_i]);
 
-		if (argc <= ++arg_i) return usage1(argc, args);
+		if (argc <= ++arg_i) return 0;
 	}
 
 	// цветовой канал
@@ -1264,11 +1440,11 @@ int main(int argc, char **args)
 	if (0 == strcmp(args[arg_i], "-c") ||
 		0 == strcmp(args[arg_i], "--channel"))
 	{
-		if (argc <= ++arg_i) return usage1(argc, args);
+		if (argc <= ++arg_i) return 0;
 
 		channel = atoi(args[arg_i]);
 
-		if (argc <= ++arg_i) return usage1(argc, args);
+		if (argc <= ++arg_i) return 0;
 	}
 
 	// способы оптимизации
@@ -1281,21 +1457,21 @@ int main(int argc, char **args)
 		if (0 == strcmp(args[arg_i], "-q") ||
 			0 == strcmp(args[arg_i], "--q"))
 		{
-			if (argc <= ++arg_i) return usage1(argc, args);
+			if (argc <= ++arg_i) return 0;
 
 			q = wic::q_t(atof(args[arg_i]));
 
-			if (argc <= ++arg_i) return usage1(argc, args);
+			if (argc <= ++arg_i) return 0;
 		}
 
 		if (0 == strcmp(args[arg_i], "-l") ||
 			0 == strcmp(args[arg_i], "--lambda"))
 		{
-			if (argc <= ++arg_i) return usage1(argc, args);
+			if (argc <= ++arg_i) return 0;
 
 			lambda = atof(args[arg_i]);
 
-			if (argc <= ++arg_i) return usage1(argc, args);
+			if (argc <= ++arg_i) return 0;
 		}
 	}
 
@@ -1307,11 +1483,11 @@ int main(int argc, char **args)
 		if (0 == strcmp(args[arg_i], "-b") ||
 			0 == strcmp(args[arg_i], "--bpp"))
 		{
-			if (argc <= ++arg_i) return usage1(argc, args);
+			if (argc <= ++arg_i) return 0;
 
 			bpp = atof(args[arg_i]);
 
-			if (argc <= ++arg_i) return usage1(argc, args);
+			if (argc <= ++arg_i) return 0;
 		}
 	}
 
@@ -1322,17 +1498,17 @@ int main(int argc, char **args)
 		if (0 == strcmp(args[arg_i], "-l") ||
 			0 == strcmp(args[arg_i], "--lambda"))
 		{
-			if (argc <= ++arg_i) return usage1(argc, args);
+			if (argc <= ++arg_i) return 0;
 
 			lambda = atof(args[arg_i]);
 
-			if (argc <= ++arg_i) return usage1(argc, args);
+			if (argc <= ++arg_i) return 0;
 		}
 	}
 
 	// пути исходного и сжатого файла
 	const std::string srt_path = args[arg_i];
-	if (argc <= ++arg_i) return usage1(argc, args);
+	if (argc <= ++arg_i) return 0;
 
 	const std::string result_path = args[arg_i];
 
@@ -1345,27 +1521,27 @@ int main(int argc, char **args)
 		return -1;
 	}
 
-	wic::encoder::header_t header;
+	wic::encoder::tunes_t header;
 	if (0 == method) 
 	{
 		std::cout << "Operation mode: manual" << std::endl;
 		std::cout << "q: " << q << std::endl;
 		std::cout << "lambda: " << lambda << std::endl;
-		encoder->encode_0(q, lambda, header);
+		// encoder->encode_0(q, lambda, header);
 	}
 	else if (1 == method)
 	{
 		std::cout << "Operation mode: fixed bpp" << std::endl;
 		std::cout << "bpp: " << bpp << std::endl;
-		encoder->encode_1(bpp, header);
+		// encoder->encode_1(bpp, header);
 	}
 	else if (2 == method)
 	{
 		std::cout << "Operation mode: fixed lambda" << std::endl;
 		std::cout << "lambda: " << lambda << std::endl;
-		encoder->encode_2(lambda, header);
+		// encoder->encode_2(lambda, header);
 	}
-	else return usage1(argc, args);
+	else return 0;
 
 	// запись результат в файл
 	encode(*encoder, header, result_path);

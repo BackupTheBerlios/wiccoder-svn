@@ -134,11 +134,14 @@ public:
 		lambda_t lambda;
 		//!	\brief Значение <i>RD функции Лагранжа</i> для всего спектра
 		j_t j;
-		//!	\brief Среднее количество бит, затрачиваемых на кодирование
+		//!	\brief Примерное среднее количество бит, затрачиваемых на кодирование
 		//!	одного пиксела (элемента изображения)
 		/*!	Данное поле доступно (заполняется корректным значением) только
 			если при оптимизации был выбран режим без виртуального кодирования
-			(см. #OPTIMIZATION_USE_VIRTUAL_ENCODING).
+			(см. #OPTIMIZATION_USE_VIRTUAL_ENCODING). Является некоторой
+			приблизительной оценкой битовых затрат, необходимых для сжатия
+			изображения при использовании результатов оптимизации. Реальные
+			битовые затраты обычно несколько меньше.
 		*/
 		h_t bpp;
 	};
@@ -153,7 +156,14 @@ public:
 	struct enc_result_t
 	{
 		//!	\brief Результат проведённой оптимизации
-		optimize_result_t optimize;
+		optimize_result_t optimization;
+		//!	\brief Среднее количество бит, затрачиваемых на кодирование
+		//!	одного пиксела (элемента изображения)
+		/*!	Данное поле доступно (заполняется корректным значением) всегда и
+			является реальной характеристикой, а не абстрактной приблизительной
+			оценкой битовых затрат.
+		*/
+		h_t bpp;
 	};
 
 	// public constants --------------------------------------------------------
@@ -189,10 +199,13 @@ public:
 	//!	\name Функции кодированя
 	//@{
 
-	//!	\brief Производит полный набор операций для кодирование изображения
-	//!	с заранее заданными параметрами <i>q</i> и <i>lambda</i>
-	enc_result_t encode(const q_t q, const lambda_t &lambda, tunes_t &tunes);
+	//!	\brief Производит кодирование изображения с заранее заданными
+	//!	параметрами <i>q</i> и <i>lambda</i>
+	enc_result_t encode(const w_t *const w, const q_t q, const lambda_t &lambda,
+						tunes_t &tunes);
 
+	/*
+	void prepare_cheap_encode();
 	//!	\brief Функция быстрого кодирования
 	void cheap_encode(const lambda_t &lambda, tunes_t &tunes);
 
@@ -203,15 +216,17 @@ public:
 	//!	\brief Функция осуществляющая непосредственное кодирование изображения
 	void encode(const w_t *const w, const q_t q, const lambda_t &lambda,
 				header_t &header);
+	*/
 
 	//@}
 
 	//!	\name Функции декодирования
 	//@{
 
-	//!	\brief Функция осуществляющая непосредственное декодирование изображения
+	//!	\brief Функция осуществляющая непосредственное декодирование
+	//!	сжатого изображения
 	void decode(const byte_t *const data, const sz_t data_sz,
-				const header_t &header);
+				const tunes_t &tunes);
 
 	//@}
 
@@ -252,6 +267,7 @@ protected:
 		j_t j;
 	};
 
+	/*
 	//!	\brief Структура описывает результат проведённой оптимизации
 	//!	топологии ветвей всего спектра
 	struct _optimize_result_t {
@@ -283,6 +299,7 @@ protected:
 		//!	одного пиксела (элемента изображения)
 		h_t bpp;
 	};
+	*/
 
 	// protected methods -------------------------------------------------------
 
@@ -630,16 +647,17 @@ protected:
 	//@{
 
 	//!	\brief Производит оптимизацию топологии всех ветвей в спектре
-	_optimize_result_t _optimize_wtree(const lambda_t &lambda,
-									   const bool virtual_encode = false);
+	optimize_result_t _optimize_wtree(const lambda_t &lambda,
+									  const bool virtual_encode = false);
 
 	//!	\brief Производит оптимизацию топологии всех ветвей в спектре
 	//! с предварительным квантованием и настройкой арифметического
 	//!	кодера.
-	_optimize_result_t _optimize_wtree(const lambda_t &lambda,
-									   const q_t &q, models_desc_t &models,
-									   const bool virtual_encode = false);
+	optimize_result_t _optimize_wtree(const lambda_t &lambda,
+									  const q_t &q, models_desc_t &models,
+									  const bool virtual_encode = false);
 
+	/*
 	//!	\brief Производит поиск параметра <i>lambda</i>, подбирая его
 	//! под битрейт <i>bpp</i>
 	_search_result_t _search_lambda(const h_t &bpp,
@@ -695,6 +713,16 @@ protected:
 
 	_search_result_t _search_q_and_lambda(const h_t &bpp,
 										  models_desc_t &models);
+	*/
+
+	//@}
+
+	//!	\name Вычисление характеристик
+	//@{
+
+	//!	\brief Возвращает реальные средние битовые затраты на кодирование
+	//!	одного элемента изображения (пикселя)
+	h_t _calc_encoded_bpp(const bool including_tunes = true);
 
 	//@}
 

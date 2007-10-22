@@ -56,29 +56,69 @@ encoder::~encoder() {
 }
 
 
-/*!	\param[in] q Квантователь. Чем больше значение (величина) квантователя,
+/*!	\param[in] w Спектр вейвлет преобразования входного изображения для
+	кодирования
+
+	\param[in] q Квантователь. Чем больше значение (величина) квантователя,
 	тем большую степень сжатия можно получить. Однако при увеличении
 	квантователя качество восстановленного (декодированного) изображения
 	ухудшается. Значение квантователя должно быть больше <i>1</i>.
+
 	\param[in] lambda Параметр <i>lambda</i> используемый для
 	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
 	собой баланс между ошибкой и битовыми затратами. Чем больше данный
 	параметр, тем больший приоритет будет отдан битовым затратам.
 	Соответственно, при 0 будет учитываться только ошибка кодирования.
-	\param[out] header 
-	\return
+
+	\param[out] tunes Информация, необходимая для последующего
+	восстановления изображения
+
+	\return Результат проведённого кодирования
+
+	Данный механизм кодирования применяется, когда оптимальные (или
+	субоптимальные) значения параметров <i>q</i> и <i>lambda</i> известны
+	заранее. Этот метод является самым быстрым так как производит операции
+	оптимизации топологии и кодирования только по одному разу.
+
+	Стоит заметить, что метод также производит квантование спектра выбранным
+	квантователем <i>q</i>, поэтому его не желательно использовать в
+	ситуациях когда необходимо получить результаты сжатия одного изображения
+	с разным параметром <i>lambda</i>. Для таких случаев лучше использовать
+	более быструю функцию cheap_encode(), которая не производит квантования
+	коэффициентов спектра.
+
+	Код функции использует макрос #OPTIMIZATION_USE_VIRTUAL_ENCODING. Если он
+	определён будет производиться виртуальное кодирование коэффициентов, что
+	несколько быстрее. Однако не все реализации битовых кодеров могут
+	поддерживать это.
+
+	Вся информация необходимая для успешного декодирования (кроме информации
+	описывающей параметры исходного изображения, такие как его разрешение и
+	количество уровней преобразования) возвращается через структуру
+	tunes_t. Доступ к закодированному изображению осуществляется через объект
+	арифметического кодера, ссылку на который можно получить вызвав метод
+	coder().
 */
 encoder::enc_result_t
-encoder::encode(const q_t q, const lambda_t &lambda, tunes_t &tunes)
+encoder::encode(const w_t *const w, const q_t q, const lambda_t &lambda,
+				tunes_t &tunes)
 {
+	// результат проведённой оптимизации
+	enc_result_t result;
+
+	// проверка входных параметров
+	assert(0 != w);
+
+	// загрузка спектра
+	_wtree.load_field<wnode::member_w>(w);
+
 	// оптимизация топологии ветвей
-	#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
-	_optimize_result_t result = 
-	_optimize_wtree(lambda, q, header.models, true);
-	#else
-	_optimize_result_t result = 
-	_optimize_wtree(lambda, q, header.models, false);
-	#endif
+	result.optimization = 
+		#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
+		_optimize_wtree(lambda, q, tunes.models, true);
+		#else
+		_optimize_wtree(lambda, q, tunes.models, false);
+		#endif
 
 	// кодирование всего дерева
 	_acoder.encode_start();
@@ -87,16 +127,20 @@ encoder::encode(const q_t q, const lambda_t &lambda, tunes_t &tunes)
 
 	_acoder.encode_stop();
 
-	header.q = _wtree.q();
+	// запись данных необходимых для последующего декодирования
+	tunes.q = _wtree.q();
 
-	const h_t bpp = h_t((coder().encoded_sz() + sizeof(header)) * BITS_PER_BYTE) / h_t(_wtree.nodes_count());
+	// отчёт о проделанной работе
+	result.bpp = _calc_encoded_bpp();
 
-	std::cout << "bpp: " << std::setprecision(2) << bpp << std::endl;
+	// завершение кодирования
+	return result;
 }
 
 /*!	\param[in] lambda
 	\param[out] tunes
 */
+/*
 void encoder::cheap_encode(const lambda_t &lambda, tunes_t &tunes)
 {
 	// оптимизация топологии ветвей
@@ -189,69 +233,23 @@ void encoder::encode_2(const lambda_t &lambda, header_t &header)
 	std::cout << "q: " << result.optimized.q << std::endl;
 	std::cout << "lambda: " << result.optimized.lambda << std::endl;
 }
-
-
-/*!	\param[in] w Спектр вейвлет преобразования входного изображения для
-	кодирования
-	\param[in] q Квантователь (должен быть больше <i>1</i>)
-	\param[in] lambda Параметр <i>lambda</i> используемый для
-	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
-	собой баланс между ошибкой и битовыми затратами.
-	\param[out] header Параметры, необходимые для последующего декодирования.
-
-	Данный механизм кодирования применяется, когда оптимальные (или
-	субоптимальные) значения параметров <i>q</i> и <i>lambda</i> известны
-	заранее. Этот метод является самым быстрым так как производит операции
-	оптимизации топологии и кодирования только по одному разу.
-
-	Стоит заметить, что метод также производит квантование спектра выбранным
-	квантователем <i>q</i>, поэтому его не желательно использовать в
-	ситуациях когда необходимо получить результаты сжатия одного изображения
-	с разным параметром <i>lambda</i>. Для таких случаев лучше использовать
-	более быструю функцию cheap_encode(), которая не производит квантования
-	коэффициентов спектра.
-
-	Код функции использует макрос #OPTIMIZATION_USE_VIRTUAL_ENCODING. Если он
-	определён будет производиться виртуальное кодирование коэффициентов, что
-	несколько быстрее. Однако не все реализации битовых кодеров могут
-	поддерживать это.
-
-	Вся информация необходимая для успешного декодирования (кроме информации
-	описывающей параметры исходного изображения, такие как его разрешение и
-	количество уровней преобразования) возвращается через структуру
-	header_t.
 */
-void encoder::encode(const w_t *const w, const q_t q, const lambda_t &lambda,
-					 header_t &header)
-{
-	// быстрая загрузка спектра
-	if (0 != w) _wtree.cheap_load(w, q);
-
-	// оптимизация топологии ветвей
-	#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
-	_optimize_wtree(lambda, q, header.models, true);
-	#else
-	_optimize_wtree(lambda, q, header.models, false);
-	#endif
-
-	// кодирование всего дерева
-	_acoder.encode_start();
-
-	_encode_wtree();
-
-	_acoder.encode_stop();
-
-	// сохранение данных необходимых для декодирования
-	header.q = _wtree.q();
-}
 
 
-/*!	param[in] data
-	param[in] data_sz
-	param[in] header
+/*!	param[in] data Указатель на блок памяти, содержащий закодированное
+	изображение
+	param[in] data_sz Размер блока, содержащего закодированное
+	изображения
+	param[in] tunes Данные необходимые для восстановления изображения,
+	полученные от одной из функций кодирования.
+
+	Стоит заметить, что в текущей реализации, память для арифметического
+	кодера выделяется зарание, размер которой определяется исходя из
+	размеров самого изображения. Поэтому необходимо, чтобы размер
+	данных <i>data_sz</i> был меньше, чем acoder::buffer_sz().
 */
 void encoder::decode(const byte_t *const data, const sz_t data_sz,
-					 const header_t &header)
+					 const tunes_t &tunes)
 {
 	// проверка утверждений
 	assert(_acoder.buffer_sz() >= data_sz);
@@ -263,7 +261,7 @@ void encoder::decode(const byte_t *const data, const sz_t data_sz,
 	_wtree.wipeout();
 
 	// установка характеристик моделей
-	_acoder.use(_mk_acoder_models(header.models));
+	_acoder.use(_mk_acoder_models(tunes.models));
 
 	// декодирование
 	_acoder.decode_start();
@@ -273,7 +271,7 @@ void encoder::decode(const byte_t *const data, const sz_t data_sz,
 	_acoder.decode_stop();
 
 	// деквантование
-	_wtree.dequantize<wnode::member_wc>(header.q);
+	_wtree.dequantize<wnode::member_wc>(tunes.q);
 }
 
 
@@ -1298,15 +1296,15 @@ j_t encoder::_optimize_tree(const p_t &root, const lambda_t &lambda)
 	функций <i>Лагранжа</i> в спектре должны быть обнулены. Арифметический
 	кодер должен быть настроен на корректные модели (смотри acoder::use()).
 
-	\note Необходимую подготовку выполняет функция wnode::filling_refresh(),
+	\note Необходимую подготовку выполняет функция wtree::filling_refresh(),
 	при условии, что поля wnode::w и wnode::wq корректны.
 */
-encoder::_optimize_result_t
+encoder::optimize_result_t
 encoder::_optimize_wtree(const lambda_t &lambda,
 						 const bool virtual_encode)
 {
 	// инициализация возвращаемого результата
-	_optimize_result_t result;
+	optimize_result_t result;
 	result.q		= _wtree.q();
 	result.lambda	= lambda;
 	result.j		= 0;
@@ -1319,6 +1317,7 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 				_wtree.iterator_over_subband(_wtree.sb().get_LL());
 		 !i->end(); i->next())
 	{
+		// корень очередного дерева коэффициентов вейвлет преобразования
 		const p_t &root = i->get();
 
 		// оптимизация топологии отдельной ветви
@@ -1333,8 +1332,7 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 	// подсчёт bpp, если производилось реальное кодирование
 	if (!virtual_encode)
 	{
-		result.bpp = h_t(_acoder.encoded_sz() * BITS_PER_BYTE) / 
-					 h_t(_wtree.nodes_count());
+		result.bpp = _calc_encoded_bpp();
 	}
 
 	// вывод отладочной информации
@@ -1363,13 +1361,14 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 	\param[in] virtual_encode Если <i>true</i> то будет производиться
 	виртуальное кодирование (только перенастройка моделей, без помещения
 	кодируемого символа в выходной поток).
+	\return Результат проведённой оптимизации
 
 	Эта версия функции <i>%encoder::_optimize_wtree()</i> сама производит
 	квантование и настройку моделей арифметического кодера. Для корректной
 	работы функции достаточно загруженных коэффициентов в поле wnode::w
 	элементов спектра.
 */
-encoder::_optimize_result_t
+encoder::optimize_result_t
 encoder::_optimize_wtree(const lambda_t &lambda,
 						 const q_t &q, models_desc_t &models,
 						 const bool virtual_encode)
@@ -1430,6 +1429,7 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 	wnode::w и wnode::wq элементов спектра были корректны. Для этого
 	можно использовать функцию wtree::cheap_load().
 */
+/*
 encoder::_search_result_t
 encoder::_search_lambda(const h_t &bpp,
 						const lambda_t &lambda_min,
@@ -1455,8 +1455,8 @@ encoder::_search_lambda(const h_t &bpp,
 	do {
 		// вычисление значений bpp на левой границе диапазона
 		_wtree.filling_refresh();
-		_optimize_result_t result_a = _optimize_wtree(lambda_a,
-													  virtual_encode);
+		optimize_result_t result_a = _optimize_wtree(lambda_a,
+													 virtual_encode);
 
 		// проверка на допустимость входного диапазона
 		if (result_a.bpp <= (bpp + bpp_eps))
@@ -1529,6 +1529,7 @@ encoder::_search_lambda(const h_t &bpp,
 
 	return search_result;
 }
+*/
 
 
 /*!	\param[in] lambda Параметр <i>lambda</i> используемый для
@@ -1554,6 +1555,7 @@ encoder::_search_lambda(const h_t &bpp,
 	кодируемого символа в выходной поток).
 	\return Результат произведённого поиска.
 */
+/*
 encoder::_search_result_t
 encoder::_search_q_min_j(const lambda_t &lambda,
 						 models_desc_t &models,
@@ -1645,10 +1647,11 @@ encoder::_search_q_min_j(const lambda_t &lambda,
 
 	return search_result;
 }
-
+*/
 
 /*!
 */
+/*
 encoder::_search_result_t
 encoder::_search_q_and_lambda(const h_t &bpp,
 							  models_desc_t &models)
@@ -1717,6 +1720,23 @@ encoder::_search_q_and_lambda(const h_t &bpp,
 	std::cout << std::endl;
 
 	return result;
+}
+*/
+
+
+/*!	\param[in] including_tunes Если этот параметр равен <i>true</i> в
+	расчёте <i>bpp</i> будет принят во внимание размер дополнительный данных,
+	необходимых для восстановления изображения, определённых в структуре
+	tunes_t
+	\return Среднее количество бит, затрачиваемых на кодирование одного
+	пикселя
+*/
+h_t encoder::_calc_encoded_bpp(const bool including_tunes)
+{
+	const sz_t data_sz = coder().encoded_sz()
+						 + ((including_tunes)? sizeof(tunes_t): 0);
+
+	return h_t(data_sz * BITS_PER_BYTE) / h_t(_wtree.nodes_count());
 }
 
 
