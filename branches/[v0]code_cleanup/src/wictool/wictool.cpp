@@ -63,7 +63,7 @@ int get_bmp_file_and_channel(const int argc, const char *const *const args,
 	// проверка, что хватает аргументов
 	if (argc <= arg_i)
 	{
-		out << "Error: not enough arguments" << std::endl;
+		out << "Error: not enough arguments for image" << std::endl;
 		return -1;
 	}
 
@@ -796,6 +796,7 @@ int get_wic_file(const int argc, const char *const *const args,
 	if (argc <= arg_i)
 	{
 		out << "Error: compressed file name not specified" << std::endl;
+		return -1;
 	}
 
 	wic_file = args[arg_i++];
