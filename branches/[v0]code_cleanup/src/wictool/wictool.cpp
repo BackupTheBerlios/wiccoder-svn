@@ -690,7 +690,7 @@ int get_encode_method(const int argc, const char *const *const args,
 
 /*!	\param[in] argc Количество параметров доступных в массиве <i>args</i>
 	\param[in] args Массив строковых параметров
-	\param[out] result Результирующее имя (название) метода сжатия
+	\param[out] params Параметры кодирования, полученные из командной строки
 	\param[in,out] err Указатель на поток для вывода ошибок. Если равен
 	<i>0</i> будет использован стандартный поток для вывода ошибок.
 	\return Количество использованных аргументов в случае успеха, иначе
@@ -771,6 +771,34 @@ int get_encode_params(const int argc, const char *const *const args,
 			break;
 		}
 	}
+
+	return arg_i;
+}
+
+
+/*!	\param[in] argc Количество параметров доступных в массиве <i>args</i>
+	\param[in] args Массив строковых параметров
+	\param[out] wic_file Путь к сжатому файлу
+	\param[in,out] err Указатель на поток для вывода ошибок. Если равен
+	<i>0</i> будет использован стандартный поток для вывода ошибок.
+	\return Количество использованных аргументов в случае успеха, иначе
+	<i>-1</i>.
+*/
+int get_wic_file(const int argc, const char *const *const args,
+				 std::string &wic_file, std::ostream *const err)
+{
+	// определяем поток для вывода ошибок
+	std::ostream &out = (0 == err)? std::cerr: (*err);
+
+	// номер текущего аргумента
+	int arg_i = 0;
+
+	if (argc <= arg_i)
+	{
+		out << "Error: compressed file name not specified" << std::endl;
+	}
+
+	wic_file = args[arg_i++];
 
 	return arg_i;
 }
@@ -995,22 +1023,31 @@ int main(int argc, char **args)
 
 			if (verbose)
 			{
-				std::cout << "Image:  \"" << img_path << "\":"
-						  << channel << std::endl;
+				std::cout << "Image:  \"" << img_path << ":"
+						  << channel << "\"" << std::endl;
 			}
 
 			// Получение пути к закодированному файлу
 			std::string wic_path;
-			wic_path = args[argk++];
+			argx = get_wic_file(argc - argk, args + argk, wic_path);
+
+			if (0 > argx) return usage(std::cout);
+			else argk += argx;
 
 			if (verbose)
 			{
-				std::cout << "Output: " << wic_path << std::endl;
+				std::cout << "Output: \"" << wic_path << "\"" << std::endl;
 			}
 
-			// 
+			// Загрузка изображения
 			bmp_channel_bits img_bits = get_bmp_channel_bits(img_path, channel);
 			free_bmp_channel_bits(img_bits);
+
+			// Выполнение вейвлет преобразования
+
+			// Кодирование изображения
+
+			// Запись в файл
 		}
 		else if (0 == mode.compare("-d") || 0 == mode.compare("--decode"))
 		{

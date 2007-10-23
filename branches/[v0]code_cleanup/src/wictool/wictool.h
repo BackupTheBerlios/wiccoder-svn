@@ -185,6 +185,10 @@ int get_encode_method(const int argc, const char *const *const args,
 int get_encode_params(const int argc, const char *const *const args,
 					  encode_params_t &params, std::ostream *const err = 0);
 
+//!	\brief Получает путь к сжатому файлу
+int get_wic_file(const int argc, const char *const *const args,
+				 std::string &wic_file, std::ostream *const err = 0);
+
 //@}
 
 
