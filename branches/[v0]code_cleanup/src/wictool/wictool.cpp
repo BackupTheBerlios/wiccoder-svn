@@ -15,6 +15,7 @@
 #include <math.h>
 #include <string.h>
 #include <string>
+#include <sstream>
 #include <iostream>
 #include <iomanip>
 
@@ -44,7 +45,7 @@
 
 	Формат:
 	\verbatim
-	[-c|--channel {r|g|b|x}] <file1.bmp>
+	[-c|--channel {r|g|b|x}] <file1.bmp>[:{x|r|g|b|f}]
 	\endverbatim
 
 	Значение <i>'x'</i> выбирается по умолчанию, если канал явно не указан.
@@ -687,12 +688,91 @@ int get_encode_method(const int argc, const char *const *const args,
 }
 
 
-/*!
+/*!	\param[in] argc Количество параметров доступных в массиве <i>args</i>
+	\param[in] args Массив строковых параметров
+	\param[out] result Результирующее имя (название) метода сжатия
+	\param[in,out] err Указатель на поток для вывода ошибок. Если равен
+	<i>0</i> будет использован стандартный поток для вывода ошибок.
+	\return Количество использованных аргументов в случае успеха, иначе
+	<i>-1</i>.
+
+	Формат:
+	\verbatim
+	[-q|--quantizer value] [-l|--lambda value] [-b|--bpp bpp] [-s|--steps n]
+	\endverbatim
 */
 int get_encode_params(const int argc, const char *const *const args,
-					  std::string &result, std::ostream *const err)
+					  encode_params_t &params, std::ostream *const err)
 {
-	return 0;
+	// определяем поток для вывода ошибок
+	std::ostream &out = (0 == err)? std::cerr: (*err);
+
+	// присвоить значения по умолчанию
+	params.q		= 16;
+	params.lambda	= 32;
+	params.bpp		= 0.5;
+	params.steps	= 5;
+
+	// номер текущего аргумента
+	int arg_i = 0;
+
+	// чтение параметров из командной строки
+	while (arg_i < argc)
+	{
+		if (0 == strcmp("-q", args[arg_i]) ||
+			0 == strcmp("--quantizer", args[arg_i]))
+		{
+			// [-q|--quantizer value]
+			if (argc <= ++arg_i)
+			{
+				out << "Error: not enough arguments for [-q|--quantizer]"
+					<< std::endl;
+				return -1;
+			}
+
+			// получение значения квантователя
+			std::stringstream q_as_string(args[arg_i++]);
+			q_as_string >> params.q;
+		}
+		else if (0 == strcmp("-l", args[arg_i]) ||
+				 0 == strcmp("--lambda", args[arg_i]))
+		{
+			// [-l|--lambda value]
+			if (argc <= ++arg_i)
+			{
+				out << "Error: not enough arguments for [-l|--lambda]"
+					<< std::endl;
+				return -1;
+			}
+
+			// получение значения баланса
+			std::stringstream lambda_as_string(args[arg_i++]);
+			lambda_as_string >> params.lambda;
+		}
+		else if (0 == strcmp("-s", args[arg_i]) ||
+				 0 == strcmp("--steps", args[arg_i]))
+		{
+			// [-s|--steps n]
+			if (argc <= ++arg_i)
+			{
+				out << "Error: not enough arguments for [-s|--steps]"
+					<< std::endl;
+				return -1;
+			}
+
+			// получение количества щагов преобразования
+			std::stringstream steps_as_string(args[arg_i++]);
+			steps_as_string >> params.steps;
+		}
+		else
+		{
+			// Дошли до неизвестной опции - предполагаем, что параметры
+			// кончились
+			break;
+		}
+	}
+
+	return arg_i;
 }
 
 
@@ -728,7 +808,7 @@ void crazy_ones(std::ostream &out)
 void about(std::ostream &out)
 {
 	out << std::endl;
-	out << "wictool - console wrapper for libwic (image compression algorithm"
+	out << "wictool - console wrapper for libwic (image compression algorithm "
 		<< "based on" << std::endl
 		<< "          encoding of tree-arranged wavelet coefficients)"
 		<< std::endl;
@@ -754,7 +834,7 @@ int usage(std::ostream &out)
 
 	out << "wictool -a|--about" << std::endl;
 	out << "wictool -h|--help" << std::endl;
-	out << "wictool -e|--encode [<filter>] [<method>] <params> <image> "
+	out << "wictool -e|--encode [<filter>] [<method>] [<params>] <image> "
 		<< "<file.wic>" << std::endl;
 	out << "wictool -d|--decode <file.wic> <image>" << std::endl;
 	out << "wictool -p|--psnr <image1> <image2>" << std::endl;
@@ -766,7 +846,7 @@ int usage(std::ostream &out)
 	out << "<method>: [-m|--method name]" << std::endl;
 	out << "<params>: [-q|--quantizer] quantizer [-a|--lambda] lambda "
 		<< "[-b|--bpp] bpp " << std::endl
-		<< "          [-l|levels] levels [-f|--filter] filter" << std::endl;
+		<< "          [-l|--levels] n [-f|--filter] filter" << std::endl;
 	out << std::endl;
 	out << "Filters are: cdf97 (default), Haar, Daub4, Daub6, Daub8"
 		<< std::endl;
@@ -866,10 +946,9 @@ int main(int argc, char **args)
 			// -e | --encode
 			int argx = -1;
 
-			// filter name
+			// Используемое вейвлет преобразование
 			std::string filter_name;
-			argx = get_wavelet_transform(argc - argk, args + argk,
-										 filter_name);
+			argx = get_wavelet_transform(argc - argk, args + argk, filter_name);
 
 			if (0 > argx) return usage(std::cout);
 			else argk += argx;
@@ -879,10 +958,9 @@ int main(int argc, char **args)
 				std::cout << "Filter: " << filter_name << std::endl;
 			}
 
-			// method name
+			// Метод кодирования
 			std::string method_name;
-			argx = get_encode_method(argc - argk, args + argk,
-									 method_name);
+			argx = get_encode_method(argc - argk, args + argk, method_name);
 
 			if (0 > argx) return usage(std::cout);
 			else argk += argx;
@@ -891,6 +969,48 @@ int main(int argc, char **args)
 			{
 				std::cout << "Method: " << method_name << std::endl;
 			}
+
+			// Параметры кодирования
+			encode_params_t params;
+			argx = get_encode_params(argc - argk, args + argk, params);
+
+			if (0 > argx) return usage(std::cout);
+			else argk += argx;
+
+			if (verbose)
+			{
+				std::cout << "Steps:  " << params.steps << std::endl;
+				std::cout << "Q:      " << params.q << std::endl;
+				std::cout << "Lambda: " << params.lambda << std::endl;
+			}
+
+			// Путь к файлу с изображением и идентификатор канала
+			char channel = 'x';
+			std::string img_path;
+			argx = get_bmp_file_and_channel(argc - argk, args + argk,
+											channel, img_path);
+
+			if (0 > argx) return usage(std::cout);
+			else argk += argx;
+
+			if (verbose)
+			{
+				std::cout << "Image:  \"" << img_path << "\":"
+						  << channel << std::endl;
+			}
+
+			// Получение пути к закодированному файлу
+			std::string wic_path;
+			wic_path = args[argk++];
+
+			if (verbose)
+			{
+				std::cout << "Output: " << wic_path << std::endl;
+			}
+
+			// 
+			bmp_channel_bits img_bits = get_bmp_channel_bits(img_path, channel);
+			free_bmp_channel_bits(img_bits);
 		}
 		else if (0 == mode.compare("-d") || 0 == mode.compare("--decode"))
 		{
@@ -905,6 +1025,9 @@ int main(int argc, char **args)
 		}
 		else
 		{
+			std::cout << "Error: unknown option \"" << mode << "\""
+					  << std::endl;
+
 			return usage(std::cout);
 		}
 	}
