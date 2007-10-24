@@ -182,6 +182,7 @@ int get_wavelet_filter(const int argc, const char *const *const args,
 
 //!	\brief Выполняет выбранное вейвлет преобразование
 spectre_t forward_transform(const std::string &filter,
+							const unsigned int steps,
 							const bmp_channel_bits &bits,
 							std::ostream *const err = 0);
 

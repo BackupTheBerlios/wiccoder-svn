@@ -16,8 +16,12 @@
 #include <string.h>
 #include <string>
 #include <sstream>
+#include <fstream>
 #include <iostream>
 #include <iomanip>
+
+// wavelet filters headers
+#include <wavelets/cdf97/cdf97.h>
 
 // imgs library headers
 #include <imgs/img_rgb.h>
@@ -656,6 +660,7 @@ int get_wavelet_filter(const int argc, const char *const *const args,
 
 
 /*!	\param[in] filter 
+	\param[in] steps
 	\param[in] bits 
 	\param[in,out] err Указатель на поток для вывода ошибок. Если равен
 	<i>0</i> будет использован стандартный поток для вывода ошибок.
@@ -664,6 +669,7 @@ int get_wavelet_filter(const int argc, const char *const *const args,
 	\return 
 */
 spectre_t forward_transform(const std::string &filter,
+							const unsigned int steps,
 							const bmp_channel_bits &bits,
 							std::ostream *const err)
 {
@@ -686,9 +692,30 @@ spectre_t forward_transform(const std::string &filter,
 		return spectre;
 	}
 
-	if (is_channel_bits_good(bits, err))
+	if (!is_channel_bits_good(bits, err))
 	{
 		return spectre;
+	}
+
+	// выделение памяти под результат преобразования
+	spectre.sz		= bits.w * bits.h;
+	spectre.data	= new wic::w_t[spectre.sz];
+	spectre.w		= bits.w;
+	spectre.h		= bits.h;
+
+	// выполнение преобразования
+	if (0 == filter.compare("cdf97"))
+	{
+		for (unsigned int i = 0; spectre.sz > i; ++i)
+		{
+			spectre.data[i] = wic::w_t(bits.data[i]);
+		}
+
+		wt2d_cdf97_fwd(spectre.data, spectre.h, spectre.w, steps);
+	}
+	else
+	{
+		out << "Error: unknown filter \"" << filter << "\"" << std::endl;
 	}
 
 	return spectre;
@@ -700,6 +727,12 @@ spectre_t forward_transform(const std::string &filter,
 */
 void free_spectre(spectre_t &spectre)
 {
+	if (0 != spectre.data) delete[] spectre.data;
+
+	spectre.data	= 0;
+	spectre.sz		= 0;
+	spectre.w		= 0;
+	spectre.h		= 0;
 }
 
 
@@ -1002,7 +1035,7 @@ int main(int argc, char **args)
 		else if (0 == mode.compare("-v") || 0 == mode.compare("--verbose"))
 		{
 			verbose = true;
-			std::cout << "Verbose output enabled." << std::endl;
+			// std::cout << "Verbose output enabled." << std::endl;
 		}
 		else if (0 == mode.compare("-a") || 0 == mode.compare("--about"))
 		{
@@ -1122,16 +1155,52 @@ int main(int argc, char **args)
 			bmp_channel_bits img_bits = get_bmp_channel_bits(img_path, channel);
 
 			// Выполнение вейвлет преобразования
-			spectre_t spectre = forward_transform(filter_name, img_bits);
-
-			free_spectre(spectre);
-			free_bmp_channel_bits(img_bits);
-
-			// Выполнение вейвлет преобразования
+			spectre_t spectre = forward_transform(filter_name, params.steps,
+												  img_bits);
 
 			// Кодирование изображения
+			if (verbose)
+			{
+				std::cout << std::endl << "Encoding... " << std::flush;
+			}
+
+			wic::encoder encoder(spectre.w, spectre.h, params.steps);
+
+			wic::encoder::tunes_t tunes;
+			const wic::encoder::enc_result_t enc_result	= 
+								encoder.encode(spectre.data,
+											   params.q, params.lambda, tunes);
+
+			if (verbose)
+			{
+				std::cout << "done." << std::endl << std::endl;
+				std::cout << "Optimization:" << std::endl;
+				std::cout << "    q:      " << enc_result.optimization.q
+						  << std::endl;
+				std::cout << "    lambda: " << enc_result.optimization.lambda
+						  << std::endl;
+				std::cout << "    j:      " << enc_result.optimization.j
+						  << std::endl;
+				std::cout << "    bpp:    " << enc_result.optimization.bpp
+						  << std::endl;
+				std::cout << "Output:" << std::endl;
+				std::cout << "    bpp:    " << enc_result.bpp << std::endl;
+				std::cout << "    size:   "
+						  << float(encoder.coder().encoded_sz())/1024.0f
+						  << " kb" << std::endl;
+			}
 
 			// Запись в файл
+			std::ofstream output(wic_path.c_str(),
+								 std::ios_base::binary|std::ios_base::out);
+			output.write("WIC0", 4);
+			output.write((char *)&tunes, sizeof(tunes));
+			output.write((char *)encoder.coder().buffer(),
+						 encoder.coder().encoded_sz());
+
+			// Освобождение занятых ресурсов
+			free_spectre(spectre);
+			free_bmp_channel_bits(img_bits);
 		}
 		else if (0 == mode.compare("-d") || 0 == mode.compare("--decode"))
 		{
