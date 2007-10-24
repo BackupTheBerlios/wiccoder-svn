@@ -126,6 +126,11 @@ bmp_channel_bits get_bmp_channel_bits(const std::string &path,
 //!	bmp_channel_bits
 void free_bmp_channel_bits(bmp_channel_bits &bits);
 
+//!	\brief Проверяет, содержится ли в структуре bmp_channel_bits
+//!	полезная информация
+bool is_channel_bits_good(const bmp_channel_bits &bits,
+						  std::ostream *const err = 0);
+
 //@}
 
 

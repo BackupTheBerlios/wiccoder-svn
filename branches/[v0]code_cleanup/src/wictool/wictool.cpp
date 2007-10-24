@@ -242,6 +242,36 @@ void free_bmp_channel_bits(bmp_channel_bits &bits)
 }
 
 
+/*!	\param[in] bits ѕровер€ема€ структура
+	\return true если структура содержит полезные данные
+*/
+bool is_channel_bits_good(const bmp_channel_bits &bits, std::ostream *const err)
+{
+	// определ€ем поток дл€ вывода ошибок
+	std::ostream &out = (0 == err)? std::cerr: (*err);
+
+	// проверка наличи€ данных
+	if (0 == bits.data || 0 >= bits.sz)
+	{
+		out << "Error: color channel data must not be empty or null"
+			<< std::endl;
+
+		return false;
+	}
+
+	// проверка корректности геометрических размеров
+	if (0 >= bits.w || 0 >= bits.h)
+	{
+		out << "Error: dimensions " << bits.w << "x" << bits.h << " are invalid"
+			<< std::endl;
+
+		return false;
+	}
+
+	return true;
+}
+
+
 /*!	\param[in] argc  оличество параметров доступных в массиве <i>args</i>
 	\param[in] args ћассив строковых параметров
 	\param[out] result —труктура в которую будет помещЄн результат обработки
@@ -631,6 +661,7 @@ int get_wavelet_filter(const int argc, const char *const *const args,
 	<i>0</i> будет использован стандартный поток дл€ вывода ошибок.
 	\return  оличество использованных аргументов в случае успеха, иначе
 	<i>-1</i>.
+	\return 
 */
 spectre_t forward_transform(const std::string &filter,
 							const bmp_channel_bits &bits,
@@ -638,10 +669,34 @@ spectre_t forward_transform(const std::string &filter,
 {
 	// определ€ем поток дл€ вывода ошибок
 	std::ostream &out = (0 == err)? std::cerr: (*err);
+
+	// пустой спектр
+	spectre_t spectre;
+	spectre.data	= 0;
+	spectre.sz		= 0;
+	spectre.h		= 0;
+	spectre.w		= 0;
+
+	// проверка входных данных
+	if (filter.empty())
+	{
+		out << "Error: filter name \"" << filter << "\" is invalid"
+			<< std::endl;
+
+		return spectre;
+	}
+
+	if (is_channel_bits_good(bits, err))
+	{
+		return spectre;
+	}
+
+	return spectre;
 }
 
 
-/*
+/*!	\param[in] spectre —пектр вейвлет преобразовани€, пам€ть, занимаемую
+	которым следует освободить
 */
 void free_spectre(spectre_t &spectre)
 {
@@ -1065,6 +1120,11 @@ int main(int argc, char **args)
 
 			// «агрузка изображени€
 			bmp_channel_bits img_bits = get_bmp_channel_bits(img_path, channel);
+
+			// ¬ыполнение вейвлет преобразовани€
+			spectre_t spectre = forward_transform(filter_name, img_bits);
+
+			free_spectre(spectre);
 			free_bmp_channel_bits(img_bits);
 
 			// ¬ыполнение вейвлет преобразовани€
