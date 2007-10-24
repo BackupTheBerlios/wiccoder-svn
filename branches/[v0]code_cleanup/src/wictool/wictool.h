@@ -82,9 +82,13 @@ struct encode_params_t
 //!	и сопутствующая информация)
 struct spectre_t
 {
-	// wic::w_t *data;
+	//!	\brief Массив коэффициентов вейвлет преобразования
+	wic::w_t *data;
+	//!	\brief Количество коэффициентов вейвлет преобразования
 	unsigned int sz;
+	//!	\brief Ширина вейвлет спектра
 	unsigned int w;
+	//!	\brief Высота вейвлет спектра
 	unsigned int h;
 };
 
@@ -168,8 +172,16 @@ int stat(const bmp_file_diff_src_t &diff_src,
 //@{
 
 //!	\brief Получает название вейвлет преобразования из командной строки
-int get_wavelet_transform(const int argc, const char *const *const args,
-						  std::string &result, std::ostream *const err = 0);
+int get_wavelet_filter(const int argc, const char *const *const args,
+					   std::string &result, std::ostream *const err = 0);
+
+//!	\brief Выполняет выбранное вейвлет преобразование
+spectre_t forward_transform(const std::string &filter,
+							const bmp_channel_bits &bits,
+							std::ostream *const err = 0);
+
+//!	\brief Освобождает память, занимаемую спектром вейвлет коэффициентов
+void free_spectre(spectre_t &spectre);
 
 //@}
 

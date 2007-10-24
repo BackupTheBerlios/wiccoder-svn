@@ -580,8 +580,8 @@ int stat(const bmp_file_diff_src_t &diff_src,
 	- Petuhov1
 	- Petuhov2
 */
-int get_wavelet_transform(const int argc, const char *const *const args,
-						  std::string &result, std::ostream *const err)
+int get_wavelet_filter(const int argc, const char *const *const args,
+					   std::string &result, std::ostream *const err)
 {
 	// определяем поток для вывода ошибок
 	std::ostream &out = (0 == err)? std::cerr: (*err);
@@ -622,6 +622,29 @@ int get_wavelet_transform(const int argc, const char *const *const args,
 	}
 
 	return arg_i;
+}
+
+
+/*!	\param[in] filter 
+	\param[in] bits 
+	\param[in,out] err Указатель на поток для вывода ошибок. Если равен
+	<i>0</i> будет использован стандартный поток для вывода ошибок.
+	\return Количество использованных аргументов в случае успеха, иначе
+	<i>-1</i>.
+*/
+spectre_t forward_transform(const std::string &filter,
+							const bmp_channel_bits &bits,
+							std::ostream *const err)
+{
+	// определяем поток для вывода ошибок
+	std::ostream &out = (0 == err)? std::cerr: (*err);
+}
+
+
+/*
+*/
+void free_spectre(spectre_t &spectre)
+{
 }
 
 
@@ -977,7 +1000,7 @@ int main(int argc, char **args)
 
 			// Используемое вейвлет преобразование
 			std::string filter_name;
-			argx = get_wavelet_transform(argc - argk, args + argk, filter_name);
+			argx = get_wavelet_filter(argc - argk, args + argk, filter_name);
 
 			if (0 > argx) return usage(std::cout);
 			else argk += argx;
@@ -1053,8 +1076,7 @@ int main(int argc, char **args)
 		else if (0 == mode.compare("-d") || 0 == mode.compare("--decode"))
 		{
 			std::string wf_name;
-			const int argx = get_wavelet_transform(argc - argk, args + argk,
-												   wf_name);
+			const int argx = get_wavelet_filter(argc - argk, args + argk, wf_name);
 
 			if (0 > argx) return usage(std::cout);
 			else argk += argx;
@@ -1489,7 +1511,7 @@ int main1(int argc, char **args)
 		else if (0 == mode.compare("-e") || 0 == mode.compare("--encode"))
 		{
 			std::string wf_name;
-			const int argx = get_wavelet_transform(argc - argk, args + argk,
+			const int argx = get_wavelet_filter(argc - argk, args + argk,
 												   wf_name);
 
 			if (0 > argx) return usage(std::cout);
@@ -1500,7 +1522,7 @@ int main1(int argc, char **args)
 		else if (0 == mode.compare("-d") || 0 == mode.compare("--decode"))
 		{
 			std::string wf_name;
-			const int argx = get_wavelet_transform(argc - argk, args + argk,
+			const int argx = get_wavelet_filter(argc - argk, args + argk,
 												   wf_name);
 
 			if (0 > argx) return usage(std::cout);
