@@ -64,6 +64,16 @@ struct bmp_channel_bits
 	unsigned int h;
 };
 
+//!	\brief Простейшая статистика цветового канала
+struct simple_stat_t
+{
+	//!	\brief Значение минимального элемента
+	unsigned char min;
+	//!	\brief Значение максимального элемента
+	unsigned char max;
+	//!	\brief Среднее значение элементов
+	unsigned char avg;
+};
 
 //!	\brief Параметры кодирования
 struct encode_params_t
@@ -92,17 +102,35 @@ struct spectre_t
 	unsigned int h;
 };
 
-//!	\brief Простейшая статистика цветового канала
-struct simple_stat_t
+//!	\brief Заголовок wic файла
+struct wic_header_t
 {
-	//!	\brief Значение минимального элемента
-	unsigned char min;
-	//!	\brief Значение максимального элемента
-	unsigned char max;
-	//!	\brief Среднее значение элементов
-	unsigned char avg;
+	//!	\brief Must be "WICX", where X - wiccoder version
+	char signature[3];
+	char version;
+	//!	\brief Размер имени использованного вейвлет преобразования
+	unsigned char filter_sz;
+	//!	\brief Количество уровней вейвлет преобразований
+	unsigned char steps;
+	//!	\brief Имя цветового канала
+	char channel;
+	//!	\brief Ширина сжатого изображения
+	unsigned int w;
+	//!	\brief Высота сжатого изображения
+	unsigned int h;
+	//!	\brief Имя использованного вейвлет преобразования
+	// char filter[];
 };
 
+
+///////////////////////////////////////////////////////////////////////////////
+// public constant definitions
+
+//!	\brief Сигнатура сжатых файлов wiccoder
+extern const char WIC_SIGNATURE[3];
+
+//!	\brief Версия сжимаемых файлов
+extern const char WIC_VERSION;
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -206,6 +234,21 @@ int get_encode_params(const int argc, const char *const *const args,
 //!	\brief Получает путь к сжатому файлу
 int get_wic_file(const int argc, const char *const *const args,
 				 std::string &wic_file, std::ostream *const err = 0);
+
+//!	\brief Получает опции командной строки, необходимые для кодирования
+int get_encode_options(const int argc, const char *const *const args,
+					   std::string &filter, std::string &method,
+					   encode_params_t &params,
+					   std::string &source, char &channel,
+					   std::string &output,
+					   std::ostream *const err = 0);
+
+//!	\brief Записывает результат кодирования в файл
+int write_wic_header(const char version, const std::string &filter,
+					 const unsigned char &steps,
+					 const char &channel,
+					 const unsigned int &w, const unsigned int &h,
+					 std::ostream &output, std::ostream *const err = 0);
 
 //@}
 

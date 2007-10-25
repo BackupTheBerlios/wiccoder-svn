@@ -36,6 +36,18 @@
 
 
 ///////////////////////////////////////////////////////////////////////////////
+// public constant definitions
+
+/*!
+*/
+const char WIC_SIGNATURE[3]	= {'W', 'I', 'C'};
+
+/*!
+*/
+const char WIC_VERSION		= '0';
+
+
+///////////////////////////////////////////////////////////////////////////////
 // public function definitions
 
 /*!	\param[in] argc Количество параметров доступных в массиве <i>args</i>
@@ -916,6 +928,139 @@ int get_wic_file(const int argc, const char *const *const args,
 }
 
 
+/*!	\param[in] argc Количество параметров доступных в массиве <i>args</i>
+	\param[in] args Массив строковых параметров
+	\param[out] filter Используемый вейвлет фильтр
+	\param[out] method Метод кодирования
+	\param[out] params Параметры кодирования
+	\param[out] source Путь к кодируемому файлу
+	\param[out] channel Имя кодируемого канала
+	\param[out] output Путь к результирующему файлу
+	\param[in,out] err Указатель на поток для вывода ошибок. Если равен
+	<i>0</i> будет использован стандартный поток для вывода ошибок.
+	\return Количество использованных аргументов в случае успеха, иначе
+	<i>-1</i>.
+*/
+int get_encode_options(const int argc, const char *const *const args,
+					   std::string &filter, std::string &method,
+					   encode_params_t &params,
+					   std::string &source, char &channel,
+					   std::string &output,
+					   std::ostream *const err)
+{
+	// определяем поток для вывода ошибок
+	std::ostream &out = (0 == err)? std::cerr: (*err);
+
+	// номер текущего аргумента
+	int argk = 0;
+
+	// количество использованных аргументов
+	int argx = -1;
+
+	// Используемое вейвлет преобразование
+	argx = get_wavelet_filter(argc - argk, args + argk, filter, err);
+
+	if (0 > argx) return -1;
+	else argk += argx;
+
+	// Метод кодирования
+	argx = get_encode_method(argc - argk, args + argk, method, err);
+
+	if (0 > argx) return -1;
+	else argk += argx;
+
+	// Параметры кодирования
+	argx = get_encode_params(argc - argk, args + argk, params, err);
+
+	if (0 > argx) return -1;
+	else argk += argx;
+
+	// Путь к файлу с изображением и идентификатор канала
+	argx = get_bmp_file_and_channel(argc - argk, args + argk,
+									channel, source, err);
+
+	if (0 > argx) return -1;
+	else argk += argx;
+
+	// Получение пути к закодированному файлу
+	argx = get_wic_file(argc - argk, args + argk, output, err);
+
+	if (0 > argx) return -1;
+	else argk += argx;
+
+	// возврат количества использованных параметров
+	return argk;
+}
+
+
+/*!	\param[in] version Используемая версия
+	\param[in] filter Имя вейвлет фильтра
+	\param[in] steps Количество шагов вейвлет преобразования
+	\param[in] channel Цветовой канал
+	\param[in] w Ширина изображения
+	\param[in] h Высота изображения
+	\param[in,out] output Поток для вывода
+	\param[in,out] err Указатель на поток для вывода ошибок. Если равен
+	<i>0</i> будет использован стандартный поток для вывода ошибок.
+	\return Количество использованных аргументов в случае успеха, иначе
+	<i>-1</i>.
+	\return Количество записанных байт в случае успеха, иначе <i>-1</i>
+*/
+int write_wic_header(const char version, const std::string &filter,
+					 const unsigned char &steps,
+					 const char &channel,
+					 const unsigned int &w, const unsigned int &h,
+					 std::ostream &output, std::ostream *const err)
+{
+	// Определяем поток для вывода ошибок
+	std::ostream &out = (0 == err)? std::cerr: (*err);
+
+	// Заполнение сигнатуры
+	wic_header_t header;
+	memcpy(header.signature, WIC_SIGNATURE, sizeof(WIC_SIGNATURE));
+
+	// Заполнение версии
+	header.version = version;
+
+	// Заполнение длинны имени фильтра
+	if (0xFF < filter.size())
+	{
+		out << "Error: filter name \"" << filter << "\" too long" << std::endl;
+		return -1;
+	}
+
+	header.filter_sz = (unsigned char)(filter.size());
+
+	// Заполнение длинны имени фильтра
+	if (0xFF < steps)
+	{
+		out << "Error: " << steps << " is too many steps" << std::endl;
+		return -1;
+	}
+
+	header.steps = (unsigned char)steps;
+
+	// Заполнение цветового канала
+	header.channel = channel;
+
+	// Заполнение высоты и ширины изображения
+	header.w = w;
+	header.w = h;
+
+	// Запись в поток основной части заголовка
+	output.write((const char *)&header, sizeof(header));
+
+	// Запись имени фильтра
+	output.write((const char *)filter.c_str(), std::streamsize(filter.size()));
+
+	// Проверка успешного выполнения операций записи
+	if (!output.good()) return -1;
+
+	// Количество записанныз данных
+	return int(sizeof(header) + filter.size());
+}
+
+
 /*!	\param[in,out] Поток в который будет выведена цитата
 */
 void crazy_ones(std::ostream &out)
@@ -1083,79 +1228,38 @@ int main(int argc, char **args)
 		}
 		else if (0 == mode.compare("-e") || 0 == mode.compare("--encode"))
 		{
-			// -e | --encode
-			int argx = -1;
+			// Обработка опций командной строки
+			std::string		filter;
+			std::string		method;
+			encode_params_t	params;
+			std::string		source;
+			char			channel = '\0';
+			std::string		output;
 
-			// Используемое вейвлет преобразование
-			std::string filter_name;
-			argx = get_wavelet_filter(argc - argk, args + argk, filter_name);
-
-			if (0 > argx) return usage(std::cout);
-			else argk += argx;
-
-			if (verbose)
-			{
-				std::cout << "Filter: " << filter_name << std::endl;
-			}
-
-			// Метод кодирования
-			std::string method_name;
-			argx = get_encode_method(argc - argk, args + argk, method_name);
+			const int argx = get_encode_options(argc - argk, args + argk,
+												filter, method, params,
+												source, channel, output);
 
 			if (0 > argx) return usage(std::cout);
 			else argk += argx;
 
 			if (verbose)
 			{
-				std::cout << "Method: " << method_name << std::endl;
-			}
-
-			// Параметры кодирования
-			encode_params_t params;
-			argx = get_encode_params(argc - argk, args + argk, params);
-
-			if (0 > argx) return usage(std::cout);
-			else argk += argx;
-
-			if (verbose)
-			{
+				std::cout << "Filter: " << filter << std::endl;
+				std::cout << "Method: " << method << std::endl;
 				std::cout << "Steps:  " << params.steps << std::endl;
 				std::cout << "Q:      " << params.q << std::endl;
 				std::cout << "Lambda: " << params.lambda << std::endl;
-			}
-
-			// Путь к файлу с изображением и идентификатор канала
-			char channel = 'x';
-			std::string img_path;
-			argx = get_bmp_file_and_channel(argc - argk, args + argk,
-											channel, img_path);
-
-			if (0 > argx) return usage(std::cout);
-			else argk += argx;
-
-			if (verbose)
-			{
-				std::cout << "Image:  \"" << img_path << ":"
+				std::cout << "Source: \"" << source << ":"
 						  << channel << "\"" << std::endl;
-			}
-
-			// Получение пути к закодированному файлу
-			std::string wic_path;
-			argx = get_wic_file(argc - argk, args + argk, wic_path);
-
-			if (0 > argx) return usage(std::cout);
-			else argk += argx;
-
-			if (verbose)
-			{
-				std::cout << "Output: \"" << wic_path << "\"" << std::endl;
+				std::cout << "Output: \"" << output << "\"" << std::endl;
 			}
 
 			// Загрузка изображения
-			bmp_channel_bits img_bits = get_bmp_channel_bits(img_path, channel);
+			bmp_channel_bits img_bits = get_bmp_channel_bits(source, channel);
 
 			// Выполнение вейвлет преобразования
-			spectre_t spectre = forward_transform(filter_name, params.steps,
+			spectre_t spectre = forward_transform(filter, params.steps,
 												  img_bits);
 
 			// Кодирование изображения
@@ -1191,12 +1295,18 @@ int main(int argc, char **args)
 			}
 
 			// Запись в файл
-			std::ofstream output(wic_path.c_str(),
-								 std::ios_base::binary|std::ios_base::out);
-			output.write("WIC0", 4);
-			output.write((char *)&tunes, sizeof(tunes));
-			output.write((char *)encoder.coder().buffer(),
-						 encoder.coder().encoded_sz());
+			std::ofstream outstream(output.c_str(),
+									std::ios_base::binary|std::ios_base::out);
+
+			const int hdr_sz = write_wic_header(WIC_VERSION, filter,
+												params.steps,
+												channel, spectre.w, spectre.h,
+												outstream);
+
+			outstream.write((const char *)&tunes, sizeof(tunes));
+
+			outstream.write((const char *)encoder.coder().buffer(),
+							encoder.coder().encoded_sz());
 
 			// Освобождение занятых ресурсов
 			free_spectre(spectre);
@@ -1263,14 +1373,6 @@ struct compressed_hdr_t {
 	unsigned int data_sz;
 };
 #pragma pack(pop)
-
-
-
-///////////////////////////////////////////////////////////////////////////////
-// constants definition
-
-//!	\brief Версия утилиты
-static const unsigned short WIC_VERSION		= 1;
 
 
 
