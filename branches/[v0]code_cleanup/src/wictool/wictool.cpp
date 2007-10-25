@@ -245,6 +245,78 @@ bmp_channel_bits get_bmp_channel_bits(const std::string &path,
 }
 
 
+/*!
+*/
+int set_bmp_channel_bits(const std::string &path, const bmp_channel_bits &bits,
+						 std::ostream *const err)
+{
+	// определяем поток для вывода ошибок
+	std::ostream &out = (0 == err)? std::cerr: (*err);
+
+	// загрузка изображения из файла
+	imgs::img_rgb rgb;
+	imgs::bmp_read(rgb, path);
+	rgb.reset(bits.w, bits.h, 24);
+
+	using imgs::img_rgb::rgb24_t;
+
+	rgb24_t *const rgb_bits = (rgb24_t *)rgb.bits();
+
+	const int pixels_count = rgb.w() * rgb.h();
+
+	// копирование данных цветового канала
+	switch (bits.channel)
+	{
+		case 'r':
+			for (int i = 0; pixels_count > i; ++i)
+			{
+				rgb_bits[i].r = bits.data[i];
+				rgb_bits[i].g = bits.data[i];
+				rgb_bits[i].b = bits.data[i];
+			}
+			break;
+
+		case 'g':
+			for (int i = 0; pixels_count > i; ++i)
+			{
+				rgb_bits[i].g = bits.data[i];
+			}
+			break;
+
+		case 'b':
+			for (int i = 0; pixels_count > i; ++i)
+			{
+				rgb_bits[i].b = bits.data[i];
+			}
+			break;
+
+		case 'x':
+			for (int i = 0, j = pixels_count, k = 2*pixels_count;
+				 pixels_count > i;
+				 ++i, ++j, ++k)
+			{
+				rgb_bits[i].r = bits.data[i];
+				rgb_bits[i].g = bits.data[j];
+				rgb_bits[i].b = bits.data[j];
+			}
+			break;
+
+		default:
+			out << "Error: invalid channel \'" << bits.channel
+				<< "\'" << std::endl;
+			return -1;
+	}
+
+	if (0 != imgs::bmp_write(rgb, path))
+	{
+		out << "Error: can't save image file \"" << path << "\"" << std::endl;
+		return -1;
+	}
+
+	return 0;
+}
+
+
 /*!	\param[in] bits Структура, память ассоциированная с которой будет
 	освобождена.
 */
@@ -681,7 +753,7 @@ int get_wavelet_filter(const int argc, const char *const *const args,
 	\return 
 */
 spectre_t forward_transform(const std::string &filter,
-							const unsigned int steps,
+							const unsigned int &steps,
 							const bmp_channel_bits &bits,
 							std::ostream *const err)
 {
@@ -731,6 +803,63 @@ spectre_t forward_transform(const std::string &filter,
 	}
 
 	return spectre;
+}
+
+
+/*!
+*/
+bmp_channel_bits inverse_transform(const wic::w_t *const spectre,
+								   const unsigned int w, const unsigned int h,
+								   const std::string &filter,
+								   const unsigned int &steps,
+								   const char &channel,
+								   std::ostream *const err)
+{
+	// определяем поток для вывода ошибок
+	std::ostream &out = (0 == err)? std::cerr: (*err);
+
+	// пустое изображение
+	bmp_channel_bits bits;
+	bits.data		= 0;
+	bits.sz			= 0;
+	bits.w			= 0;
+	bits.h			= 0;
+	bits.channel	= '\0';
+
+	// количество коэффициентов в спектре
+	const unsigned int count = w * h;
+
+	// выполнение обратного преобразования
+	if (0 == filter.compare("cdf97"))
+	{
+		float *const coefs = new float[count];
+
+		for (unsigned int i = 0; count > i; ++i) coefs[i] = float(spectre[i]);
+
+		wt2d_cdf97_inv(coefs, h, w, steps);
+
+		bits.channel	= channel;
+		bits.w			= w;
+		bits.h			= h;
+		bits.sz			= count;
+		bits.data		= new unsigned char[count];
+
+		for (unsigned int i = 0; count > i; ++i)
+		{
+			if (0.0f >= coefs[i])
+				bits.data[i] = 0;
+			else if (255.0f <= coefs[i])
+				bits.data[i] = 255;
+			else
+				bits.data[i] = (unsigned char)coefs[i];
+		}
+	}
+	else
+	{
+		out << "Error: unknown filter \"" << filter << "\"" << std::endl;
+	}
+
+	return bits;
 }
 
 
@@ -993,7 +1122,7 @@ int get_encode_options(const int argc, const char *const *const args,
 }
 
 
-/*!	\param[in] version Используемая версия
+/*!	\param[in] data_sz Размер закодированных данных
 	\param[in] filter Имя вейвлет фильтра
 	\param[in] steps Количество шагов вейвлет преобразования
 	\param[in] channel Цветовой канал
@@ -1006,21 +1135,21 @@ int get_encode_options(const int argc, const char *const *const args,
 	<i>-1</i>.
 	\return Количество записанных байт в случае успеха, иначе <i>-1</i>
 */
-int write_wic_header(const char version, const std::string &filter,
-					 const unsigned char &steps,
-					 const char &channel,
+int write_wic_header(const unsigned int &data_sz, const std::string &filter,
+					 const unsigned int &steps, const char &channel,
 					 const unsigned int &w, const unsigned int &h,
 					 std::ostream &output, std::ostream *const err)
 {
 	// Определяем поток для вывода ошибок
 	std::ostream &out = (0 == err)? std::cerr: (*err);
 
-	// Заполнение сигнатуры
 	wic_header_t header;
+
+	// Заполнение сигнатуры
 	memcpy(header.signature, WIC_SIGNATURE, sizeof(WIC_SIGNATURE));
 
 	// Заполнение версии
-	header.version = version;
+	header.version = WIC_VERSION;
 
 	// Заполнение длинны имени фильтра
 	if (0xFF < filter.size())
@@ -1045,7 +1174,10 @@ int write_wic_header(const char version, const std::string &filter,
 
 	// Заполнение высоты и ширины изображения
 	header.w = w;
-	header.w = h;
+	header.h = h;
+
+	// Размер закодированных данных
+	header.data_sz = data_sz;
 
 	// Запись в поток основной части заголовка
 	output.write((const char *)&header, sizeof(header));
@@ -1056,7 +1188,73 @@ int write_wic_header(const char version, const std::string &filter,
 	// Проверка успешного выполнения операций записи
 	if (!output.good()) return -1;
 
-	// Количество записанныз данных
+	// Количество записанных данных
+	return int(sizeof(header) + filter.size());
+}
+
+
+/*!	\param[in,out] input Поток ввода
+	\param[out] filter Имя использованного Фильтра
+	\param[out] steps Количество уровней вейвлет преобразования
+	\param[out] channel Имя цветового канала
+	\param[out] w Ширина изображения
+	\param[out] h Высота изображения
+	\param[in,out] err Указатель на поток для вывода ошибок. Если равен
+	<i>0</i> будет использован стандартный поток для вывода ошибок.
+	\return Количество использованных аргументов в случае успеха, иначе
+	<i>-1</i>.
+	\return Количество прочитанных байт в случае успеха, иначе <i>-1</i>
+*/
+int read_wic_header(std::istream &input,
+					unsigned int &data_sz, std::string &filter,
+					unsigned int &steps, char &channel,
+					unsigned int &w, unsigned int &h,
+					std::ostream *const err)
+{
+	// Определяем поток для вывода ошибок
+	std::ostream &out = (0 == err)? std::cerr: (*err);
+
+	wic_header_t header;
+
+	// чтение заголовка
+	if (!input.read((char *)&header, sizeof(header)).good())
+	{
+		out << "Error: can't read file header" << std::endl;
+		return -1;
+	}
+
+	// Проверка сигнатуры
+	if (0 != memcmp(header.signature, WIC_SIGNATURE, sizeof(WIC_SIGNATURE)))
+	{
+		out << "Error: not a wiccoder compressed file" << std::endl;
+		return -1;
+	}
+
+	// Проверка версии
+	if (WIC_VERSION != header.version)
+	{
+		out << "Error: invalid wiccoder version" << std::endl;
+		return -1;
+	}
+
+	// Чтение названия вейвлет фильтра
+	char filter_buf[0xFF];
+
+	if (!input.read(filter_buf, header.filter_sz).good())
+	{
+		out << "Error: can't read filter name" << std::endl;
+		return -1;
+	}
+
+	// Заполнение полей
+	filter.assign(filter_buf, header.filter_sz);
+	data_sz	= header.data_sz;
+	steps	= (unsigned int)header.steps;
+	channel	= header.channel;
+	w		= header.w;
+	h		= header.h;
+
+	// Количество прочитанных данных
 	return int(sizeof(header) + filter.size());
 }
 
@@ -1298,9 +1496,9 @@ int main(int argc, char **args)
 			std::ofstream outstream(output.c_str(),
 									std::ios_base::binary|std::ios_base::out);
 
-			const int hdr_sz = write_wic_header(WIC_VERSION, filter,
-												params.steps,
-												channel, spectre.w, spectre.h,
+			const int hdr_sz = write_wic_header(encoder.coder().encoded_sz(),
+												filter, params.steps, channel,
+												spectre.w, spectre.h,
 												outstream);
 
 			outstream.write((const char *)&tunes, sizeof(tunes));
@@ -1314,13 +1512,49 @@ int main(int argc, char **args)
 		}
 		else if (0 == mode.compare("-d") || 0 == mode.compare("--decode"))
 		{
-			std::string wf_name;
-			const int argx = get_wavelet_filter(argc - argk, args + argk, wf_name);
+			std::string wic_file;
+			const int argx = get_wic_file(argc - argk, args + argk, wic_file);
 
 			if (0 > argx) return usage(std::cout);
 			else argk += argx;
 
-			std::cout << "wf_name: " << wf_name << std::endl;
+			std::string		filter;
+			unsigned int	data_sz;
+			unsigned int	steps	= 0;
+			char			channel = '\0';
+			unsigned int	w		= 0;
+			unsigned int	h		= 0;
+
+			std::ifstream instream(wic_file.c_str(),
+								   std::ios_base::binary|std::ios_base::in);
+			read_wic_header(instream, data_sz, filter, steps, channel, w, h);
+
+			wic::encoder::tunes_t tunes;
+			instream.read((char *)&tunes, sizeof(tunes));
+
+			wic::byte_t *const data = new wic::byte_t[data_sz];
+			instream.read((char *)data, data_sz);
+
+			wic::encoder decoder(w, h, steps);
+			decoder.decode(data, data_sz, tunes);
+
+			wic::w_t *const spectre = new wic::w_t[w*h];
+			decoder.spectrum().save<wic::wnode::member_w>(spectre);
+
+			bmp_channel_bits bits =
+			inverse_transform(spectre, w, h, filter,
+							  steps, channel);
+
+			set_bmp_channel_bits("lena_r.bmp", bits);
+			/*
+			decoder.spectrum().save<wic::wnode::member_w>(image_wt);
+
+			// do inverse wavelet transform
+			wt2d_cdf97_inv(image_wt, compressed_hdr.height, compressed_hdr.width,
+				   compressed_hdr.lvls);
+			*/
+
+			delete[] data;
 		}
 		else
 		{

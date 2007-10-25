@@ -118,6 +118,8 @@ struct wic_header_t
 	unsigned int w;
 	//!	\brief Высота сжатого изображения
 	unsigned int h;
+	//!	\brief Размер закодированных данных
+	unsigned int data_sz;
 	//!	\brief Имя использованного вейвлет преобразования
 	// char filter[];
 };
@@ -149,6 +151,11 @@ int get_bmp_file_and_channel(const int argc, const char *const *const args,
 bmp_channel_bits get_bmp_channel_bits(const std::string &path,
 									  const char channel,
 									  std::ostream *const err = 0);
+
+//!	\brief Записывает цветовой канал в файл
+int set_bmp_channel_bits(const std::string &path, const bmp_channel_bits &bits,
+						 std::ostream *const err = 0);
+
 
 //!	\brief Освобождает динамическую память связанную со структурой
 //!	bmp_channel_bits
@@ -208,11 +215,19 @@ int stat(const bmp_file_diff_src_t &diff_src,
 int get_wavelet_filter(const int argc, const char *const *const args,
 					   std::string &result, std::ostream *const err = 0);
 
-//!	\brief Выполняет выбранное вейвлет преобразование
+//!	\brief Выполняет прямое выбранное вейвлет преобразование
 spectre_t forward_transform(const std::string &filter,
-							const unsigned int steps,
+							const unsigned int &steps,
 							const bmp_channel_bits &bits,
 							std::ostream *const err = 0);
+
+//!	\brief Выполняет обратное выбранное вейвлет преобразование
+bmp_channel_bits inverse_transform(const wic::w_t *const spectre,
+								   const unsigned int w, const unsigned int h,
+								   const std::string &filter,
+								   const unsigned int &steps,
+								   const char &channel,
+								   std::ostream *const err = 0);
 
 //!	\brief Освобождает память, занимаемую спектром вейвлет коэффициентов
 void free_spectre(spectre_t &spectre);
@@ -243,12 +258,18 @@ int get_encode_options(const int argc, const char *const *const args,
 					   std::string &output,
 					   std::ostream *const err = 0);
 
-//!	\brief Записывает результат кодирования в файл
-int write_wic_header(const char version, const std::string &filter,
-					 const unsigned char &steps,
-					 const char &channel,
+//!	\brief Записывает заголовок кодирования в поток вывода
+int write_wic_header(const unsigned int &data_sz, const std::string &filter,
+					 const unsigned int &steps, const char &channel,
 					 const unsigned int &w, const unsigned int &h,
 					 std::ostream &output, std::ostream *const err = 0);
+
+//!	\brief Читает заголовок кодирования из потока
+int read_wic_header(std::istream &input,
+					unsigned int &data_sz, std::string &filter,
+					unsigned int &steps, char &channel,
+					unsigned int &w, unsigned int &h,
+					std::ostream *const err = 0);
 
 //@}
 
