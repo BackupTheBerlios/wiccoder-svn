@@ -215,17 +215,15 @@ int stat(const bmp_file_diff_src_t &diff_src,
 int get_wavelet_filter(const int argc, const char *const *const args,
 					   std::string &result, std::ostream *const err = 0);
 
-//!	\brief Выполняет прямое выбранное вейвлет преобразование
+//!	\brief Выполняет прямое вейвлет преобразование
 spectre_t forward_transform(const std::string &filter,
 							const unsigned int &steps,
 							const bmp_channel_bits &bits,
 							std::ostream *const err = 0);
 
-//!	\brief Выполняет обратное выбранное вейвлет преобразование
-bmp_channel_bits inverse_transform(const wic::w_t *const spectre,
-								   const unsigned int w, const unsigned int h,
+//!	\brief Выполняет обратное вейвлет преобразование
+bmp_channel_bits inverse_transform(const wic::wtree &spectre,
 								   const std::string &filter,
-								   const unsigned int &steps,
 								   const char &channel,
 								   std::ostream *const err = 0);
 

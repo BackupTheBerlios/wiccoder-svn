@@ -152,6 +152,8 @@ bmp_channel_bits get_bmp_channel_bits(const std::string &path,
 	bmp_channel_bits result;
 	memset(&result, 0, sizeof(result));
 
+	result.channel = channel;
+
 	// загрузка изображения из файла
 	imgs::img_rgb rgb;
 	if (0 != imgs::bmp_read(rgb, path))
@@ -253,9 +255,8 @@ int set_bmp_channel_bits(const std::string &path, const bmp_channel_bits &bits,
 	// определяем поток для вывода ошибок
 	std::ostream &out = (0 == err)? std::cerr: (*err);
 
-	// загрузка изображения из файла
+	// инициализация изображения
 	imgs::img_rgb rgb;
-	imgs::bmp_read(rgb, path);
 	rgb.reset(bits.w, bits.h, 24);
 
 	using imgs::img_rgb::rgb24_t;
@@ -268,36 +269,39 @@ int set_bmp_channel_bits(const std::string &path, const bmp_channel_bits &bits,
 	switch (bits.channel)
 	{
 		case 'r':
+		case 'g':
+		case 'b':
+			if (bits.sz != pixels_count)
+			{
+				out << "Error: invalid channel size" << bits.channel
+					<< "\'" << std::endl;
+				return -1;
+			}
+
 			for (int i = 0; pixels_count > i; ++i)
 			{
 				rgb_bits[i].r = bits.data[i];
 				rgb_bits[i].g = bits.data[i];
 				rgb_bits[i].b = bits.data[i];
 			}
-			break;
 
-		case 'g':
-			for (int i = 0; pixels_count > i; ++i)
-			{
-				rgb_bits[i].g = bits.data[i];
-			}
-			break;
-
-		case 'b':
-			for (int i = 0; pixels_count > i; ++i)
-			{
-				rgb_bits[i].b = bits.data[i];
-			}
 			break;
 
 		case 'x':
+			if (bits.sz != 3*pixels_count)
+			{
+				out << "Error: invalid channel size" << bits.channel
+					<< "\'" << std::endl;
+				return -1;
+			}
+
 			for (int i = 0, j = pixels_count, k = 2*pixels_count;
 				 pixels_count > i;
 				 ++i, ++j, ++k)
 			{
 				rgb_bits[i].r = bits.data[i];
 				rgb_bits[i].g = bits.data[j];
-				rgb_bits[i].b = bits.data[j];
+				rgb_bits[i].b = bits.data[k];
 			}
 			break;
 
@@ -356,6 +360,16 @@ bool is_channel_bits_good(const bmp_channel_bits &bits, std::ostream *const err)
 		return false;
 	}
 
+	// проверка имени канала
+	if ('\0' == bits.channel)
+	{
+		out << "Error: char(" << int(bits.channel) << ") is invalid "
+			<< "channel name" << std::endl;
+
+		return false;
+	}
+
+	// проверка пройдена успешно
 	return true;
 }
 
@@ -743,14 +757,15 @@ int get_wavelet_filter(const int argc, const char *const *const args,
 }
 
 
-/*!	\param[in] filter 
-	\param[in] steps
-	\param[in] bits 
+/*!	\param[in] filter Имя используемого вейвлет фильтра
+	\param[in] steps Количество уровней вейвлет преобразования
+	\param[in] bits Цветовой канал, над которым необходимо выполнить
+	вейвлет преобразование
 	\param[in,out] err Указатель на поток для вывода ошибок. Если равен
 	<i>0</i> будет использован стандартный поток для вывода ошибок.
 	\return Количество использованных аргументов в случае успеха, иначе
 	<i>-1</i>.
-	\return 
+	\return Спектр вейвлет коэффициентов
 */
 spectre_t forward_transform(const std::string &filter,
 							const unsigned int &steps,
@@ -782,10 +797,13 @@ spectre_t forward_transform(const std::string &filter,
 	}
 
 	// выделение памяти под результат преобразования
-	spectre.sz		= bits.w * bits.h;
+	spectre.sz		= bits.sz;
 	spectre.data	= new wic::w_t[spectre.sz];
 	spectre.w		= bits.w;
-	spectre.h		= bits.h;
+	if ('x' == bits.channel)
+		spectre.h	= 3*bits.h;
+	else
+		spectre.h	= bits.h;
 
 	// выполнение преобразования
 	if (0 == filter.compare("cdf97"))
@@ -802,16 +820,22 @@ spectre_t forward_transform(const std::string &filter,
 		out << "Error: unknown filter \"" << filter << "\"" << std::endl;
 	}
 
+	// возврат результата
 	return spectre;
 }
 
 
-/*!
+/*!	\param[in] spectre Вейвлет спектр
+	\param[in] filter Имя используемого фильтра
+	\param[in] channel Имя цветового канала
+	\param[in,out] err Указатель на поток для вывода ошибок. Если равен
+	<i>0</i> будет использован стандартный поток для вывода ошибок.
+	\return Количество использованных аргументов в случае успеха, иначе
+	<i>-1</i>.
+	\return Цветовой спектр
 */
-bmp_channel_bits inverse_transform(const wic::w_t *const spectre,
-								   const unsigned int w, const unsigned int h,
+bmp_channel_bits inverse_transform(const wic::wtree &spectre,
 								   const std::string &filter,
-								   const unsigned int &steps,
 								   const char &channel,
 								   std::ostream *const err)
 {
@@ -827,24 +851,46 @@ bmp_channel_bits inverse_transform(const wic::w_t *const spectre,
 	bits.channel	= '\0';
 
 	// количество коэффициентов в спектре
-	const unsigned int count = w * h;
+	const unsigned int coefs_count = spectre.width() * spectre.height();
 
 	// выполнение обратного преобразования
 	if (0 == filter.compare("cdf97"))
 	{
-		float *const coefs = new float[count];
+		// выделение памяти под спектр
+		float *const coefs = new float[coefs_count];
 
-		for (unsigned int i = 0; count > i; ++i) coefs[i] = float(spectre[i]);
+		// сохранение вейвлет коэффициентов
+		spectre.save<wic::wnode::member_w>(coefs);
 
-		wt2d_cdf97_inv(coefs, h, w, steps);
+		// выполнение обратного вейвлет преобразования
+		wt2d_cdf97_inv(coefs, spectre.height(), spectre.width(),
+					   spectre.sb().lvls());
+
+		// создание цветового канала
+		bits.w			= spectre.width();
+		if ('x' == channel)
+		{
+			if (0 != spectre.height() % 3)
+			{
+				out << "Error: " << spectre.height() << " is invalid specter "
+					<< "height for \"x\" channel" << std::endl;
+				delete[] coefs;
+				return bits;
+			}
+
+			bits.h		= spectre.height() / 3;
+		}
+		else
+		{
+			bits.h		= spectre.height();
+		}
 
 		bits.channel	= channel;
-		bits.w			= w;
-		bits.h			= h;
-		bits.sz			= count;
-		bits.data		= new unsigned char[count];
+		bits.sz			= coefs_count;
+		bits.data		= new unsigned char[coefs_count];
 
-		for (unsigned int i = 0; count > i; ++i)
+		// преобразование и нормализация пикселей изображения
+		for (unsigned int i = 0; coefs_count > i; ++i)
 		{
 			if (0.0f >= coefs[i])
 				bits.data[i] = 0;
@@ -853,12 +899,16 @@ bmp_channel_bits inverse_transform(const wic::w_t *const spectre,
 			else
 				bits.data[i] = (unsigned char)coefs[i];
 		}
+
+		// освобождение занимаемой памяти
+		delete[] coefs;
 	}
 	else
 	{
 		out << "Error: unknown filter \"" << filter << "\"" << std::endl;
 	}
 
+	// возврат результата
 	return bits;
 }
 
@@ -1456,7 +1506,9 @@ int main(int argc, char **args)
 			// Загрузка изображения
 			bmp_channel_bits img_bits = get_bmp_channel_bits(source, channel);
 
-			// Выполнение вейвлет преобразования
+			if (!is_channel_bits_good(img_bits)) return -1;
+
+			// Выполнение прямого вейвлет преобразования
 			spectre_t spectre = forward_transform(filter, params.steps,
 												  img_bits);
 
@@ -1512,22 +1564,36 @@ int main(int argc, char **args)
 		}
 		else if (0 == mode.compare("-d") || 0 == mode.compare("--decode"))
 		{
+			// Обработка опций командной строки
+			int argx = -1;
+
+			// Получение пути к закодированному файлу
 			std::string wic_file;
-			const int argx = get_wic_file(argc - argk, args + argk, wic_file);
+			argx = get_wic_file(argc - argk, args + argk, wic_file);
 
 			if (0 > argx) return usage(std::cout);
 			else argk += argx;
 
+			// Получение пути к результирующему файлу и имени цветового канала
+			char		usr_channel	= '\0';
+			std::string	output;
+			argx = get_bmp_file_and_channel(argc - argk, args + argk,
+											usr_channel, output);
+
+			if (0 > argx) return usage(std::cout);
+			else argk += argx;
+
+			//XXX:
 			std::string		filter;
 			unsigned int	data_sz;
-			unsigned int	steps	= 0;
-			char			channel = '\0';
-			unsigned int	w		= 0;
-			unsigned int	h		= 0;
+			unsigned int	steps		= 0;
+			char			src_channel	= '\0';
+			unsigned int	w			= 0;
+			unsigned int	h			= 0;
 
 			std::ifstream instream(wic_file.c_str(),
 								   std::ios_base::binary|std::ios_base::in);
-			read_wic_header(instream, data_sz, filter, steps, channel, w, h);
+			read_wic_header(instream, data_sz, filter, steps, src_channel, w, h);
 
 			wic::encoder::tunes_t tunes;
 			instream.read((char *)&tunes, sizeof(tunes));
@@ -1538,21 +1604,10 @@ int main(int argc, char **args)
 			wic::encoder decoder(w, h, steps);
 			decoder.decode(data, data_sz, tunes);
 
-			wic::w_t *const spectre = new wic::w_t[w*h];
-			decoder.spectrum().save<wic::wnode::member_w>(spectre);
+			bmp_channel_bits bits = inverse_transform(decoder.spectrum(),
+													  filter, src_channel);
 
-			bmp_channel_bits bits =
-			inverse_transform(spectre, w, h, filter,
-							  steps, channel);
-
-			set_bmp_channel_bits("lena_r.bmp", bits);
-			/*
-			decoder.spectrum().save<wic::wnode::member_w>(image_wt);
-
-			// do inverse wavelet transform
-			wt2d_cdf97_inv(image_wt, compressed_hdr.height, compressed_hdr.width,
-				   compressed_hdr.lvls);
-			*/
+			set_bmp_channel_bits(output, bits);
 
 			delete[] data;
 		}
@@ -1564,645 +1619,6 @@ int main(int argc, char **args)
 			return usage(std::cout);
 		}
 	}
-
-	return 0;
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
-
-
-// standard C++ library headers
-#include <assert.h>
-#include <string>
-#include <fstream>
-#include <iostream>
-
-// external library header
-#include <imgs/img_rgb.h>
-#include <imgs/img_yuv.h>
-#include <imgs/psnr.h>
-#include <imgs/bmp_file.h>
-#include <imgs/bmp_dump.h>
-#include <wavelets/cdf97/cdf97.h>
-
-// libwic headers
-#include <wic/libwic/encoder.h>
-
-
-
-///////////////////////////////////////////////////////////////////////////////
-// types declaration
-
-#pragma pack(push, 1)
-struct compressed_hdr_t {
-	unsigned short version;
-	unsigned int width;
-	unsigned int height;
-	unsigned short lvls;
-	unsigned int data_sz;
-};
-#pragma pack(pop)
-
-
-
-///////////////////////////////////////////////////////////////////////////////
-// functions declaration
-
-//!	\brief Созадаёт кодировщик
-wic::encoder *mk_encoder(const std::string &src_path,
-						 const int lvls,
-						 const int channel = 0);
-
-//!	\brief  Осуществляет запись закодированного в файл
-int encode(const wic::encoder &encoder,
-		   const wic::encoder::tunes_t &header,
-		   const std::string &result_path);
-
-//!	\brief Осуществляет декодирование файла
-int decode(const std::string &compressed_path,
-		   const std::string &result_path);
-
-
-
-///////////////////////////////////////////////////////////////////////////////
-// functions definitions
-
-/*!	\param[in] src_path Путь к файлу с исходным изображением
-	\param[in] lvls Количество уровней разложения
-	\param[in] channel Используемый цветовой канал:
-	- 0 Red
-	- 1 Green
-	- 2 Blue
-	\return Объект класса wic::encoder
-*/
-wic::encoder *mk_encoder(const std::string &src_path,
-						 const int lvls,
-						 const int channel)
-{
-	// load source image
-	imgs::img_rgb rgb_image;
-	if (0 != imgs::bmp_read(rgb_image, src_path.c_str()))
-	{
-		std::cout << "Error: can't read bitmap file \"" << src_path
-				  << "\"" << std::endl;
-		return 0;
-	}
-
-	// test levels factor of dimensions
-	if (rgb_image.w() != rgb_image.h())
-	{
-		std::cout << "Error: only square pictures supported" << std::endl;
-		return 0;
-	}
-
-	{
-		const unsigned int factor = (1 << lvls);
-
-		if (0 != (rgb_image.w() % factor) &&
-			0 != (rgb_image.h() % factor))
-		{
-			std::cout << "Error: " << rgb_image.w() << "x"
-					  << rgb_image.h() << " is invalid image "
-					  << "dimensions for " << lvls << " levels"
-					  << std::endl;
-			return 0;
-		}
-	}
-
-	// allocate some memory and copy converted to float image there
-	const wic::sz_t image_pixels_count = rgb_image.w() * rgb_image.h();
-
-	float *const image_wt = new float[image_pixels_count];
-
-	imgs::img_rgb::rgb24_t *const rgb_image_bits =
-		(imgs::img_rgb::rgb24_t *)(rgb_image.bits());
-
-	if (0 == channel)
-	{
-		for (wic::sz_t i = 0; image_pixels_count > i; ++i) {
-			image_wt[i] = rgb_image_bits[i].r;
-		}
-	}
-	else if (1 == channel)
-	{
-		for (wic::sz_t i = 0; image_pixels_count > i; ++i) {
-			image_wt[i] = rgb_image_bits[i].g;
-		}
-	}
-	else
-	{
-		for (wic::sz_t i = 0; image_pixels_count > i; ++i) {
-			image_wt[i] = rgb_image_bits[i].b;
-		}
-	}
-
-	// do wavelet transform
-	wt2d_cdf97_fwd(image_wt, rgb_image.h(), rgb_image.w(), lvls);
-
-	// создание кодера
-	wic::encoder *const encoder = new wic::encoder(rgb_image.w(),
-												   rgb_image.h(),
-												   lvls);
-
-	// load spectrum
-	encoder->spectrum().cheap_load(image_wt);
-
-	// free spectrum
-	delete[] image_wt;
-
-	// return encoder
-	return encoder;
-}
-
-
-/*!	\param[in] encoder Объект класса хwic::encoder, который уже
-	содержит закодированные данные
-	\param[in] header Заголовок закодированных данных
-	\param[in] result_path Путь к файлу в который будут записанны
-	закодированные данные
-*/
-int encode(const wic::encoder &encoder,
-		   const wic::encoder::tunes_t &header,
-		   const std::string &result_path)
-{
-	// open file for writing
-	std::ofstream compressed(result_path.c_str(),
-							 std::ios::out|std::ios::binary);
-
-	if (!compressed.good())
-	{
-		std::cout << "Error: can't open file \"" << result_path << "\" for "
-				  << "writing" << std::endl;
-		return -1;
-	}
-
-	// create headers
-	compressed_hdr_t compressed_hdr;
-	compressed_hdr.version	= WIC_VERSION;
-	compressed_hdr.width	= encoder.spectrum().width();
-	compressed_hdr.height	= encoder.spectrum().height();
-	compressed_hdr.lvls		= encoder.spectrum().lvls();
-	compressed_hdr.data_sz	= encoder.coder().encoded_sz() + sizeof(header);
-
-	// write data
-	compressed.write((char *)&compressed_hdr, sizeof(compressed_hdr));
-	compressed.write((char *)&header, sizeof(header));
-	compressed.write((char *)(encoder.coder().buffer()),
-					 encoder.coder().encoded_sz());
-
-	if (!compressed.good())
-	{
-		std::cout << "Error: can't write to file \"" << result_path
-				  << "\"";
-		return -1;
-	}
-
-	std::cout << "Total file size: " << compressed.tellp() << " bytes ("
-			  << (compressed.tellp() / 1024.0) << " kbytes)" << std::endl;
-
-	return 0;
-}
-
-
-/*!	\param[in] compressed_path Путь к закодированному файлу
-	\param[in] result_path Путь к результирующему файлу
-	\return 0 если файл декодирован успешно
-*/
-int decode(const std::string &compressed_path,
-		   const std::string &result_path)
-{
-	std::cout << "decoding..." << std::endl;
-
-	// open compressed file
-	std::ifstream compressed(compressed_path.c_str(),
-							 std::ios::in|std::ios::binary);
-	if (!compressed.good())
-	{
-		std::cout << "Error: can't open compressed file \""
-				  << compressed_path << "\" for reading" << std::endl;
-		return -1;
-	}
-
-	// read compressed header information
-	compressed_hdr_t compressed_hdr;
-	compressed.read((char *)&compressed_hdr, sizeof(compressed_hdr));
-	if (!compressed.good())
-	{
-		std::cout << "Error: can't read compressed header information"
-				  << "from compressed file" << std::endl;
-		return -1;
-	}
-
-	std::cout << "image: " << compressed_hdr.width << "x"
-			  << compressed_hdr.height << ", "<< compressed_hdr.lvls
-			  << " levels" << std::endl;
-
-	// test wictool version
-	if (WIC_VERSION != compressed_hdr.version)
-	{
-		std::cout << "Error: compressed file of version \""
-				  << compressed_hdr.version << "\" can't be decompressed "
-					 "with wictool of version \"" << WIC_VERSION << "\""
-				  << std::endl;
-		return -1;
-	}
-
-	std::cout << "file version: " << compressed_hdr.version << std::endl;
-
-	// test levels factor of dimensions
-	{
-		const unsigned int factor = (1 << compressed_hdr.lvls);
-
-		if (0 != (compressed_hdr.width % factor) &&
-			0 != (compressed_hdr.height % factor))
-		{
-			std::cout << "Error: " << compressed_hdr.width << "x"
-					  << compressed_hdr.height << " is invalid image "
-					  << "dimensions for " << compressed_hdr.lvls << " levels"
-					  << std::endl;
-			return -1;
-		}
-	}
-
-	// create decoder
-	wic::encoder encoder(compressed_hdr.width, compressed_hdr.height,
-						 compressed_hdr.lvls);
-
-	// allocate buffer for compressed data
-	char *const data = new char[compressed_hdr.data_sz];
-
-	if (0 == data)
-	{
-		std::cout << "Error: can't allocate memory to read file" << std::endl;
-		return -1;
-	}
-
-	// read compressed data
-	compressed.read(data, compressed_hdr.data_sz);
-	if (!compressed.good())
-	{
-		std::cout << "Error: can't read compressed data from file"
-				  << std::endl;
-		delete[] data;
-		return -1;
-	}
-
-	// get header
-	const wic::encoder::tunes_t &header = 
-						*((wic::encoder::tunes_t *)data);
-
-	std::cout << "q: " << header.q << std::endl;
-
-	// decode
-	encoder.decode((wic::byte_t *)(data) + sizeof(header),
-				   compressed_hdr.data_sz - sizeof(header),
-				   header);
-
-	delete[] data;
-
-	// allocate buffer for spectrum
-	wic::w_t *const image_wt = new wic::w_t[encoder.spectrum().nodes_count()];
-	if (0 == image_wt)
-	{
-		std::cout << "Error: can't allocate buffer for spectrum" << std::endl;
-		return -1;
-	}
-
-	// save decompressed data in local spectrum
-	encoder.spectrum().save<wic::wnode::member_w>(image_wt);
-
-	// do inverse wavelet transform
-	wt2d_cdf97_inv(image_wt, compressed_hdr.height, compressed_hdr.width,
-				   compressed_hdr.lvls);
-
-	imgs::img_rgb rgb_image;
-	rgb_image.reset(compressed_hdr.height, compressed_hdr.width, 24);
-
-	imgs::img_rgb::rgb24_t *const rgb_image_bits =
-		(imgs::img_rgb::rgb24_t *)(rgb_image.bits());
-
-	for (wic::sz_t i = 0; encoder.spectrum().nodes_count() > i; ++i)
-	{
-		const wic::w_t &wval = image_wt[i];
-
-		const unsigned char val	= ((0 >= wval)? 0:
-										((0xFF <= wval)? 0xFF:
-												(unsigned char)wval));
-
-		rgb_image_bits[i].r = val;
-		rgb_image_bits[i].g = val;
-		rgb_image_bits[i].b = val;
-	}
-
-	delete[] image_wt;
-
-	// write bmp to resulting file
-	if (0 != imgs::bmp_write(rgb_image, result_path))
-	{
-		std::cout << "Error: can't write decompressed bitmap to \""
-				  << result_path << "\"" << std::endl;
-		return -1;
-	}
-
-	return 0;
-}
-
-
-
-///////////////////////////////////////////////////////////////////////////////
-// main() function definition
-int main1(int argc, char **args)
-{
-	// количество использованных аргументов командной строки
-	int argk = 1;
-
-	// проверка на наличие агрументов
-	if (argk >= argc) return usage(std::cout);
-
-	while (argk < argc)
-	{
-		// выбор режима работы
-		const std::string mode = args[argk++];
-
-		if (0 == mode.compare("-a") || 0 == mode.compare("--about"))
-		{
-			about(std::cout);
-		}
-		else if (0 == mode.compare("-h") || 0 == mode.compare("--help"))
-		{
-			usage(std::cout);
-		}
-		else if (0 == mode.compare("-p") || 0 == mode.compare("--psnr"))
-		{
-			// -p | --psnr
-			bmp_file_diff_src_t res;
-
-			const int argx = get_bmp_file_diff_src(argc - argk , args + argk,
-												   res);
-
-			if (0 > argx) return usage(std::cout);
-			else argk += argx;
-
-			std::cout << "image 1: " << res.file1 << ":" << res.channel1
-					  << std::endl;
-			std::cout << "image 2: " << res.file2 << ":" << res.channel2
-					  << std::endl;
-
-			if (0 != psnr(res)) return -1;
-		}
-		else if (0 == mode.compare("-s") || 0 == mode.compare("--stat"))
-		{
-			// -s | --stat
-			bmp_file_diff_src_t res;
-
-			const int argx = get_bmp_file_diff_src(argc - argk , args + argk,
-												   res);
-
-			if (0 > argx) return usage(std::cout);
-			else argk += argx;
-
-			std::cout << "image 1: " << res.file1 << ":" << res.channel1
-					  << std::endl;
-			std::cout << "image 2: " << res.file2 << ":" << res.channel2
-					  << std::endl;
-
-			if (0 != stat(res)) return -1;
-		}
-		else if (0 == mode.compare("-e") || 0 == mode.compare("--encode"))
-		{
-			std::string wf_name;
-			const int argx = get_wavelet_filter(argc - argk, args + argk,
-												   wf_name);
-
-			if (0 > argx) return usage(std::cout);
-			else argk += argx;
-
-			std::cout << "wf_name: " << wf_name << std::endl;
-		}
-		else if (0 == mode.compare("-d") || 0 == mode.compare("--decode"))
-		{
-			std::string wf_name;
-			const int argx = get_wavelet_filter(argc - argk, args + argk,
-												   wf_name);
-
-			if (0 > argx) return usage(std::cout);
-			else argk += argx;
-
-			std::cout << "wf_name: " << wf_name << std::endl;
-		}
-		else
-		{
-			return usage(std::cout);
-		}
-	}
-
-	return 0;
-
-	////////////////////////////////////////////////////////////////////////////
-	////////////////////////////////////////////////////////////////////////////
-	////////////////////////////////////////////////////////////////////////////
-	////////////////////////////////////////////////////////////////////////////
-
-	bmp_file_diff_src_t res;
-	if (0 > get_bmp_file_diff_src(argc -1 , args + 1, res))
-		return usage(std::cout);
-
-	std::cout << res.channel1 << ":" << res.file1 << std::endl;
-	std::cout << res.channel2 << ":" << res.file2 << std::endl;
-
-	psnr(res);
-
-	return 0;
-
-	std::cout << "Image compression algorithm based on encoding of tree-arranged wavelet coefficients. Demo version." << std::endl;
-	std::cout << "(C) Sergei V. Umnyashkin, Dmitri M. Koplovich, Andrei S. Pokrovskiy, Andrei A. Alexandrov, 2007" << std::endl;
-	std::cout << "Moscow Institute of Electronic Technology" << std::endl;
-	std::cout << "www.miet.ru" << std::endl;
-	std::cout << std::endl;
-
-	if (1 >= argc) return 0;
-
-	if (0 == strcmp(args[1], "-p") || 0 == strcmp(args[1], "--psnr"))
-	{
-		if (4 > argc) return 0;
-
-		std::cout << "PSNR: " << 0 << " dB" << std::endl;
-
-		return 0;
-	}
-
-	if (0 == strcmp(args[1], "-d") || 0 == strcmp(args[1], "--decode"))
-	{
-		if (4 > argc) return 0;
-
-		return decode(args[2], args[3]);
-	}
-
-	// декодирование
-	int arg_i = 1;
-
-	if (0 == strcmp(args[arg_i], "-e") ||
-		0 == strcmp(args[arg_i], "--encode"))
-	{
-		if (argc <= ++arg_i) return 0;
-	}
-
-	// метод сжатия
-	int method = 0;
-
-	if (0 == strcmp(args[arg_i], "-m") ||
-		0 == strcmp(args[arg_i], "--method"))
-	{
-		if (argc <= ++arg_i) return 0;
-
-		if (0 == strcmp(args[arg_i], "manual") ||
-			0 == strcmp(args[arg_i], "0"))
-		{
-			method = 0;
-		} else if (0 == strcmp(args[arg_i], "fixed_bpp") ||
-				   0 == strcmp(args[arg_i], "1"))
-		{
-			method = 1;
-		}
-		else if (0 == strcmp(args[arg_i], "fixed_lambda") ||
-				 0 == strcmp(args[arg_i], "2"))
-		{
-			method = 2;
-		}
-		else return 0;
-
-		if (argc <= ++arg_i) return 0;
-	}
-
-	// количество уровней разложения
-	int lvls = 5;
-
-	if (0 == strcmp(args[arg_i], "-v") ||
-		0 == strcmp(args[arg_i], "--levels"))
-	{
-		if (argc <= ++arg_i) return 0;
-
-		lvls = atoi(args[arg_i]);
-
-		if (argc <= ++arg_i) return 0;
-	}
-
-	// цветовой канал
-	int channel = 0;
-
-	if (0 == strcmp(args[arg_i], "-c") ||
-		0 == strcmp(args[arg_i], "--channel"))
-	{
-		if (argc <= ++arg_i) return 0;
-
-		channel = atoi(args[arg_i]);
-
-		if (argc <= ++arg_i) return 0;
-	}
-
-	// способы оптимизации
-	wic::q_t q = 8;
-	wic::lambda_t lambda = 10;
-
-	// ручной
-	if (0 == method)
-	{
-		if (0 == strcmp(args[arg_i], "-q") ||
-			0 == strcmp(args[arg_i], "--q"))
-		{
-			if (argc <= ++arg_i) return 0;
-
-			q = wic::q_t(atof(args[arg_i]));
-
-			if (argc <= ++arg_i) return 0;
-		}
-
-		if (0 == strcmp(args[arg_i], "-l") ||
-			0 == strcmp(args[arg_i], "--lambda"))
-		{
-			if (argc <= ++arg_i) return 0;
-
-			lambda = atof(args[arg_i]);
-
-			if (argc <= ++arg_i) return 0;
-		}
-	}
-
-	// фиксированный bpp
-	wic::h_t bpp = 0.5;
-
-	if (1 == method)
-	{
-		if (0 == strcmp(args[arg_i], "-b") ||
-			0 == strcmp(args[arg_i], "--bpp"))
-		{
-			if (argc <= ++arg_i) return 0;
-
-			bpp = atof(args[arg_i]);
-
-			if (argc <= ++arg_i) return 0;
-		}
-	}
-
-	// фиксированная lambda
-
-	if (2 == method)
-	{
-		if (0 == strcmp(args[arg_i], "-l") ||
-			0 == strcmp(args[arg_i], "--lambda"))
-		{
-			if (argc <= ++arg_i) return 0;
-
-			lambda = atof(args[arg_i]);
-
-			if (argc <= ++arg_i) return 0;
-		}
-	}
-
-	// пути исходного и сжатого файла
-	const std::string srt_path = args[arg_i];
-	if (argc <= ++arg_i) return 0;
-
-	const std::string result_path = args[arg_i];
-
-	// создание енкодера
-	wic::encoder *const encoder = mk_encoder(srt_path, lvls, channel);
-
-	if (0 == encoder)
-	{
-		std::cout << "Error: can't create encoder" << std::endl;
-		return -1;
-	}
-
-	wic::encoder::tunes_t header;
-	if (0 == method) 
-	{
-		std::cout << "Operation mode: manual" << std::endl;
-		std::cout << "q: " << q << std::endl;
-		std::cout << "lambda: " << lambda << std::endl;
-		// encoder->encode_0(q, lambda, header);
-	}
-	else if (1 == method)
-	{
-		std::cout << "Operation mode: fixed bpp" << std::endl;
-		std::cout << "bpp: " << bpp << std::endl;
-		// encoder->encode_1(bpp, header);
-	}
-	else if (2 == method)
-	{
-		std::cout << "Operation mode: fixed lambda" << std::endl;
-		std::cout << "lambda: " << lambda << std::endl;
-		// encoder->encode_2(lambda, header);
-	}
-	else return 0;
-
-	// запись результат в файл
-	encode(*encoder, header, result_path);
 
 	return 0;
 }
