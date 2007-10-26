@@ -1352,6 +1352,9 @@ void about(std::ostream &out)
 		<< "Andrei S. Pokrovskiy" << std::endl
 		<< "Andrei A. Alexandrov" << std::endl;
 	out << std::endl;
+	out << "Great thanks to:" << std::endl
+		<< "Roman A. Kulikov" << std::endl;
+	out << std::endl;
 	out << "Moscow Institute of Electronic Technology"
 		<< "(www.miet.ru)" << std::endl;
 }
@@ -1373,7 +1376,7 @@ int usage(std::ostream &out)
 	out << "wictool -p|--psnr <image1> <image2>" << std::endl;
 	out << "wictool -s|--stat <image1> <image2>" << std::endl;
 	out << std::endl;
-	out << "<image>:  [-c|--channel {x|r|g|b|f}] <file.bmp>[:{x|r|g|b|f}]"
+	out << "<image>:  [-c|--channel {x|r|g|b}] <file.bmp>[:{x|r|g|b}]"
 		<< std::endl;
 	out << "<filter>: [-f|--filter name]" << std::endl;
 	out << "<method>: [-m|--method name]" << std::endl;
@@ -1381,9 +1384,9 @@ int usage(std::ostream &out)
 		<< "[-b|--bpp] bpp " << std::endl
 		<< "          [-l|--levels] n [-f|--filter] filter" << std::endl;
 	out << std::endl;
-	out << "Filters are: cdf97 (default), Haar, Daub4, Daub6, Daub8"
+	out << "Filters are: cdf97 (default)" /*", Haar, Daub4, Daub6, Daub8"*/
 		<< std::endl;
-	out << "Methods are: manual (default), fixed_lambda, fixed_bpp"
+	out << "Methods are: manual (default)" /*", fixed_lambda, fixed_bpp"*/
 		<< std::endl;
 
 	/*
@@ -1496,7 +1499,7 @@ int main(int argc, char **args)
 				std::cout << "Filter: " << filter << std::endl;
 				std::cout << "Method: " << method << std::endl;
 				std::cout << "Steps:  " << params.steps << std::endl;
-				std::cout << "Q:      " << params.q << std::endl;
+				std::cout << "q:      " << params.q << std::endl;
 				std::cout << "Lambda: " << params.lambda << std::endl;
 				std::cout << "Source: \"" << source << ":"
 						  << channel << "\"" << std::endl;
@@ -1598,18 +1601,38 @@ int main(int argc, char **args)
 			wic::encoder::tunes_t tunes;
 			instream.read((char *)&tunes, sizeof(tunes));
 
+			if (verbose)
+			{
+				std::cout << "Filter: " << filter << std::endl;
+				std::cout << "Steps:  " << steps << std::endl;
+				std::cout << "q:      " << tunes.q << std::endl;
+				std::cout << "Input:  \"" << wic_file << "\"" << std::endl;
+				std::cout << "Output: \"" << output << ":" << usr_channel
+						  << "\"" << std::endl;
+			}
+
 			wic::byte_t *const data = new wic::byte_t[data_sz];
 			instream.read((char *)data, data_sz);
 
+			if (verbose)
+			{
+				std::cout << std::endl << "Decoding... " << std::flush;
+			}
+
 			wic::encoder decoder(w, h, steps);
 			decoder.decode(data, data_sz, tunes);
+
+			if (verbose)
+			{
+				std::cout << "done." << std::endl;// << std::endl;
+			}
+
+			delete[] data;
 
 			bmp_channel_bits bits = inverse_transform(decoder.spectrum(),
 													  filter, src_channel);
 
 			set_bmp_channel_bits(output, bits);
-
-			delete[] data;
 		}
 		else
 		{
@@ -1617,6 +1640,12 @@ int main(int argc, char **args)
 					  << std::endl;
 
 			return usage(std::cout);
+		}
+
+		if (verbose)
+		{
+			std::cout << "--------------------------------------------------";
+			std::cout << std::endl;
 		}
 	}
 
