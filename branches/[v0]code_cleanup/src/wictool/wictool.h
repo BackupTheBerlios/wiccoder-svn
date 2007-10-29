@@ -154,8 +154,8 @@ bmp_channel_bits get_bmp_channel_bits(const std::string &path,
 
 //!	\brief Записывает цветовой канал в файл
 int set_bmp_channel_bits(const std::string &path, const bmp_channel_bits &bits,
+						 const char &usr_channel,
 						 std::ostream *const err = 0);
-
 
 //!	\brief Освобождает динамическую память связанную со структурой
 //!	bmp_channel_bits
@@ -215,6 +215,12 @@ int stat(const bmp_file_diff_src_t &diff_src,
 int get_wavelet_filter(const int argc, const char *const *const args,
 					   std::string &result, std::ostream *const err = 0);
 
+//!	\brief Проверяет указанные размеры на возможность использования
+//!	вейвлет преобразования
+bool check_transform_dims(const unsigned int w, const unsigned int h,
+						  const unsigned int steps,
+						  std::ostream *const err = 0);
+
 //!	\brief Выполняет прямое вейвлет преобразование
 spectre_t forward_transform(const std::string &filter,
 							const unsigned int &steps,
@@ -227,6 +233,9 @@ bmp_channel_bits inverse_transform(const wic::wtree &spectre,
 								   const char &channel,
 								   std::ostream *const err = 0);
 
+//!	\brief Проверяет спектр вейвлет преобразования
+bool is_spectre_good(const spectre_t &spectre, std::ostream *const err = 0);
+
 //!	\brief Освобождает память, занимаемую спектром вейвлет коэффициентов
 void free_spectre(spectre_t &spectre);
 
@@ -235,6 +244,10 @@ void free_spectre(spectre_t &spectre);
 
 //!	\name Кодирование и декодирование
 //@{
+
+//!	\brief Функция обратного вызова для wic::encoder
+void wic_optimize_callback(const wic::encoder::optimize_result_t &result,
+						   void *const param);
 
 //!	\brief Получает название вейвлет преобразования из командной строки
 int get_encode_method(const int argc, const char *const *const args,

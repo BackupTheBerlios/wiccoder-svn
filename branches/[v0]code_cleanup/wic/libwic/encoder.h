@@ -166,6 +166,14 @@ public:
 		h_t bpp;
 	};
 
+	//!	\brief Тип для функции обратного вызова, вызываемой по завершении
+	//!	этапа оптимизации топологии ветвей дерева вейвлет коэффициентов
+	/*!	\param[in] result Результат произведённой оптимизации
+		\param[in] param Пользовательский параметр
+	*/
+	typedef void (* optimize_callback_f)(const optimize_result_t &result,
+										 void *const param);
+
 	// public constants --------------------------------------------------------
 
 	//!	\brief Минимальное допустимое количество уровней разложения
@@ -196,12 +204,44 @@ public:
 
 	//@}
 
+	//!	\name Настройка енкодера
+	//@{
+
+	//!	\brief Устанавливает функцию обратного вызова, вызываемую при
+	//!	завершении оптимизации топологии ветвей дерева вейвлет коэффициентов
+	void optimize_callback(const optimize_callback_f &callback,
+						   void *const param = 0);
+
+	//@}
+
 	//!	\name Функции кодированя
 	//@{
 
 	//!	\brief Производит кодирование изображения с заранее заданными
 	//!	параметрами <i>q</i> и <i>lambda</i>
 	enc_result_t encode(const w_t *const w, const q_t q, const lambda_t &lambda,
+						tunes_t &tunes);
+
+	//!	\brief Производит кодирование изображения при фиксированном параметре
+	//!	<i>lambda</i>, подбирая параметр <i>q</i> минимизируя значение функции
+	//!	<i>RD критерия Лагранжа</i>
+	enc_result_t encode_fixed_lambda(
+						const w_t *const w, const lambda_t &lambda,
+						tunes_t &tunes,
+						const q_t &q_min, const q_t &q_max, const q_t &q_eps,
+						const j_t &j_eps = 0, const sz_t &max_iterations = 0);
+
+	//!	\brief Производит кодирование изображения при фиксированном параметре
+	//!	<i>lambda</i>, подбирая параметр <i>q</i> минимизируя значение функции
+	//!	<i>RD критерия Лагранжа</i> (упрощённая версия)
+	enc_result_t encode_fixed_lambda(const w_t *const w, const lambda_t &lambda,
+									 tunes_t &tunes);
+
+	//!	\brief Производит кодирование изображения, подбирая параметры
+	//!	<i>q</i> и <i>lambda</i> чтобы достич заданных битовых затрат с
+	//!	минимальной ошибкой кодирования (упрощённая версия)
+	enc_result_t encode_fixed_bpp(
+						const w_t *const w, const h_t &bpp,
 						tunes_t &tunes);
 
 	/*
@@ -658,6 +698,15 @@ protected:
 									  const q_t &q, models_desc_t &models,
 									  const bool virtual_encode = false);
 
+	//!	\brief Производит поиск квантователя <i>q</i> при заданном параметре
+	//!	<i>lambda</i>, минимизируя значение <i>RD функции Лагранжа</i>
+	optimize_result_t _search_q_min_j(
+							const lambda_t &lambda,
+							const q_t &q_min, const q_t &q_max,
+							const q_t &q_eps, models_desc_t &models,
+							const j_t &j_eps = 0, const bool virtual_encode = 0,
+							const sz_t &max_iterations = 0);
+
 	/*
 	//!	\brief Производит поиск параметра <i>lambda</i>, подбирая его
 	//! под битрейт <i>bpp</i>
@@ -735,6 +784,14 @@ private:
 
 	//! \brief Арифметический кодер
 	acoder _acoder;
+
+	//!	\brief Функция вызываемая после выполнения операции оптимизации
+	//!	ветвей деревая вейвлет коэффициентов
+	optimize_callback_f _optimize_callback;
+
+	//!	\brief Параметр, передаваемый в функцию обратного вызова
+	//!	_optimize_callback
+	void *_optimize_callback_param;
 
 	#ifdef LIBWIC_DEBUG
 	//!	\brief Стандартный файловый поток для вывода информации в

@@ -250,13 +250,27 @@ bmp_channel_bits get_bmp_channel_bits(const std::string &path,
 /*!
 */
 int set_bmp_channel_bits(const std::string &path, const bmp_channel_bits &bits,
+						 const char &usr_channel,
 						 std::ostream *const err)
 {
 	// определ€ем поток дл€ вывода ошибок
 	std::ostream &out = (0 == err)? std::cerr: (*err);
 
+	// проверка входных параметров
+	if (!is_channel_bits_good(bits, err)) return -1;
+
 	// инициализаци€ изображени€
 	imgs::img_rgb rgb;
+
+	// загрузка изображени€, если пользователь хочет заменить отдельный канал
+	if ('x' != usr_channel && 'x' != bits.channel)
+	{
+		if (0 != imgs::bmp_read(rgb, path))
+		{
+			out << "Warning: can't load image \"" << path << "\"" << std::endl;
+		}
+	}
+
 	rgb.reset(bits.w, bits.h, 24);
 
 	using imgs::img_rgb::rgb24_t;
@@ -265,33 +279,68 @@ int set_bmp_channel_bits(const std::string &path, const bmp_channel_bits &bits,
 
 	const int pixels_count = rgb.w() * rgb.h();
 
+	// проверка размера цветового канала
+	const unsigned int required_sz = ('x' != bits.channel)? pixels_count
+														  : pixels_count * 3;
+	if (bits.sz != required_sz)
+	{
+		out << "Error: invalid channel size " << bits.sz << " for channel \""
+			<< bits.channel << "\" (required size is: " << required_sz <<
+			")" << std::endl;
+		return -1;
+	}
+
 	// копирование данных цветового канала
 	switch (bits.channel)
 	{
 		case 'r':
 		case 'g':
 		case 'b':
-			if (bits.sz != pixels_count)
+			switch (usr_channel)
 			{
-				out << "Error: invalid channel size" << bits.channel
-					<< "\'" << std::endl;
-				return -1;
-			}
+				case 'x':
+					for (int i = 0; pixels_count > i; ++i)
+					{
+						rgb_bits[i].r = bits.data[i];
+						rgb_bits[i].g = bits.data[i];
+						rgb_bits[i].b = bits.data[i];
+					}
+					break;
 
-			for (int i = 0; pixels_count > i; ++i)
-			{
-				rgb_bits[i].r = bits.data[i];
-				rgb_bits[i].g = bits.data[i];
-				rgb_bits[i].b = bits.data[i];
-			}
+				case 'r':
+					for (int i = 0; pixels_count > i; ++i)
+					{
+						rgb_bits[i].r = bits.data[i];
+					}
+					break;
 
+				case 'g':
+					for (int i = 0; pixels_count > i; ++i)
+					{
+						rgb_bits[i].g = bits.data[i];
+					}
+					break;
+
+				case 'b':
+					for (int i = 0; pixels_count > i; ++i)
+					{
+						rgb_bits[i].b = bits.data[i];
+					}
+					break;
+
+				default:
+					out << "Error: invalid user channel \'" << usr_channel
+						<< "\'" << std::endl;
+					return -1;
+			}
 			break;
 
 		case 'x':
-			if (bits.sz != 3*pixels_count)
+			if ('x' != usr_channel)
 			{
-				out << "Error: invalid channel size" << bits.channel
-					<< "\'" << std::endl;
+				out << "Error: can't write source channel \"" << bits.channel
+					<< "\" in user channel \"" << usr_channel << "\""
+					<< std::endl;
 				return -1;
 			}
 
@@ -756,6 +805,34 @@ int get_wavelet_filter(const int argc, const char *const *const args,
 	return arg_i;
 }
 
+/*!	\param[in] w Width of image
+	\param[in] h Height of image
+	\param[in] steps Number of steps in wavelet transform
+	\param[in,out] err ”казатель на поток дл€ вывода ошибок. ≈сли равен
+	<i>0</i> будет использован стандартный поток дл€ вывода ошибок.
+	\return <i>true</i> если размеры удовлетвор€ют вейвлет преобразованию
+*/
+bool check_transform_dims(const unsigned int w, const unsigned int h,
+						  const unsigned int steps,
+						  std::ostream *const err)
+{
+	// определ€ем поток дл€ вывода ошибок
+	std::ostream &out = (0 == err)? std::cerr: (*err);
+
+	// размеры должны быть кратны этому числу
+	const unsigned int factor = (1 << steps);
+
+	if (0 != (w % factor) || 0 != (h % factor))
+	{
+		out << "Error: dimensions " << w << "x" << h << " must be divisible "
+			<< "on " << factor << " when using " << steps << " steps transform"
+			<< std::endl;
+		return false;
+	}
+
+	return true;
+}
+
 
 /*!	\param[in] filter »м€ используемого вейвлет фильтра
 	\param[in] steps  оличество уровней вейвлет преобразовани€
@@ -796,14 +873,21 @@ spectre_t forward_transform(const std::string &filter,
 		return spectre;
 	}
 
-	// выделение пам€ти под результат преобразовани€
-	spectre.sz		= bits.sz;
-	spectre.data	= new wic::w_t[spectre.sz];
+	// определение геометрических размеров спектра
 	spectre.w		= bits.w;
 	if ('x' == bits.channel)
 		spectre.h	= 3*bits.h;
 	else
 		spectre.h	= bits.h;
+
+	if (!check_transform_dims(spectre.w, spectre.h, steps, err))
+	{
+		return spectre;
+	}
+
+	// выделение пам€ти под результат преобразовани€
+	spectre.sz		= bits.sz;
+	spectre.data	= new wic::w_t[spectre.sz];
 
 	// выполнение преобразовани€
 	if (0 == filter.compare("cdf97"))
@@ -913,6 +997,37 @@ bmp_channel_bits inverse_transform(const wic::wtree &spectre,
 }
 
 
+/*!	\param[in] spectre —пектр дл€ проверки
+	\return <i>true</i> если спектр правильный и содержит некоторые данные
+*/
+bool is_spectre_good(const spectre_t &spectre, std::ostream *const err)
+{
+	// определ€ем поток дл€ вывода ошибок
+	std::ostream &out = (0 == err)? std::cerr: (*err);
+
+	// проверка наличи€ данных
+	if (0 == spectre.data || 0 >= spectre.sz)
+	{
+		out << "Error: spectre data data must not be empty or null"
+			<< std::endl;
+
+		return false;
+	}
+
+	// проверка корректности геометрических размеров
+	if (0 >= spectre.w || 0 >= spectre.h)
+	{
+		out << "Error: dimensions " << spectre.w << "x" << spectre.h
+			 << " are invalid for wavelet specter" << std::endl;
+
+		return false;
+	}
+
+	// проверка пройдена успешно
+	return true;
+}
+
+
 /*!	\param[in] spectre —пектр вейвлет преобразовани€, пам€ть, занимаемую
 	которым следует освободить
 */
@@ -924,6 +1039,20 @@ void free_spectre(spectre_t &spectre)
 	spectre.sz		= 0;
 	spectre.w		= 0;
 	spectre.h		= 0;
+}
+
+
+/*!
+*/
+void wic_optimize_callback(const wic::encoder::optimize_result_t &result,
+						   void *const param)
+{
+	if (0 == param)
+	{
+		std::cout << "." << std::flush;
+
+		return;
+	}
 }
 
 
@@ -1380,13 +1509,13 @@ int usage(std::ostream &out)
 		<< std::endl;
 	out << "<filter>: [-f|--filter name]" << std::endl;
 	out << "<method>: [-m|--method name]" << std::endl;
-	out << "<params>: [-q|--quantizer] quantizer [-a|--lambda] lambda "
-		<< "[-b|--bpp] bpp " << std::endl
-		<< "          [-l|--levels] n [-f|--filter] filter" << std::endl;
+	out << "<params>: [-q|--quantizer quantizer] [-l|--lambda lambda] "
+		<< "[-b|--bpp bpp] " << std::endl
+		<< "          [-s|--steps n]" << std::endl;
 	out << std::endl;
 	out << "Filters are: cdf97 (default)" /*", Haar, Daub4, Daub6, Daub8"*/
 		<< std::endl;
-	out << "Methods are: manual (default)" /*", fixed_lambda, fixed_bpp"*/
+	out << "Methods are: manual (default), fixed_lambda" /*", fixed_bpp"*/
 		<< std::endl;
 
 	/*
@@ -1515,22 +1644,41 @@ int main(int argc, char **args)
 			spectre_t spectre = forward_transform(filter, params.steps,
 												  img_bits);
 
+			// ќсвобождение изображени€ (далее работаем только со спектром)
+			free_bmp_channel_bits(img_bits);
+
+			// ѕроверка успешности выполнени€ вейвлет преобразовани€
+			if (!is_spectre_good(spectre)) return -1;
+
 			//  одирование изображени€
 			if (verbose)
 			{
-				std::cout << std::endl << "Encoding... " << std::flush;
+				std::cout << std::endl << "Encoding.." << std::flush;
 			}
 
 			wic::encoder encoder(spectre.w, spectre.h, params.steps);
+			encoder.optimize_callback(wic_optimize_callback, 0);
 
 			wic::encoder::tunes_t tunes;
-			const wic::encoder::enc_result_t enc_result	= 
-								encoder.encode(spectre.data,
-											   params.q, params.lambda, tunes);
+			wic::encoder::enc_result_t enc_result;
+
+			if (0 == method.compare("manual"))
+			{
+				enc_result = encoder.encode(spectre.data,
+											params.q, params.lambda, tunes);
+			}
+			else if (0 == method.compare("fixed_lambda"))
+			{
+				enc_result = encoder.encode_fixed_lambda(spectre.data,
+														 params.lambda, tunes);
+			}
+
+			// ќсвобождение спектра (далее работаем только с енкодером)
+			free_spectre(spectre);
 
 			if (verbose)
 			{
-				std::cout << "done." << std::endl << std::endl;
+				std::cout << " done." << std::endl << std::endl;
 				std::cout << "Optimization:" << std::endl;
 				std::cout << "    q:      " << enc_result.optimization.q
 						  << std::endl;
@@ -1553,17 +1701,14 @@ int main(int argc, char **args)
 
 			const int hdr_sz = write_wic_header(encoder.coder().encoded_sz(),
 												filter, params.steps, channel,
-												spectre.w, spectre.h,
+												encoder.spectrum().width(),
+												encoder.spectrum().height(),
 												outstream);
 
 			outstream.write((const char *)&tunes, sizeof(tunes));
 
 			outstream.write((const char *)encoder.coder().buffer(),
 							encoder.coder().encoded_sz());
-
-			// ќсвобождение зан€тых ресурсов
-			free_spectre(spectre);
-			free_bmp_channel_bits(img_bits);
 		}
 		else if (0 == mode.compare("-d") || 0 == mode.compare("--decode"))
 		{
@@ -1586,7 +1731,10 @@ int main(int argc, char **args)
 			if (0 > argx) return usage(std::cout);
 			else argk += argx;
 
-			//XXX:
+			// открытие входного файла
+			std::ifstream instream(wic_file.c_str(),
+								   std::ios_base::binary|std::ios_base::in);
+
 			std::string		filter;
 			unsigned int	data_sz;
 			unsigned int	steps		= 0;
@@ -1594,9 +1742,11 @@ int main(int argc, char **args)
 			unsigned int	w			= 0;
 			unsigned int	h			= 0;
 
-			std::ifstream instream(wic_file.c_str(),
-								   std::ios_base::binary|std::ios_base::in);
-			read_wic_header(instream, data_sz, filter, steps, src_channel, w, h);
+			if (0 >= read_wic_header(instream, data_sz, filter,
+									 steps, src_channel, w, h))
+			{
+				return -1;
+			}
 
 			wic::encoder::tunes_t tunes;
 			instream.read((char *)&tunes, sizeof(tunes));
@@ -1614,6 +1764,13 @@ int main(int argc, char **args)
 			wic::byte_t *const data = new wic::byte_t[data_sz];
 			instream.read((char *)data, data_sz);
 
+			if (!instream.good())
+			{
+				std::cerr << "Error: input file corrupted" << std::endl;
+				delete[] data;
+				return -1;
+			}
+
 			if (verbose)
 			{
 				std::cout << std::endl << "Decoding... " << std::flush;
@@ -1621,18 +1778,20 @@ int main(int argc, char **args)
 
 			wic::encoder decoder(w, h, steps);
 			decoder.decode(data, data_sz, tunes);
+			delete[] data;
 
 			if (verbose)
 			{
 				std::cout << "done." << std::endl;// << std::endl;
 			}
 
-			delete[] data;
-
 			bmp_channel_bits bits = inverse_transform(decoder.spectrum(),
 													  filter, src_channel);
 
-			set_bmp_channel_bits(output, bits);
+			if (0 != set_bmp_channel_bits(output, bits, usr_channel))
+			{
+				return -1;
+			}
 		}
 		else
 		{

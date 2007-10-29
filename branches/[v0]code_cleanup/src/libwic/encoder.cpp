@@ -31,7 +31,8 @@ namespace wic {
 */
 encoder::encoder(const sz_t width, const sz_t height, const sz_t lvls):
 	_wtree(width, height, lvls),
-	_acoder(width * height * sizeof(w_t) * 4)
+	_acoder(width * height * sizeof(w_t) * 4),
+	_optimize_callback(0), _optimize_callback_param(0)
 {
 	// проверка утверждений
 	assert(MINIMUM_LEVELS <= lvls);
@@ -53,6 +54,18 @@ encoder::encoder(const sz_t width, const sz_t height, const sz_t lvls):
 /*!
 */
 encoder::~encoder() {
+}
+
+
+/*!	\param[in] callback Функция обратного вызова
+	\param[in] param Пользовательский параметр, передаваемый в функцию
+	обратного вызова
+*/
+void encoder::optimize_callback(const optimize_callback_f &callback,
+								void *const param)
+{
+	_optimize_callback			= callback;
+	_optimize_callback_param	= param;
 }
 
 
@@ -136,6 +149,67 @@ encoder::encode(const w_t *const w, const q_t q, const lambda_t &lambda,
 	// завершение кодирования
 	return result;
 }
+
+
+/*!	\param[in]
+*/
+encoder::enc_result_t
+encoder::encode_fixed_lambda(
+						const w_t *const w, const lambda_t &lambda,
+						tunes_t &tunes,
+						const q_t &q_min, const q_t &q_max, const q_t &q_eps,
+						const j_t &j_eps, const sz_t &max_iterations)
+{
+	// результат проведённой оптимизации
+	enc_result_t result;
+
+	// проверка входных параметров
+	assert(0 != w);
+
+	// загрузка спектра
+	_wtree.load_field<wnode::member_w>(w);
+
+	// минимизация RD функции Лагранжа
+	result.optimization = 
+		#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
+		_search_q_min_j(lambda, q_min, q_max, q_eps,
+						tunes.models, j_eps, true, max_iterations);
+		#else
+		_search_q_min_j(lambda, q_min, q_max, q_eps,
+						tunes.models, j_eps, false, max_iterations);
+		#endif
+
+	// кодирование всего дерева
+	_acoder.encode_start();
+
+	_encode_wtree();
+
+	_acoder.encode_stop();
+
+	// сохранение параметров, необходимых для последующего декодирования
+	tunes.q = _wtree.q();
+
+	// отчёт о проделанной работе
+	result.bpp = _calc_encoded_bpp();
+
+	return result;
+}
+
+
+/*!
+*/
+encoder::enc_result_t
+encoder::encode_fixed_lambda(const w_t *const w, const lambda_t &lambda,
+							 tunes_t &tunes)
+{
+	static const q_t q_eps = 0.5;
+
+	const q_t q_min = 1;
+	const q_t q_max = 32;
+
+	return encode_fixed_lambda(w, lambda, tunes, q_min, q_max, q_eps);
+}
+
 
 /*!	\param[in] lambda
 	\param[out] tunes
@@ -1298,6 +1372,9 @@ j_t encoder::_optimize_tree(const p_t &root, const lambda_t &lambda)
 
 	\note Необходимую подготовку выполняет функция wtree::filling_refresh(),
 	при условии, что поля wnode::w и wnode::wq корректны.
+
+	\note Если определён макрос #LIBWIC_DEBUG, функция будет выводить
+	специальную отладочную информацию.
 */
 encoder::optimize_result_t
 encoder::_optimize_wtree(const lambda_t &lambda,
@@ -1348,6 +1425,12 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 	}
 	#endif
 
+	// обратный вызов пользовательской функции
+	if (0 != _optimize_callback)
+	{
+		_optimize_callback(result, _optimize_callback_param);
+	}
+
 	// возврат результата
 	return result;
 }
@@ -1387,19 +1470,181 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 }
 
 
+/*!	\param[in] lambda Параметр <i>lambda</i> используемый для вычисления
+	<i>RD критерия</i> (<i>функции Лагранжа<i>). Представляет собой баланс
+	между ошибкой и битовыми затратами. Меньшие значения <i>lambda</i>
+	соответствуют большему значению результиру<i>bpp</i>.
+
+	\param[in] q_min Нижняя граница интервала поиска (минимальное
+	значение)
+
+	\param[in] q_max Верхняя граница интервала поиска (максимальное
+	значение)
+
+	\param[in] q_eps Необходимая погрешность определения квантователя
+	<i>q</i> при котором значение <i>RD функции Лагранжа</i> минимально
+	(при фиксированном параметре <i>lambda</i>).
+
+	\param[out] models Описание моделей арифметического кодера, которое
+	необходимо для последующего декодирования изображения
+
+	\param[in] j_eps Необходимая погрешность нахождения минимума <i>RD
+	функции Лагранжа</i>. Так как абсолютная величина функции <i>J</i>
+	зависит от многих факторов (таких как размер изображения, его тип,
+	величины параметра <i>lambda</i>), использовать это параметр
+	затруднительно. Поэтому его значение по умолчанию равно <i>0</i>,
+	чтобы при поиске оптимального квантователя учитывалась только
+	погрешность параметра <i>q</i>.
+
+	\param[in] virtual_encode Если <i>true</i> то будет производиться
+	виртуальное кодирование (только перенастройка моделей, без помещения
+	кодируемого символа в выходной поток). Виртуальное кодирование немного
+	быстрее, но его использование делает невозможным определение средних
+	битовых затрат на кодирование одного пиксела изображения.
+
+	\return Результат произведённого поиска
+
+	Данная функция использует метод золотого сечения для поиска минимума
+	<i>RD функции Лагранжа</i>.
+
+	\verbatim
+	  j|___                              ______/
+	   |   \_                         __/   |
+	   |     \___                    /      |
+	   |       | \____              /       |
+	   |       |   |  \___   ______/        |
+	   |       |   |      \_/     |         |
+	   |       |   |       |      |         |
+	---+-------+---+-------+------+---------+----------> q
+	  0|       a   b     j_min    c        d
+	\endverbatim
+
+	\note Для корректной работы этой функции необходимо, чтобы поля
+	wnode::w и wnode::wq элементов спектра были корректны. Для этого
+	можно использовать функцию wtree::cheap_load().
+
+	\note Если определён макрос #LIBWIC_DEBUG, функция будет выводить
+	специальную отладочную информацию.
+*/
+encoder::optimize_result_t
+encoder::_search_q_min_j(const lambda_t &lambda,
+						 const q_t &q_min, const q_t &q_max,
+						 const q_t &q_eps, models_desc_t &models,
+						 const j_t &j_eps, const bool virtual_encode,
+						 const sz_t &max_iterations)
+{
+	// проверка утверждений
+	assert(0 <= lambda);
+	assert(1 <= q_min && q_min <= q_max);
+	assert(0 <= q_eps && 0 <= j_eps);
+
+	// коэффициенты золотого сечения
+	static const q_t factor_b	= (q_t(3) - sqrt(q_t(5))) / q_t(2);
+	static const q_t factor_c	= (sqrt(q_t(5)) - q_t(1)) / q_t(2);
+
+	// установка диапазона для поиска
+	q_t q_a = q_min;
+	q_t q_d = q_max;
+
+	// вычисление значений в первых двух точках
+	q_t q_b = q_a + factor_b * (q_d - q_a);
+	q_t q_c = q_a + factor_c * (q_d - q_a);
+
+	optimize_result_t result_b = _optimize_wtree(lambda, q_b, models,
+												 virtual_encode);
+	optimize_result_t result_c = _optimize_wtree(lambda, q_c, models,
+												 virtual_encode);
+
+	// запоминание предыдущего и последнего результатов
+	optimize_result_t result_prev	= result_b;
+	optimize_result_t result		= result_c;
+
+	// подсчёт количества итераций
+	sz_t iterations					= 0;
+
+	// поиск оптимального значения q
+	for (;;)
+	{
+		// проверка, достигнута ли нужная точность
+		if (q_eps >= abs(q_c - q_b) ||
+			j_eps >= abs(result.j - result_prev.j))
+		{
+			break;
+		}
+
+		if (0 < max_iterations && max_iterations <= iterations)
+		{
+			break;
+		}
+
+		// скоро будет получен новый результат
+		result_prev = result;
+
+		// выбор очередного значения q
+		if (result_b.j < result_c.j)
+		{
+			q_d = q_c;
+			q_c = q_b;
+			q_b = q_a + factor_b*(q_d - q_a);
+
+			result_c = result_b;
+
+			result = result_b = _optimize_wtree(lambda, q_b,
+												models, virtual_encode);
+		}
+		else
+		{
+			q_a = q_b;
+			q_b = q_c;
+			q_c = q_a + factor_c*(q_d - q_a);
+
+			result_b = result_c;
+
+			result = result_c = _optimize_wtree(lambda, q_c,
+												models, virtual_encode);
+		}
+
+		// увеличение количества итераций
+		++iterations;
+	}
+
+	// вывод отладочной информации
+	#ifdef LIBWIC_DEBUG
+	if (_dbg_out_stream.good())
+	{
+		_dbg_out_stream << "[SQMJ]: ";
+		_dbg_out_stream << "q: " << std::setw(8) << result.q;
+		_dbg_out_stream << " lambda: " << std::setw(8) << result.lambda;
+		_dbg_out_stream << " j: " << std::setw(8) << result.j;
+		_dbg_out_stream << " bpp: " << std::setw(8) << result.bpp;
+		_dbg_out_stream << std::endl;
+	}
+	#endif
+
+	// возвращение полученного результата
+	return result;
+}
+
+
 /*! \param[in] bpp Необходимый битрейт (Bits Per Pixel), для достижения
 	которого будет подбираться параметр <i>lambda</i>
+
 	\param[in] lambda_min Нижняя граница интервала поиска (минимальное
 	значение)
+
 	\param[in] lambda_max Верхняя граница интервала поиска (максимальное
 	значение)
+
 	\param[in] bpp_eps Точность, c которой <i>bpp</i> полученнй в результате
 	оптимизации топологии будет соответствовать искомому.
+
 	\param[in] lambda_eps Точность, с которой будет подбираться параметр
 	<i>lambda</i>.
+
 	\param[in] virtual_encode Если <i>true</i> то будет производиться
 	виртуальное кодирование (только перенастройка моделей, без помещения
 	кодируемого символа в выходной поток).
+
 	\return Результат проведённого поиска. Возможна ситуация, когда нужная
 	<i>lambda</i> лежит вне указанного диапазона. В этом случае, функция
 	подберёт такую <i>lambda</i>, которая максимально удовлетворяет условиям
@@ -1531,123 +1776,6 @@ encoder::_search_lambda(const h_t &bpp,
 }
 */
 
-
-/*!	\param[in] lambda Параметр <i>lambda</i> используемый для
-	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
-	собой баланс между ошибкой и битовыми затратами.
-	\param[out] models Описание моделей арифметического кодера
-	\param[in] q_min Нижняя граница интервала поиска (минимальное
-	значение)
-	\param[in] q_max Верхняя граница интервала поиска (максимальное
-	значение)
-	\param[in] q_eps Необходимая погрешность определения квантователя
-	<i>q</i> при котором значение <i>RD функции Лагранжа</i> минимально
-	(при фиксированном параметре <i>lambda</i>).
-	\param[in] j_eps Необходимая погрешность нахождения минимума <i>RD
-	функции Лагранжа</i>. Так как абсолютная величина функции <i>J</i>
-	зависит от многих факторов (таких как размер изображения, его тип,
-	величины параметра <i>lambda</i>), использовать это параметр
-	затруднительно. Поэтому его значение по умолчанию равно <i>0</i>,
-	чтобы при поиске оптимального квантователя учитывалась погрешность
-	только по <i>q</i>.
-	\param[in] virtual_encode Если <i>true</i> то будет производиться
-	виртуальное кодирование (только перенастройка моделей, без помещения
-	кодируемого символа в выходной поток).
-	\return Результат произведённого поиска.
-*/
-/*
-encoder::_search_result_t
-encoder::_search_q_min_j(const lambda_t &lambda,
-						 models_desc_t &models,
-						 const q_t &q_min, const q_t &q_max,
-						 const q_t &q_eps, const j_t &j_eps,
-						 const bool virtual_encode)
-{
-	// проверка утверждений
-	assert(0 <= lambda);
-	assert(1 <= q_min && q_min <= q_max);
-	assert(0 <= q_eps && 0 <= j_eps);
-
-	// коэффициенты золотого сечения
-	static const q_t factor_b	= (q_t(3) - sqrt(q_t(5))) / q_t(2);
-	static const q_t factor_c	= (sqrt(q_t(5)) - q_t(1)) / q_t(2);
-
-	// установка диапазона для поиска
-	q_t q_a = q_min;
-	q_t q_d = q_max;
-
-	// вычисление значений в первых двух точках
-	q_t q_b = q_a + factor_b * (q_d - q_a);
-	q_t q_c = q_a + factor_c * (q_d - q_a);
-
-	_optimize_result_t result_b = _optimize_wtree(lambda, q_b, models,
-												  virtual_encode);
-	_optimize_result_t result_c = _optimize_wtree(lambda, q_c, models,
-												  virtual_encode);
-
-	// запоминание предыдущего и последнего результатов
-	_optimize_result_t result_prev	= result_b;
-	_optimize_result_t result		= result_c;
-
-	// поиск оптимального значения q
-	for (;;)
-	{
-		// проверка, достигнута ли нужная точность
-		if (q_eps >= abs(q_c - q_b) ||
-			j_eps >= abs(result.j - result_prev.j))
-		{
-			break;
-		}
-
-		// скоро будет получен новый результат
-		result_prev = result;
-
-		// выбор очередного значений q
-		if (result_b.j < result_c.j)
-		{
-			q_d = q_c;
-			q_c = q_b;
-			q_b = q_a + factor_b*(q_d - q_a);
-
-			result_c = result_b;
-
-			result = result_b = _optimize_wtree(lambda, q_b,
-												models, virtual_encode);
-		}
-		else
-		{
-			q_a = q_b;
-			q_b = q_c;
-			q_c = q_a + factor_c*(q_d - q_a);
-
-			result_b = result_c;
-
-			result = result_c = _optimize_wtree(lambda, q_c,
-												models, virtual_encode);
-		}
-	}
-
-	// возвращение полученного результата
-	_search_result_t search_result;
-
-	search_result.optimized = result;
-
-	// вывод отладочной информации
-	#ifdef LIBWIC_DEBUG
-	if (_dbg_out_stream.good())
-	{
-		_dbg_out_stream << "[SQMJ]: ";
-		_dbg_out_stream << "q: " << std::setw(8) << result.q;
-		_dbg_out_stream << " lambda: " << std::setw(8) << result.lambda;
-		_dbg_out_stream << " j: " << std::setw(8) << result.j;
-		_dbg_out_stream << " bpp: " << std::setw(8) << result.bpp;
-		_dbg_out_stream << std::endl;
-	}
-	#endif
-
-	return search_result;
-}
-*/
 
 /*!
 */
