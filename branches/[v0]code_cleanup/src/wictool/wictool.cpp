@@ -1672,6 +1672,13 @@ int main(int argc, char **args)
 				enc_result = encoder.encode_fixed_lambda(spectre.data,
 														 params.lambda, tunes);
 			}
+			else
+			{
+				std::cerr << "Error: \"" << method << "\" is invalid method"
+						  << std::endl;
+				free_spectre(spectre);
+				return -1;
+			}
 
 			// Освобождение спектра (далее работаем только с енкодером)
 			free_spectre(spectre);
