@@ -1130,6 +1130,7 @@ int get_encode_method(const int argc, const char *const *const args,
 	Формат:
 	\verbatim
 	[-q|--quantizer value] [-l|--lambda value] [-b|--bpp bpp] [-s|--steps n]
+	[-u|--quality quality]
 	\endverbatim
 */
 int get_encode_params(const int argc, const char *const *const args,
@@ -1194,6 +1195,25 @@ int get_encode_params(const int argc, const char *const *const args,
 			// получение количества щагов преобразования
 			std::stringstream steps_as_string(args[arg_i++]);
 			steps_as_string >> params.steps;
+		}
+		else if (0 == strcmp("-u", args[arg_i]) ||
+				 0 == strcmp("--quality", args[arg_i]))
+		{
+			// [-u|--quality quality]
+			if (argc <= ++arg_i)
+			{
+				out << "Error: not enough arguments for [-u|--quality]"
+					<< std::endl;
+				return -1;
+			}
+
+			// получение показателя качества
+			std::stringstream steps_as_string(args[arg_i++]);
+			double quality = 0;
+			steps_as_string >> quality;
+
+			// преобразование показателя качества в lambda
+			params.lambda = wic::encoder::quality_to_lambda(quality);
 		}
 		else
 		{
@@ -1511,7 +1531,7 @@ int usage(std::ostream &out)
 	out << "<method>: [-m|--method name]" << std::endl;
 	out << "<params>: [-q|--quantizer quantizer] [-l|--lambda lambda] "
 		<< "[-b|--bpp bpp] " << std::endl
-		<< "          [-s|--steps n]" << std::endl;
+		<< "          [-s|--steps n] [-u|--quality k]" << std::endl;
 	out << std::endl;
 	out << "Filters are: cdf97 (default)" /*", Haar, Daub4, Daub6, Daub8"*/
 		<< std::endl;

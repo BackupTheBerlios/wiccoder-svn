@@ -239,10 +239,19 @@ public:
 
 	//!	\brief Производит кодирование изображения, подбирая параметры
 	//!	<i>q</i> и <i>lambda</i> чтобы достич заданных битовых затрат с
-	//!	минимальной ошибкой кодирования (упрощённая версия)
+	//!	минимальной ошибкой кодирования
 	enc_result_t encode_fixed_bpp(
 						const w_t *const w, const h_t &bpp,
 						tunes_t &tunes);
+
+	//!	\brief Производит кодирование изображения, подбирая параметры
+	//!	<i>q</i> и <i>lambda</i> чтобы достич заданных битовых затрат с
+	//!	минимальной ошибкой кодирования (упрощённая версия)
+	enc_result_t encode_fixed_bpp(
+						const w_t *const w, const h_t &bpp,
+						tunes_t &tunes,
+						const q_t &q_min, const q_t &q_max, const q_t &q_eps,
+						const j_t &j_eps = 0, const sz_t &max_iterations = 0);
 
 	/*
 	void prepare_cheap_encode();
@@ -295,10 +304,12 @@ public:
 
 	//@}
 
-	//!	\brief 
+	//!	\brief Вспомогательные функции
 	//@{
 
-
+	//!	\brief Преобразует показатель качества в параметр кодирования
+	//!	<i>lambda</i>
+	static lambda_t quality_to_lambda(const double &quality);
 
 	//@}
 
@@ -706,33 +717,25 @@ protected:
 									  const bool virtual_encode = false);
 
 	//!	\brief Производит поиск квантователя <i>q</i> при заданном параметре
-	//!	<i>lambda</i>, минимизируя значение <i>RD функции Лагранжа</i>
+	//!	<i>lambda</i>, минимизируя значение <i>RD функции Лагранжа J</i>
 	optimize_result_t _search_q_min_j(
 							const lambda_t &lambda,
 							const q_t &q_min, const q_t &q_max,
 							const q_t &q_eps, models_desc_t &models,
-							const j_t &j_eps = 0, const bool virtual_encode = 0,
+							const j_t &j_eps = 0,
+							const bool virtual_encode = false,
 							const sz_t &max_iterations = 0);
 
-	/*
 	//!	\brief Производит поиск параметра <i>lambda</i>, подбирая его
 	//! под битрейт <i>bpp</i>
-	_search_result_t _search_lambda(const h_t &bpp,
-									const lambda_t &lambda_min,
-									const lambda_t &lambda_max,
-									const h_t &bpp_eps,
-									const lambda_t &lambda_eps,
-									const bool virtual_encode = false);
+	optimize_result_t _search_lambda_at_bpp(
+							const h_t &bpp, const h_t &bpp_eps,
+							const lambda_t &lambda_min,
+							const lambda_t &lambda_max,
+							const lambda_t &lambda_eps,
+							const bool virtual_encode = false);
 
-	//!	\brief Производит поиск квантователя <i>q</i> при фиксированном
-	//!	параметре <i>lambda</i> минимизируя значение <i>RD</i> функции
-	//!	Лагранжа</i> <i>J</i>
-	_search_result_t _search_q_min_j(const lambda_t &lambda,
-									 models_desc_t &models,
-									 const q_t &q_min, const q_t &q_max,
-									 const q_t &q_eps, const j_t &j_eps = 0,
-									 const bool virtual_encode = false);
-
+	/*
 	_search_result_t _search_q_and_lambda_iter(const h_t &bpp, const q_t &q,
 											   models_desc_t &models,
 											   w_t &d, const q_t &d_q)

@@ -11,7 +11,7 @@
 // include
 
 // standard C++ headers
-// none
+#include <math.h>
 
 // libwic headers
 #include <wic/libwic/encoder.h>
@@ -98,7 +98,7 @@ void encoder::optimize_callback(const optimize_callback_f &callback,
 	ситуациях когда необходимо получить результаты сжатия одного изображения
 	с разным параметром <i>lambda</i>. Для таких случаев лучше использовать
 	более быструю функцию cheap_encode(), которая не производит квантования
-	коэффициентов спектра.
+	коэффициентов спектра (но может быть ещё не реализованна =).
 
 	Код функции использует макрос #OPTIMIZATION_USE_VIRTUAL_ENCODING. Если он
 	определён будет производиться виртуальное кодирование коэффициентов, что
@@ -390,6 +390,25 @@ void encoder::decode(const byte_t *const data, const sz_t data_sz,
 	_wtree.dequantize<wnode::member_wc>(tunes.q);
 }
 
+
+/*!	\param[in] quality Показатель качества
+	\return Значение параметра <i>lambda</i>, соответствующее выбранному
+	показателю качества
+
+	Показатель качества представляет значение из диапазона <i>[0, 100]</i>.
+	Значение <i>100</i> соответствует максимальному качеству сжатия, а
+	значение <i>0</i> соответствует максимальной степени сжатия.
+*/
+lambda_t encoder::quality_to_lambda(const double &quality)
+{
+	assert(0.0 <= quality && quality <= 100.0);
+
+	const double d = 2.0;
+	const double b	= (quality + d);
+	const double p	= ((100.0 + d) / b) - 1.0;
+
+	return (pow(b, p) - 1.0);
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1544,6 +1563,10 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 	быстрее, но его использование делает невозможным определение средних
 	битовых затрат на кодирование одного пиксела изображения.
 
+	\param[in] max_iterations Максимальное количество итераций нахождения
+	минимума <i>RD функции Лагранжа</i>. Если это значение равно <i>0</i>,
+	количество выполняемых итераций не ограничено.
+
 	\return Результат произведённого поиска
 
 	Данная функция использует метод золотого сечения для поиска минимума
@@ -1560,9 +1583,9 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 	  0|       a   b     j_min    c        d
 	\endverbatim
 
-	\note Для корректной работы этой функции необходимо, чтобы поля
-	wnode::w и wnode::wq элементов спектра были корректны. Для этого
-	можно использовать функцию wtree::cheap_load().
+	\note Для корректной работы этой функции необходимо, чтобы поле
+	wnode::w элементов спектра было корректно. Для этого
+	можно использовать функцию wtree::load_field().
 
 	\note Если определён макрос #LIBWIC_DEBUG, функция будет выводить
 	специальную отладочную информацию.
@@ -1571,7 +1594,8 @@ encoder::optimize_result_t
 encoder::_search_q_min_j(const lambda_t &lambda,
 						 const q_t &q_min, const q_t &q_max,
 						 const q_t &q_eps, models_desc_t &models,
-						 const j_t &j_eps, const bool virtual_encode,
+						 const j_t &j_eps,
+						 const bool virtual_encode,
 						 const sz_t &max_iterations)
 {
 	// проверка утверждений
@@ -1717,7 +1741,7 @@ encoder::_search_q_min_j(const lambda_t &lambda,
 */
 /*
 encoder::_search_result_t
-encoder::_search_lambda(const h_t &bpp,
+encoder::_search_lambda_at_bpp(const h_t &bpp,
 						const lambda_t &lambda_min,
 						const lambda_t &lambda_max,
 						const h_t &bpp_eps,
