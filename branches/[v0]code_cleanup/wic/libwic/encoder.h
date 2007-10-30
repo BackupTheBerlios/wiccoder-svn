@@ -707,6 +707,7 @@ protected:
 
 	//!	\brief Производит оптимизацию топологии всех ветвей в спектре
 	optimize_result_t _optimize_wtree(const lambda_t &lambda,
+									  const bool refresh_wtree = false,
 									  const bool virtual_encode = false);
 
 	//!	\brief Производит оптимизацию топологии всех ветвей в спектре
@@ -729,6 +730,14 @@ protected:
 	//!	\brief Производит поиск параметра <i>lambda</i>, подбирая его
 	//! под битрейт <i>bpp</i>
 	optimize_result_t _search_lambda_at_bpp(
+							const h_t &bpp, const h_t &bpp_eps,
+							const lambda_t &lambda_min,
+							const lambda_t &lambda_max,
+							const lambda_t &lambda_eps,
+							const bool virtual_encode = false,
+							const sz_t &max_iterations = 0);
+
+	optimize_result_t _search_bpp_min_d(
 							const h_t &bpp, const h_t &bpp_eps,
 							const lambda_t &lambda_min,
 							const lambda_t &lambda_max,

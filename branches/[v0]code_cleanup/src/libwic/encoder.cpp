@@ -1417,12 +1417,20 @@ j_t encoder::_optimize_tree(const p_t &root, const lambda_t &lambda)
 /*!	\param[in] lambda Параметр <i>lambda</i> используемый для
 	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
 	собой баланс между ошибкой и битовыми затратами.
+
+	\param[in] refresh_wtree Если <i>true</i>, то перед началом кодирования
+	будет вызвана функция wtree::filling_refresh(), которая сбросит спекрт
+	в начальное состояние. Используется при выполнении нескольких операций
+	оптимизации над одним спектром (например, в целях подбора оптимального
+	значение параметра <i>lambda</i>).
+
 	\param[in] virtual_encode Если <i>true</i>, то будет производиться
 	виртуальное кодирование (только перенастройка моделей, без помещения
 	кодируемого символа в выходной поток). При включённом виртуальном
 	кодировании, поле _optimize_result_t::bpp выставляется в 0, так как
 	без проведения реального кодирование невозможно оценить битовые
 	затраты.
+
 	\return Результат проведённой оптимизации
 
 	Для корректной работы этой функции необходимо, чтобы поля wnode::w и
@@ -1439,6 +1447,7 @@ j_t encoder::_optimize_tree(const p_t &root, const lambda_t &lambda)
 */
 encoder::optimize_result_t
 encoder::_optimize_wtree(const lambda_t &lambda,
+						 const bool refresh_wtree,
 						 const bool virtual_encode)
 {
 	// инициализация возвращаемого результата
@@ -1447,6 +1456,9 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 	result.lambda	= lambda;
 	result.j		= 0;
 	result.bpp		= 0;
+
+	// обновление дерева вейвлет коэффициентов (если требуется)
+	if (refresh_wtree) _wtree.filling_refresh();
 
 	// оптимизация топологии ветвей с кодированием
 	_acoder.encode_start();
@@ -1527,7 +1539,7 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 	_acoder.use(_mk_acoder_models(models));
 
 	// оптимизация топологии ветвей
-	return _optimize_wtree(lambda, virtual_encode);
+	return _optimize_wtree(lambda, false, virtual_encode);
 }
 
 
@@ -1757,6 +1769,9 @@ encoder::_search_q_min_j(const lambda_t &lambda,
 	// кодирования или декодирования
 	_acoder.use(_mk_acoder_models(models));
 	\endcode
+
+	\note Если определён макрос #LIBWIC_DEBUG, функция будет выводить
+	специальную отладочную информацию.
 */
 encoder::optimize_result_t
 encoder::_search_lambda_at_bpp(
@@ -1779,12 +1794,15 @@ encoder::_search_lambda_at_bpp(
 	// результат последней оптимизации
 	optimize_result_t result;
 
+	// счётчик итераций
+	sz_t iterations = 0;
+
 	// небольшая хитрость, позволяющая использовать удобный оператор
 	// break
-	do {
+	do
+	{
 		// вычисление значений bpp на левой границе диапазона
-		_wtree.filling_refresh();
-		optimize_result_t result_a = _optimize_wtree(lambda_a,
+		optimize_result_t result_a = _optimize_wtree(lambda_a, true,
 													 virtual_encode);
 
 		// проверка на допустимость входного диапазона
@@ -1796,8 +1814,7 @@ encoder::_search_lambda_at_bpp(
 		}
 
 		// вычисление значений bpp на правой границе диапазона
-		_wtree.filling_refresh();
-		optimize_result_t result_b = _optimize_wtree(lambda_b,
+		optimize_result_t result_b = _optimize_wtree(lambda_b, true,
 													 virtual_encode);
 
 		// проверка на допустимость входного диапазона
@@ -1809,40 +1826,38 @@ encoder::_search_lambda_at_bpp(
 		}
 
 		// поиск оптимального значения lamda (дихотомия)
-		for (;;) {
+		for (;;)
+		{
 			// подсчёт значения bpp для середины диапазона
 			const lambda_t lambda_c = (lambda_b + lambda_a) / 2;
 
-			_wtree.filling_refresh();
-			optimize_result_t result_c = _optimize_wtree(lambda_c,
-														 virtual_encode);
+			// оптимизация топологии ветвей
+			result = _optimize_wtree(lambda_c, true, virtual_encode);
 
 			// проверить, достигнута ли нужная точность по bpp
-			if (bpp_eps >= abs(result_c.bpp - bpp))
-			{
-				result = result_c;
+			if (bpp_eps >= abs(result.bpp - bpp)) break;
 
-				break;
-			}
+			// проверить, не превышен ли лимит по итерациям
+			if (0 < max_iterations && max_iterations <= iterations) break;
 
 			// сужение диапазона поиска
-			// if (0 < (result_b.bpp - bpp)*(result_c.bpp - bpp))
-			if (bpp > result_c.bpp) lambda_b = lambda_c;
+			if (bpp > result.bpp) lambda_b = lambda_c;
 			else lambda_a = lambda_c;
-
-			// запоминание текущего значения
-			result = result_c;
 
 			// проверить, достигнута ли нужная точность по lambda
 			if (lambda_eps >= abs(lambda_b - lambda_a)) break;
+
+			// Увеличение счётчика итераций
+			++iterations;
 		}
-	} while (false);
+	}
+	while (false);
 
 	// вывод отладочной информации
 	#ifdef LIBWIC_DEBUG
 	if (_dbg_out_stream.good())
 	{
-		_dbg_out_stream << "[SLFB]: ";
+		_dbg_out_stream << "[SLAB]: ";
 		_dbg_out_stream << "q: " << std::setw(8) << result.q;
 		_dbg_out_stream << " lambda: " << std::setw(8) << result.lambda;
 		_dbg_out_stream << " j: " << std::setw(8) << result.j;
