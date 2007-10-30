@@ -1694,14 +1694,15 @@ encoder::_search_q_min_j(const lambda_t &lambda,
 /*! \param[in] bpp Необходимый битрейт (Bits Per Pixel), для достижения
 	которого будет подбираться параметр <i>lambda</i>
 
+	\param[in] bpp_eps Необходимая точность, c которой <i>bpp</i> полученный
+	в результате поиска параметра <i>lambda</i> будет соответствовать
+	заданному.
+
 	\param[in] lambda_min Нижняя граница интервала поиска (минимальное
 	значение)
 
 	\param[in] lambda_max Верхняя граница интервала поиска (максимальное
 	значение)
-
-	\param[in] bpp_eps Точность, c которой <i>bpp</i> полученнй в результате
-	оптимизации топологии будет соответствовать искомому.
 
 	\param[in] lambda_eps Точность, с которой будет подбираться параметр
 	<i>lambda</i>.
@@ -1709,6 +1710,10 @@ encoder::_search_q_min_j(const lambda_t &lambda,
 	\param[in] virtual_encode Если <i>true</i> то будет производиться
 	виртуальное кодирование (только перенастройка моделей, без помещения
 	кодируемого символа в выходной поток).
+
+	\param[in] max_iterations Максимальное количество итераций нахождения
+	минимума <i>RD функции Лагранжа</i>. Если это значение равно <i>0</i>,
+	количество выполняемых итераций не ограничено.
 
 	\return Результат проведённого поиска. Возможна ситуация, когда нужная
 	<i>lambda</i> лежит вне указанного диапазона. В этом случае, функция
@@ -1737,16 +1742,30 @@ encoder::_search_q_min_j(const lambda_t &lambda,
 
 	\note Для корректной работы этой функции необходимо, чтобы поля
 	wnode::w и wnode::wq элементов спектра были корректны. Для этого
-	можно использовать функцию wtree::cheap_load().
+	можно использовать функцию wtree::cheap_load(). Также очень важно,
+	чтобы модели арифметического кодера были хорошо настроены (а их
+	начальные характеристика запомнены). Для этого можно воспользоваться
+	кодом следующего вида:
+	\code
+	// описание моделей, которое будет использовано в дальнейшем при
+	// декодировании
+	models_desc_t models;
+	// создание описания моделей исходя из характеристик спектра
+	models = _mk_acoder_smart_models();
+	// конвертация описания моделей в формат приемлемый для арифметического
+	// кодера и предписание ему начать использовать полученные модели для
+	// кодирования или декодирования
+	_acoder.use(_mk_acoder_models(models));
+	\endcode
 */
-/*
-encoder::_search_result_t
-encoder::_search_lambda_at_bpp(const h_t &bpp,
-						const lambda_t &lambda_min,
-						const lambda_t &lambda_max,
-						const h_t &bpp_eps,
-						const lambda_t &lambda_eps,
-						const bool virtual_encode)
+encoder::optimize_result_t
+encoder::_search_lambda_at_bpp(
+							const h_t &bpp, const h_t &bpp_eps,
+							const lambda_t &lambda_min,
+							const lambda_t &lambda_max,
+							const lambda_t &lambda_eps,
+							const bool virtual_encode,
+							const sz_t &max_iterations)
 {
 	// проверка утверждений
 	assert(0 < bpp);
@@ -1758,7 +1777,7 @@ encoder::_search_lambda_at_bpp(const h_t &bpp,
 	lambda_t lambda_b	= lambda_max;
 
 	// результат последней оптимизации
-	_optimize_result_t result;
+	optimize_result_t result;
 
 	// небольшая хитрость, позволяющая использовать удобный оператор
 	// break
@@ -1778,8 +1797,8 @@ encoder::_search_lambda_at_bpp(const h_t &bpp,
 
 		// вычисление значений bpp на правой границе диапазона
 		_wtree.filling_refresh();
-		_optimize_result_t result_b = _optimize_wtree(lambda_b,
-													  virtual_encode);
+		optimize_result_t result_b = _optimize_wtree(lambda_b,
+													 virtual_encode);
 
 		// проверка на допустимость входного диапазона
 		if (result_b.bpp >= (bpp - bpp_eps))
@@ -1795,8 +1814,8 @@ encoder::_search_lambda_at_bpp(const h_t &bpp,
 			const lambda_t lambda_c = (lambda_b + lambda_a) / 2;
 
 			_wtree.filling_refresh();
-			_optimize_result_t result_c = _optimize_wtree(lambda_c,
-														  virtual_encode);
+			optimize_result_t result_c = _optimize_wtree(lambda_c,
+														 virtual_encode);
 
 			// проверить, достигнута ли нужная точность по bpp
 			if (bpp_eps >= abs(result_c.bpp - bpp))
@@ -1819,11 +1838,6 @@ encoder::_search_lambda_at_bpp(const h_t &bpp,
 		}
 	} while (false);
 
-	// возвращение полученного результата
-	_search_result_t search_result;
-
-	search_result.optimized = result;
-
 	// вывод отладочной информации
 	#ifdef LIBWIC_DEBUG
 	if (_dbg_out_stream.good())
@@ -1837,9 +1851,9 @@ encoder::_search_lambda_at_bpp(const h_t &bpp,
 	}
 	#endif
 
-	return search_result;
+	// возвращение полученного результата
+	return result;
 }
-*/
 
 
 /*!

@@ -733,7 +733,8 @@ protected:
 							const lambda_t &lambda_min,
 							const lambda_t &lambda_max,
 							const lambda_t &lambda_eps,
-							const bool virtual_encode = false);
+							const bool virtual_encode = false,
+							const sz_t &max_iterations = 0);
 
 	/*
 	_search_result_t _search_q_and_lambda_iter(const h_t &bpp, const q_t &q,
