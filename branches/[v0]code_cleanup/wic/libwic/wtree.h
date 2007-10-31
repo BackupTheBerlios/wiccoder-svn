@@ -210,6 +210,9 @@ public:
 	void cheap_load(const value_t *const from, const q_t q = DEFAULT_Q)
 	{
 		assert(0 != from);
+		assert(1 <= q);
+
+		_q = q;
 
 		for (sz_t i = 0; nodes_count() > i; ++i) {
 			wnode &node = _nodes[i];

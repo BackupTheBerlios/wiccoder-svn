@@ -325,7 +325,7 @@ encoder::enc_result_t
 encoder::encode_fixed_q(const w_t *const w, const q_t &q,
 						const h_t &bpp, tunes_t &tunes)
 {
-	static const h_t bpp_eps			= 0.1;
+	static const h_t bpp_eps			= 0.01;
 
 	static const lambda_t lambda_min	= 0.05*q*q;
 	static const lambda_t lambda_max	= 0.2*q*q;
@@ -591,7 +591,7 @@ encoder::models_desc_t encoder::_mk_acoder_smart_models()
 
 		wk_t lvl0_min = 0;
 		wk_t lvl0_max = 0;
-		_wtree.minmax<wnode::member_wc>(i, lvl0_min, lvl0_max);
+		_wtree.minmax<wnode::member_wq>(i, lvl0_min, lvl0_max);
 
 		desc.mdl_0_min = short(lvl0_min);
 		desc.mdl_0_max = short(lvl0_max);
@@ -610,7 +610,7 @@ encoder::models_desc_t encoder::_mk_acoder_smart_models()
 
 		wk_t lvl1_min = 0;
 		wk_t lvl1_max = 0;
-		_wtree.minmax<wnode::member_wc>(some_iterator_adapt(i_cum),
+		_wtree.minmax<wnode::member_wq>(some_iterator_adapt(i_cum),
 										lvl1_min, lvl1_max);
 
 		// поиск минимума и максимума на уровнях начиная со второго
@@ -628,7 +628,7 @@ encoder::models_desc_t encoder::_mk_acoder_smart_models()
 
 		wk_t lvlx_min = 0;
 		wk_t lvlx_max = 0;
-		_wtree.minmax<wnode::member_wc>(some_iterator_adapt(j_cum),
+		_wtree.minmax<wnode::member_wq>(some_iterator_adapt(j_cum),
 										lvlx_min, lvlx_max);
 
 		// модель #1
