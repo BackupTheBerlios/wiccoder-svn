@@ -1072,6 +1072,7 @@ void wic_optimize_callback(const wic::encoder::optimize_result_t &result,
 	Возможные значения параметра <i>name</i>:
 	- manual (используется по умолчанию)
 	- fixed_lambda
+	- fixed_q
 	- fixed_bpp
 */
 int get_encode_method(const int argc, const char *const *const args,
@@ -1195,6 +1196,21 @@ int get_encode_params(const int argc, const char *const *const args,
 			// получение количества щагов преобразования
 			std::stringstream steps_as_string(args[arg_i++]);
 			steps_as_string >> params.steps;
+		}
+		else if (0 == strcmp("-b", args[arg_i]) ||
+				 0 == strcmp("--bpp", args[arg_i]))
+		{
+			// [-b|--bpp value]
+			if (argc <= ++arg_i)
+			{
+				out << "Error: not enough arguments for [-b|--bpp]"
+					<< std::endl;
+				return -1;
+			}
+
+			// получение значения баланса
+			std::stringstream bpp_as_string(args[arg_i++]);
+			bpp_as_string >> params.bpp;
 		}
 		else if (0 == strcmp("-u", args[arg_i]) ||
 				 0 == strcmp("--quality", args[arg_i]))
@@ -1535,7 +1551,7 @@ int usage(std::ostream &out)
 	out << std::endl;
 	out << "Filters are: cdf97 (default)" /*", Haar, Daub4, Daub6, Daub8"*/
 		<< std::endl;
-	out << "Methods are: manual (default), fixed_lambda" /*", fixed_bpp"*/
+	out << "Methods are: manual (default), fixed_lambda, fixed_q"
 		<< std::endl;
 
 	/*
@@ -1691,6 +1707,11 @@ int main(int argc, char **args)
 			{
 				enc_result = encoder.encode_fixed_lambda(spectre.data,
 														 params.lambda, tunes);
+			}
+			else if (0 == method.compare("fixed_q"))
+			{
+				enc_result = encoder.encode_fixed_q(spectre.data, params.q,
+													params.bpp, tunes);
 			}
 			else
 			{

@@ -228,7 +228,7 @@ encoder::encode_fixed_lambda(
 }
 
 
-/*!\param[in] w Спектр вейвлет преобразования входного изображения для
+/*!	\param[in] w Спектр вейвлет преобразования входного изображения для
 	кодирования
 
 	\param[in] lambda Параметр <i>lambda</i> используемый для
@@ -246,10 +246,93 @@ encoder::encode_fixed_lambda(const w_t *const w, const lambda_t &lambda,
 {
 	static const q_t q_eps = 0.5;
 
-	const q_t q_min = 1;
-	const q_t q_max = 32;
+	const q_t q_min =  1.0;
+	const q_t q_max = 64.0;
 
 	return encode_fixed_lambda(w, lambda, tunes, q_min, q_max, q_eps);
+}
+
+
+/*!	\param[in] w Спектр вейвлет преобразования входного изображения для
+	кодирования
+
+	\param[in] q
+
+	\param[in] bpp
+
+	\param[in] bpp_eps
+
+	\param[in] tunes
+
+	\param[in] 
+*/
+encoder::enc_result_t
+encoder::encode_fixed_q(const w_t *const w, const q_t &q,
+						const h_t &bpp, const h_t &bpp_eps,
+						tunes_t &tunes,
+						const lambda_t &lambda_min,
+						const lambda_t &lambda_max,
+						const lambda_t &lambda_eps,
+						const sz_t &max_iterations)
+{
+	// результат проведённой оптимизации
+	enc_result_t result;
+
+	// проверка входных параметров
+	assert(0 != w);
+	assert(1 <= q);
+
+	// загрузка спектра
+	_wtree.cheap_load(w, q);
+
+	// генерация характеристик моделей арифметического кодера
+	tunes.models = _mk_acoder_smart_models();
+	_acoder.use(_mk_acoder_models(tunes.models));
+
+	// минимизация RD функции Лагранжа
+	result.optimization = 
+		#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
+		_search_lambda_at_bpp(bpp, bpp_eps,
+							  lambda_min, lambda_max, lambda_eps,
+							  true, max_iterations);
+		#else
+		_search_lambda_at_bpp(bpp, bpp_eps,
+							  lambda_min, lambda_max, lambda_eps,
+							  false, max_iterations);
+		#endif
+
+	// кодирование всего дерева
+	_acoder.encode_start();
+
+	_encode_wtree();
+
+	_acoder.encode_stop();
+
+	// сохранение параметров, необходимых для последующего декодирования
+	tunes.q = _wtree.q();
+
+	// отчёт о проделанной работе
+	result.bpp = _calc_encoded_bpp();
+
+	return result;
+}
+
+
+//!	\brief Производит кодирование изображения при фиксированном параметре
+//!	<i>q</i>, подбирая параметр <i>lambda</i> пытаясь достичь заданных
+//!	битовых затрат (упрощённая версия)
+encoder::enc_result_t
+encoder::encode_fixed_q(const w_t *const w, const q_t &q,
+						const h_t &bpp, tunes_t &tunes)
+{
+	static const h_t bpp_eps			= 0.1;
+
+	static const lambda_t lambda_min	= 0.05*q*q;
+	static const lambda_t lambda_max	= 0.2*q*q;
+	static const lambda_t lambda_eps	= 0.0;
+
+	return encode_fixed_q(w, q, bpp, bpp_eps, tunes,
+						  lambda_min, lambda_max, lambda_eps, 0);
 }
 
 
