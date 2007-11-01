@@ -481,6 +481,11 @@ void encoder::decode(const byte_t *const data, const sz_t data_sz,
 	ѕоказатель качества представл€ет значение из диапазона <i>[0, 100]</i>.
 	«начение <i>100</i> соответствует максимальному качеству сжати€, а
 	значение <i>0</i> соответствует максимальной степени сжати€.
+
+	ѕреобразование производитс€ по формуле:
+	\verbatim
+	lambda = pow((quality + 2.0), (102 / (quality + 2) - 1)) - 1;
+	\endverbatim
 */
 lambda_t encoder::quality_to_lambda(const double &quality)
 {
