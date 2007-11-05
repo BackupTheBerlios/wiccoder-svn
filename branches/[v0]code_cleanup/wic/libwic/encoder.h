@@ -259,31 +259,17 @@ public:
 	//!	<i>q</i> и <i>lambda</i> чтобы достич заданных битовых затрат с
 	//!	минимальной ошибкой кодировани€
 	enc_result_t encode_fixed_bpp(
-						const w_t *const w, const h_t &bpp,
+						const w_t *const w,
+						const h_t &bpp, const h_t &bpp_eps,
+						const q_t &q_min, const q_t &q_max, const q_t &q_eps,
+						const lambda_t &lambda_eps,
 						tunes_t &tunes);
 
 	//!	\brief ѕроизводит кодирование изображени€, подбира€ параметры
 	//!	<i>q</i> и <i>lambda</i> чтобы достич заданных битовых затрат с
 	//!	минимальной ошибкой кодировани€ (упрощЄнна€ верси€)
-	enc_result_t encode_fixed_bpp(
-						const w_t *const w, const h_t &bpp,
-						tunes_t &tunes,
-						const q_t &q_min, const q_t &q_max, const q_t &q_eps,
-						const j_t &j_eps = 0, const sz_t &max_iterations = 0);
-
-	/*
-	void prepare_cheap_encode();
-	//!	\brief ‘ункци€ быстрого кодировани€
-	void cheap_encode(const lambda_t &lambda, tunes_t &tunes);
-
-	void encode_0(const q_t q, const lambda_t &lambda, header_t &header);
-	void encode_1(h_t &bpp, header_t &header);
-	void encode_2(const lambda_t &lambda, header_t &header);
-
-	//!	\brief ‘ункци€ осуществл€юща€ непосредственное кодирование изображени€
-	void encode(const w_t *const w, const q_t q, const lambda_t &lambda,
-				header_t &header);
-	*/
+	enc_result_t encode_fixed_bpp(const w_t *const w, const h_t &bpp,
+								  tunes_t &tunes);
 
 	//@}
 
@@ -721,53 +707,23 @@ protected:
 							const bool virtual_encode = false,
 							const sz_t &max_iterations = 0);
 
-	optimize_result_t _search_bpp_min_d(
-							const h_t &bpp, const h_t &bpp_eps,
-							const lambda_t &lambda_min,
-							const lambda_t &lambda_max,
-							const lambda_t &lambda_eps,
+	//!	\brief ѕроизводит итерацию поиска параметра <i>lambda</i> при
+	//! заданном параметре <i>q</i> дл€ функции _search_q_lambda_for_bpp
+	optimize_result_t _search_q_lambda_for_bpp_iter(
+							const q_t &q, const h_t &bpp,
+							const h_t &bpp_eps, const lambda_t &lambda_eps,
+							models_desc_t &models, w_t &d, h_t &deviation,
 							const bool virtual_encode = false,
 							const sz_t &max_iterations = 0);
 
-	/*
-	_search_result_t _search_q_and_lambda_iter(const h_t &bpp, const q_t &q,
-											   models_desc_t &models,
-											   w_t &d, const q_t &d_q)
-	{
-		const h_t bpp_eps  = (-169 != d_q)? 0.01f: 0.000001f;
-		static const lambda_t lambda_eps	= 0.00001f;
-
-		_wtree.quantize(q);
-		models = _mk_acoder_smart_models();
-		_acoder.use(_mk_acoder_models(models));
-
-		const q_t lambda_min = 0.05f*q*q;
-		const q_t lambda_max = 0.20f*q*q;
-
-		_search_result_t result = _search_lambda(bpp, lambda_min, lambda_max,
-												 bpp_eps, lambda_eps);
-
-		if (result.optimized.bpp >= bpp + bpp_eps)
-		{
-			d = 1000000000;
-			// _dbg_out_stream << "\tbad" << std::endl;
-		}
-		else if (result.optimized.bpp <= bpp - bpp_eps)
-		{
-			d = 1000000000;
-			// _dbg_out_stream << "\tbad" << std::endl;
-		}
-		else
-		{
-			d = _wtree.distortion_wc<w_t>();
-		}
-
-		return result;
-	}
-
-	_search_result_t _search_q_and_lambda(const h_t &bpp,
-										  models_desc_t &models);
-	*/
+	//!	\brief ѕроизводит поиск параметров <i>q</i> и <i>lambda</i>, пыта€сь
+	//!	достичь нужных битовых затрат на кодирование изображени€
+	optimize_result_t _search_q_lambda_for_bpp(
+							const h_t &bpp, const h_t &bpp_eps,
+							const q_t &q_min, const q_t &q_max,
+							const q_t &q_eps, const lambda_t &lambda_eps,
+							models_desc_t &models,
+							const bool virtual_encode = false);
 
 	//@}
 

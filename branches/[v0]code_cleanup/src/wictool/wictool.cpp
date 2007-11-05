@@ -1050,6 +1050,10 @@ void wic_optimize_callback(const wic::encoder::optimize_result_t &result,
 	if (0 == param)
 	{
 		std::cout << "." << std::flush;
+		/*
+		std::cout << "q: " << result.q << "; bpp: " << result.bpp
+				  << "; lambda: " << result.lambda << std::endl;
+		*/
 
 		return;
 	}
@@ -1551,8 +1555,10 @@ int usage(std::ostream &out)
 	out << std::endl;
 	out << "Filters are: cdf97 (default)" /*", Haar, Daub4, Daub6, Daub8"*/
 		<< std::endl;
-	out << "Methods are: manual (default), fixed_lambda, fixed_q"
-		<< std::endl;
+	out << "Methods are: manual (default), fixed_lambda, fixed_q, fixed_bpp"
+		<< std::endl << std::endl;
+	out << "More options:" << std::endl
+		<< "          [-v|--verbose] will enable verbose output" << std::endl;
 
 	/*
 	1. lambda + q
@@ -1712,6 +1718,11 @@ int main(int argc, char **args)
 			{
 				enc_result = encoder.encode_fixed_q(spectre.data, params.q,
 													params.bpp, tunes);
+			}
+			else if (0 == method.compare("fixed_bpp"))
+			{
+				enc_result = encoder.encode_fixed_bpp(spectre.data, params.bpp,
+													  tunes);
 			}
 			else
 			{

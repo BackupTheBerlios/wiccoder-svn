@@ -184,6 +184,27 @@ encoder::encode(const w_t *const w, const q_t q, const lambda_t &lambda,
 	\param[in] max_iterations Максимальное количество итераций нахождения
 	минимума <i>RD функции Лагранжа</i>. Если это значение равно <i>0</i>,
 	количество выполняемых итераций не ограничено.
+
+	Функция производит кодирование изображения при фиксированном параметре
+	<i>lambda</i>, подбирая параметр кодирования <i>q</i> таким образом,
+	чтобы значение функции <i>RD критерия Лагранжа</i> было минимальным.
+	Здесь <i>lambda</i> выступает некоторой характеристикой качества. Чем
+	этот параметр больше, тем больше будет степень сжатия и, соответственно,
+	ниже качество декодированного изображения. При <i>lambda</i> равной
+	<i>0</i>, декодированное изображение будет наилучшего качества.
+
+	В большинстве случаев удобнее использовать не абстрактный параметр
+	<i>lambda</i>, а более чёткий показатель качества. В таких ситуациях
+	можно воспользоваться функцией quality_to_lambda(), которая
+	преобразует показатель качества (число в диапазоне <i>[0, 100]</i>) в
+	соотвествующее значение параметра <i>lambda</i>.
+
+	Код функции использует макрос #OPTIMIZATION_USE_VIRTUAL_ENCODING. Если он
+	определён будет производиться виртуальное кодирование коэффициентов, что
+	несколько быстрее. Однако не все реализации битовых кодеров могут
+	поддерживать это.
+
+	\sa _search_q_min_j()
 */
 encoder::enc_result_t
 encoder::encode_fixed_lambda(
@@ -239,32 +260,80 @@ encoder::encode_fixed_lambda(
 
 	\param[out] tunes Информация, необходимая для последующего
 	восстановления изображения
+
+	Эта упрощённая версия функции encode_fixed_lambda() использует следующие
+	значения аргументов:
+	- <i>q_min = 1</i>
+	- <i>q_max = 64</i>
+	- <i>q_eps = 0.1</i>
+	- <i>j_eps = 0.0</i>
+	- <i>max_iterations = 0</i>
+
+	Код функции косвенно использует макрос #OPTIMIZATION_USE_VIRTUAL_ENCODING.
+	Если он определён будет производиться виртуальное кодирование коэффициентов,
+	что несколько быстрее. Однако не все реализации битовых кодеров могут
+	поддерживать это.
 */
 encoder::enc_result_t
 encoder::encode_fixed_lambda(const w_t *const w, const lambda_t &lambda,
 							 tunes_t &tunes)
 {
-	static const q_t q_eps = 0.5;
+	static const q_t q_eps	= q_t(0.1);
+	static const j_t j_eps	= j_t(0);
 
-	const q_t q_min =  1.0;
-	const q_t q_max = 64.0;
+	static const q_t q_min	= q_t(1);
+	static const q_t q_max	= q_t(64);
 
-	return encode_fixed_lambda(w, lambda, tunes, q_min, q_max, q_eps);
+	static const sz_t max_iterations	= 0;
+
+	return encode_fixed_lambda(w, lambda, tunes, q_min, q_max, q_eps,
+							   j_eps, 0);
 }
 
 
-/*!	\param[in] w Спектр вейвлет преобразования входного изображения для
-	кодирования
+/*!	\param[in] w Спектр вейвлет коэффициентов преобразованного входного
+	изображения для кодирования
 
-	\param[in] q
+	\param[in] q Используемый квантователь
 
-	\param[in] bpp
+	\param[in] bpp Необходимый битрейт (Bits Per Pixel), для достижения
+	которого будет подбираться параметр <i>lambda</i>
 
-	\param[in] bpp_eps
+	\param[in] bpp_eps Необходимая точность, c которой <i>bpp</i> полученный
+	в результате поиска параметра <i>lambda</i> будет соответствовать
+	заданному.
 
-	\param[in] tunes
+	\param[out] tunes Информация, необходимая для последующего
+	восстановления изображения
 
-	\param[in] 
+	\param[in] lambda_min Нижняя граница интервала поиска (минимальное
+	значение)
+
+	\param[in] lambda_max Верхняя граница интервала поиска (максимальное
+	значение)
+
+	\param[in] lambda_eps Точность, с которой будет подбираться параметр
+	<i>lambda</i>.
+
+	\param[in] max_iterations Максимальное количество итераций нахождения
+	минимума <i>RD функции Лагранжа</i>. Если это значение равно <i>0</i>,
+	количество выполняемых итераций не ограничено.
+
+	\return Результат проведённого поиска. Возможна ситуация, когда нужная
+	<i>lambda</i> лежит вне указанного диапазона. В этом случае, функция
+	подберёт такую <i>lambda</i>, которая максимально удовлетворяет условиям
+	поиска.
+
+	Производит кодирование изображения при фиксированном параметре <i>q</i>,
+	подбирая значения параметра <i>lambda</i> таким образом, чтобы битовые
+	затраты на кодирование изображения были максимально близки к заданным.
+
+	Код функции использует макрос #OPTIMIZATION_USE_VIRTUAL_ENCODING.
+	Если он определён будет производиться виртуальное кодирование коэффициентов,
+	что несколько быстрее. Однако не все реализации битовых кодеров могут
+	поддерживать это.
+
+	\sa _search_lambda_at_bpp
 */
 encoder::enc_result_t
 encoder::encode_fixed_q(const w_t *const w, const q_t &q,
@@ -318,37 +387,108 @@ encoder::encode_fixed_q(const w_t *const w, const q_t &q,
 }
 
 
-//!	\brief Производит кодирование изображения при фиксированном параметре
-//!	<i>q</i>, подбирая параметр <i>lambda</i> пытаясь достичь заданных
-//!	битовых затрат (упрощённая версия)
+/*!	\param[in] w Спектр вейвлет коэффициентов преобразованного входного
+	изображения для кодирования
+
+	\param[in] q Используемый квантователь
+
+	\param[in] bpp Необходимый битрейт (Bits Per Pixel), для достижения
+	которого будет подбираться параметр <i>lambda</i>
+
+	\param[out] tunes Информация, необходимая для последующего
+	восстановления изображения
+
+	\return Результат проведённого поиска.
+
+	Эта упрощённая версия функции encode_fixed_q() использует следующие
+	значения аргументов:
+	- <i>bpp_eps = 0.001</i>
+	- <i>lambda_min = 0.05*q*q</i>
+	- <i>lambda_max = 0.20*q*q</i>
+	- <i>lambda_eps = 0.0</i>
+	- <i>max_iterations = 0</i>
+
+	Код функции косвенно использует макрос #OPTIMIZATION_USE_VIRTUAL_ENCODING.
+	Если он определён будет производиться виртуальное кодирование коэффициентов,
+	что несколько быстрее. Однако не все реализации битовых кодеров могут
+	поддерживать это.
+*/
 encoder::enc_result_t
 encoder::encode_fixed_q(const w_t *const w, const q_t &q,
 						const h_t &bpp, tunes_t &tunes)
 {
-	static const h_t bpp_eps			= 0.01;
+	static const h_t bpp_eps			= 0.001;
 
 	static const lambda_t lambda_min	= 0.05*q*q;
-	static const lambda_t lambda_max	= 0.2*q*q;
-	static const lambda_t lambda_eps	= 0.0;
+	static const lambda_t lambda_max	= 0.20*q*q;
+	static const lambda_t lambda_eps	= 0;
+
+	static const sz_t max_iterations	= 0;
 
 	return encode_fixed_q(w, q, bpp, bpp_eps, tunes,
-						  lambda_min, lambda_max, lambda_eps, 0);
+						  lambda_min, lambda_max, lambda_eps,
+						  max_iterations);
 }
 
 
-/*!	\param[in] lambda
-	\param[out] tunes
+/*!	\param[in] w Спектр вейвлет коэффициентов преобразованного входного
+	изображения для кодирования
+
+	\param[in] bpp Необходимый битрейт (Bits Per Pixel), для достижения
+	которого будут подбираться параметры <i>q</i> и <i>lambda</i>.
+
+	\param[in] bpp_eps Необходимая точность, c которой <i>bpp</i> полученный
+	в результате поиска параметров <i>q</i> и <i>lambda</i> будет
+	соответствовать заданному.
+
+	\param[in] q_min Нижняя граница интервала поиска (минимальное
+	значение)
+
+	\param[in] q_max Верхняя граница интервала поиска (максимальное
+	значение)
+
+	\param[in] q_eps Необходимая погрешность определения квантователя
+	<i>q</i> при котором значение <i>RD функции Лагранжа</i> минимально
+	(при фиксированном параметре <i>lambda</i>).
+
+	\param[in] lambda_eps Точность, с которой будет подбираться параметр
+	<i>lambda</i>
+
+	\param[out] tunes Информация, необходимая для последующего
+	восстановления изображения
+
+	\return Результат проведённого поиска
+
+	\sa _search_q_lambda_for_bpp()
 */
-/*
-void encoder::cheap_encode(const lambda_t &lambda, tunes_t &tunes)
+encoder::enc_result_t
+encoder::encode_fixed_bpp(
+						const w_t *const w,
+						const h_t &bpp, const h_t &bpp_eps,
+						const q_t &q_min, const q_t &q_max, const q_t &q_eps,
+						const lambda_t &lambda_eps,
+						tunes_t &tunes)
 {
-	// оптимизация топологии ветвей
-	_optimize_result_t result =
-	#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
-	_optimize_wtree(lambda, true);
-	#else
-	_optimize_wtree(lambda, false);
-	#endif
+	// результат проведённой оптимизации
+	enc_result_t result;
+
+	// проверка входных параметров
+	assert(0 != w);
+
+	// загрузка спектра
+	_wtree.load_field<wnode::member_w>(w);
+
+	// минимизация RD функции Лагранжа
+	result.optimization = 
+		#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
+		_search_q_lambda_for_bpp(bpp, bpp_eps,
+								 q_min, q_max, q_eps,
+								 lambda_eps, tunes.models, true);
+		#else
+		_search_q_lambda_for_bpp(bpp, bpp_eps,
+								 q_min, q_max, q_eps,
+								 lambda_eps, tunes.models, false);
+		#endif
 
 	// кодирование всего дерева
 	_acoder.encode_start();
@@ -357,82 +497,52 @@ void encoder::cheap_encode(const lambda_t &lambda, tunes_t &tunes)
 
 	_acoder.encode_stop();
 
+	// сохранение параметров, необходимых для последующего декодирования
 	tunes.q = _wtree.q();
 
-	const h_t bpp = h_t((coder().encoded_sz() + sizeof(header)) * BITS_PER_BYTE) / h_t(_wtree.nodes_count());
+	// отчёт о проделанной работе
+	result.bpp = _calc_encoded_bpp();
 
-	std::cout << "bpp: " << std::setprecision(2) << bpp << std::endl;
+	return result;
 }
 
 
-//-----------------------------------------------------------------
-void encoder::encode_0(const q_t q, const lambda_t &lambda, header_t &header)
-{
-	// оптимизация топологии ветвей
-	#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
-	_optimize_result_t result = 
-	_optimize_wtree(lambda, q, header.models, true);
-	#else
-	_optimize_result_t result = 
-	_optimize_wtree(lambda, q, header.models, false);
-	#endif
+/*!	\param[in] w Спектр вейвлет коэффициентов преобразованного входного
+	изображения для кодирования
 
-	// кодирование всего дерева
-	_acoder.encode_start();
+	\param[in] bpp Необходимый битрейт (Bits Per Pixel), для достижения
+	которого будут подбираться параметры <i>q</i> и <i>lambda</i>.
 
-	_encode_wtree();
+	\param[out] tunes Информация, необходимая для последующего
+	восстановления изображения
 
-	_acoder.encode_stop();
+	\return Результат проведённого поиска
 
-	header.q = _wtree.q();
+	Эта упрощённая версия функции encode_fixed_bpp() придаёт следующим
+	аргументам соответствующие значения:
+	- <i>bpp_eps = 0.001</i>
+	- <i>q_min = 1</i>
+	- <i>q_max = 64</i>
+	- <i>q_eps = 0.1</i>
+	- <i>lambda_eps = 0</i>
 
-	const h_t bpp = h_t((coder().encoded_sz() + sizeof(header)) * BITS_PER_BYTE) / h_t(_wtree.nodes_count());
-
-	std::cout << "bpp: " << std::setprecision(2) << bpp << std::endl;
-}
-
-void encoder::encode_1(h_t &bpp, header_t &header)
-{
-	_search_result_t result =
-	_search_q_and_lambda(bpp, header.models);
-
-	// кодирование всего дерева
-	_acoder.encode_start();
-
-	_encode_wtree();
-
-	_acoder.encode_stop();
-
-	header.q = _wtree.q();
-
-	const h_t bppr = h_t((coder().encoded_sz() + sizeof(header)) * BITS_PER_BYTE) / h_t(_wtree.nodes_count());
-
-	std::cout << "bpp: " << std::setprecision(2) << bppr << std::endl;
-	std::cout << "q: " << result.optimized.q << std::endl;
-	std::cout << "lambda: " << result.optimized.lambda << std::endl;
-}
-
-void encoder::encode_2(const lambda_t &lambda, header_t &header)
-{
-	_search_result_t result =
-	_search_q_min_j(lambda, header.models, 1.0f, 64.0f, 0.1f, 0.1f);
-
-	// кодирование всего дерева
-	_acoder.encode_start();
-
-	_encode_wtree();
-
-	_acoder.encode_stop();
-
-	header.q = _wtree.q();
-
-	const h_t bpp = h_t((coder().encoded_sz() + sizeof(header)) * BITS_PER_BYTE) / h_t(_wtree.nodes_count());
-
-	std::cout << "bpp: " << std::setprecision(2) << bpp << std::endl;
-	std::cout << "q: " << result.optimized.q << std::endl;
-	std::cout << "lambda: " << result.optimized.lambda << std::endl;
-}
+	\sa _search_q_lambda_for_bpp(), encode_fixed_bpp
 */
+encoder::enc_result_t
+encoder::encode_fixed_bpp(const w_t *const w, const h_t &bpp,
+						  tunes_t &tunes)
+{
+	static const h_t bpp_eps			= 0.001;
+
+	static const q_t q_min				= q_t(1);
+	static const q_t q_max				= q_t(64);
+	static const q_t q_eps				= q_t(0.1);
+
+	static const lambda_t lambda_eps	= 0;
+
+	return encode_fixed_bpp(w, bpp, bpp_eps,
+							q_min, q_max, q_eps, lambda_eps, tunes);
+}
 
 
 /*!	param[in] data Указатель на блок памяти, содержащий закодированное
@@ -1632,7 +1742,7 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 
 
 /*!	\param[in] lambda Параметр <i>lambda</i> используемый для вычисления
-	<i>RD критерия</i> (<i>функции Лагранжа<i>). Представляет собой баланс
+	<i>RD критерия</i> (<i>функции Лагранжа</i>). Представляет собой баланс
 	между ошибкой и битовыми затратами. Меньшие значения <i>lambda</i>
 	соответствуют большему значению результиру<i>bpp</i>.
 
@@ -1959,42 +2069,182 @@ encoder::_search_lambda_at_bpp(
 }
 
 
-/*!
+/*!	\param[in] q Квантователь, который будет использован для квантования
+	спектра вейвлет коэффициентов
+
+	\param[in] bpp Целевые битовые затраты на кодирование изображения. При
+	поиске параметра <i>lambda</i> функцией _search_lambda_at_bpp() будет
+	использовано это значение в качестве соответствующего аргумента.
+
+	\param[in] bpp_eps Допустимая погрешность достижения заданных битовых
+	затрат. При поиске параметра <i>lambda</i> функцией _search_lambda_at_bpp()
+	будет использовано это значение в качестве соответствующего аргумента.
+
+	\param[in] lambda_eps Точность, с которой будет подбираться параметр
+	<i>lambda</i>
+
+	\param[out] models Описание моделей арифметического кодера, которое
+	необходимо для последующего декодирования изображения
+
+	\param[out] d Среднеквадратичное отклонение оптимизированного спектра
+	от исходного. Играет роль ошибки, вносимой алгоритмом сжатия.
+
+	\param[out] deviation Отклонение от заданного <i>bpp</i>. Если
+	результирующий <i>bpp</i> находится в пределах погрешности <i>bpp_eps</i>
+	этот аргумент выставляется в <i>0</i>. Иначе аргумент выставляется в
+	значение разности между желаемым <i>bpp</i> и полученным в процессе поиска
+	параметра <i>lambda</i>. Таким образом, получение отрицательных значений
+	аргумента означает, что полученный <i>bpp</i> больше желаемого и параметр
+	<i>q</i> необходимо увеличить (или поднять верхнию границу диапазона
+	поиска параметра <i>lambda</i>). Если же агрумент получит положительное
+	значение, то параметр <i>q</i> необходимо уменьшить (или опустить нижнию
+	границу диапазона поиска параметра <i>lambda</i>).
+
+	\param[in] virtual_encode Если <i>true</i> то будет производиться
+	виртуальное кодирование (только перенастройка моделей, без помещения
+	кодируемого символа в выходной поток). Виртуальное кодирование немного
+	быстрее, но его использование делает невозможным определение средних
+	битовых затрат на кодирование одного пиксела изображения.
+
+	\param[in] max_iterations Максимальное количество итераций, выполняемых
+	функцией _search_lambda_at_bpp()
+
+	\return Результат произведённого поиска
+
+	Параметр <i>lambda</i> будет искаться в диапазоне
+	<i>[0.05*q*q, 0.20*q*q]</i>.
+
+	\note Для корректной работы, функции необходимо, чтобы значения полей
+	wnode::w были корректны (содержали в себе коэффициенты исходного спектра).
+
+	\sa _search_lambda_at_bpp(), _search_q_lambda_for_bpp()
 */
-/*
-encoder::_search_result_t
-encoder::_search_q_and_lambda(const h_t &bpp,
-							  models_desc_t &models)
+encoder::optimize_result_t
+encoder::_search_q_lambda_for_bpp_iter(
+							const q_t &q, const h_t &bpp,
+							const h_t &bpp_eps, const lambda_t &lambda_eps,
+							models_desc_t &models, w_t &d, h_t &deviation,
+							const bool virtual_encode,
+							const sz_t &max_iterations)
 {
+	// квантование спектра
+	_wtree.quantize(q);
+
+	// определение характеристик моделей арифметического кодера
+	models = _mk_acoder_smart_models();
+	_acoder.use(_mk_acoder_models(models));
+
+	// выбор диапазона поиска параметра lambda
+	const lambda_t lambda_min = lambda_t(0.05f * q*q);
+	const lambda_t lambda_max = lambda_t(0.20f * q*q);
+
+	// поиск параметра lambda
+	const optimize_result_t result =
+				_search_lambda_at_bpp(bpp, bpp_eps,
+									  lambda_min, lambda_max, lambda_eps,
+									  virtual_encode, max_iterations);
+
+	// подсчёт среднеквадратичного отклонения (ошибки)
+	d = _wtree.distortion_wc<w_t>();
+
+	// установка параметра отклонения
+	if (result.bpp > bpp + bpp_eps)
+		deviation = (bpp - result.bpp);	// q необходимо увеличить (-1)
+	else if (result.bpp < bpp - bpp_eps)
+		deviation = (bpp - result.bpp);	// q необходимо уменьшить (+1)
+	else
+		deviation = 0;					// q удовлетворительное
+
+	// возврат результата
+	return result;
+}
+
+
+/*!	\param[in] bpp Необходимый битрейт (Bits Per Pixel), для достижения
+	которого будут подбираться параметры <i>q</i> и <i>lambda</i>.
+
+	\param[in] bpp_eps Необходимая точность, c которой <i>bpp</i> полученный
+	в результате поиска параметров <i>q</i> и <i>lambda</i> будет
+	соответствовать заданному.
+
+	\param[in] q_min Нижняя граница интервала поиска (минимальное
+	значение)
+
+	\param[in] q_max Верхняя граница интервала поиска (максимальное
+	значение)
+
+	\param[in] q_eps Необходимая погрешность определения квантователя
+	<i>q</i> при котором значение <i>RD функции Лагранжа</i> минимально
+	(при фиксированном параметре <i>lambda</i>).
+
+	\param[in] lambda_eps Точность, с которой будет подбираться параметр
+	<i>lambda</i>
+
+	\param[out] models Описание моделей арифметического кодера, которое
+	необходимо для последующего декодирования изображения
+
+	\param[in] virtual_encode Если <i>true</i> то будет производиться
+	виртуальное кодирование (только перенастройка моделей, без помещения
+	кодируемого символа в выходной поток). Виртуальное кодирование немного
+	быстрее, но его использование делает невозможным определение средних
+	битовых затрат на кодирование одного пиксела изображения.
+
+	Функция использует метод золотого сечения для подбора параметра <i>q</i>,
+	а для подбора параметра <i>lambda</i> использует функцию
+	_search_q_lambda_for_bpp_iter().
+
+	\sa _search_q_lambda_for_bpp_iter(), _search_q_lambda_for_bpp()
+*/
+encoder::optimize_result_t
+encoder::_search_q_lambda_for_bpp(
+							const h_t &bpp, const h_t &bpp_eps,
+							const q_t &q_min, const q_t &q_max,
+							const q_t &q_eps, const lambda_t &lambda_eps,
+							models_desc_t &models,
+							const bool virtual_encode)
+{
+	// максимальное количество итераций для подбора параметра lambda
+	static const sz_t max_iterations	= 0;
+
+	// коэффициенты золотого сечения
 	static const q_t factor_b = q_t((3.0 - sqrt(5.0)) / 2.0);
     static const q_t factor_c = q_t((sqrt(5.0) - 1.0) / 2.0);
 
-	q_t q_a	= 4;
-	q_t q_d	= 64;
+	// верхняя и нижняя граница поиска параметра q
+	q_t q_a	= q_min;
+	q_t q_d	= q_max;
 
+	// вычисление значений в первых двух точках
 	q_t q_b = q_a + factor_b * (q_d - q_a);
 	q_t q_c = q_a + factor_c * (q_d - q_a);
 
-	w_t dw_b = 0;
-	_search_result_t result_b = _search_q_and_lambda_iter(bpp, q_b, models,
-														  dw_b, q_d - q_a);
-	w_t dw_c = 0;
-	_search_result_t result_c = _search_q_and_lambda_iter(bpp, q_c, models,
-														  dw_c, q_d - q_a);
+	// подбор параметра lambda в первой точке
+	w_t dw_b		= 0;
+	h_t deviation_b	= 0;
+	optimize_result_t result_b =
+					_search_q_lambda_for_bpp_iter(
+										q_b, bpp, bpp_eps, lambda_eps, models,
+										dw_b, deviation_b, virtual_encode,
+										max_iterations);
 
-	_search_result_t result = result_c;
+	// подбор параметра lambda во второй точке
+	w_t dw_c		= 0;
+	h_t deviation_c	= 0;
+	optimize_result_t result_c =
+					_search_q_lambda_for_bpp_iter(
+										q_c, bpp, bpp_eps, lambda_eps, models,
+										dw_c, deviation_c, virtual_encode,
+										max_iterations);
 
-	while (0.01 < abs(q_b - q_c))
+	// результаты последнего поиска параметра lambda
+	h_t deviation				= deviation_c;
+	optimize_result_t result	= result_c;
+
+	// сужение диапазона поиска методом золотого сечения
+	while (q_eps < abs(q_b - q_c))
     {
-		std::cout << "+";
-		// _dbg_out_stream << "\td_b: " << dw_b << "; d_c: " << dw_c << std::endl;
-		// _dbg_out_stream << "\t[" << q_a << ", " << q_b << ", ";
-		// _dbg_out_stream << q_c << ", " << q_d << "] -> ";
-
-        if (dw_b <= dw_c)
+        if (deviation > 0 || (0 == deviation && dw_b <= dw_c))
         {
-			// _dbg_out_stream << "{dw_b <= dw_c}" << std::endl;
-
             q_d = q_c;
             q_c = q_b;
             dw_c = dw_b;
@@ -2002,14 +2252,15 @@ encoder::_search_q_and_lambda(const h_t &bpp,
 			// a         b    c    d
 			// a    b    c    d
 
-			w_t tmp_dw_b = 0;
-			result = result_b = _search_q_and_lambda_iter(bpp, q_b, models, dw_b,
-														  q_d - q_a);
+			result = result_b =
+					_search_q_lambda_for_bpp_iter(
+										q_b, bpp, bpp_eps, lambda_eps, models,
+										dw_b, deviation_b, virtual_encode,
+										max_iterations);
+			deviation = deviation_b;
         }
         else
         {
-			// _dbg_out_stream << "{dw_b > dw_c}" << std::endl;
-
             q_a = q_b;
             q_b = q_c;
             dw_b = dw_c;
@@ -2017,21 +2268,17 @@ encoder::_search_q_and_lambda(const h_t &bpp,
 			// a    b    c         d
 			//      a    b    c    d
 
-			result = result_c = _search_q_and_lambda_iter(bpp, q_c, models, dw_c,
-														  q_d - q_a);
+			result = result_c =
+					_search_q_lambda_for_bpp_iter(
+										q_c, bpp, bpp_eps, lambda_eps, models,
+										dw_c, deviation_b, virtual_encode,
+										max_iterations);
+			deviation = deviation_c;
         }
     }
 
-	std::cout << "!";
-
-	w_t dw = 0;
-	result = _search_q_and_lambda_iter(bpp, result.optimized.q, models, dw, -169);
-
-	std::cout << std::endl;
-
 	return result;
 }
-*/
 
 
 /*!	\param[in] including_tunes Если этот параметр равен <i>true</i> в
