@@ -12,8 +12,8 @@
 	<Configurations>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory="../../obj/cwrap"
-			IntermediateDirectory="../../obj/cwrap"
+			OutputDirectory="../../obj/cwrap_d"
+			IntermediateDirectory="../../obj/cwrap_d"
 			ConfigurationType="1"
 			CharacterSet="2">
 			<Tool
@@ -91,7 +91,7 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				OutputFile="../../bin/wictool_d.exe"
+				OutputFile="../../bin/wictool.exe"
 				LinkIncremental="1"
 				GenerateDebugInformation="TRUE"
 				SubSystem="1"
@@ -129,6 +129,9 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}">
 			<File
 				RelativePath=".\wictool.cpp">
+			</File>
+			<File
+				RelativePath=".\wictool.h">
 			</File>
 		</Filter>
 		<Filter

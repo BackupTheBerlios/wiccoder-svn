@@ -65,8 +65,6 @@
 #define	OPTIMIZATION_USE_VIRTUAL_ENCODING
 #undef	OPTIMIZATION_USE_VIRTUAL_ENCODING
 
-#define LIBWIC_DEBUG
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // wic namespace
@@ -107,15 +105,74 @@ public:
 
 	//!	\brief Структура для хранения информации необходимой для последующего
 	//!	декодирования закодированных данных
-	/*!	\todo Более подробно описать эту структуру и её использование
+	/*!	Структура содержит всю информацию, необходимую для настройки
+		декодера. На данном этапе структура содержит:
+		- использованный квантователь
+		- описание моделей арифметического кодера
 	*/
-	struct header_t
+	struct tunes_t
 	{
 		//!	\brief Квантователь
 		q_t q;
 		//!	\brief Модели арифметического кодера
 		models_desc_t models;
 	};
+
+	//!	\brief Структура описывает результат проведённой оптимизации
+	//!	топологии ветвей всего спектра
+	/*!	Структура несёт в себе информацию о результатах работы одной
+		из самых важных частей алгоритма - оптимизации топологии
+		деревьев в вейвлет спектре.
+	*/
+	struct optimize_result_t
+	{
+		//!	\brief Значение квантователя, при котором была произведена
+		//!	оптимизация
+		q_t q;
+		//!	\brief Значение параметра <i>lambda</i> используемого для
+		//!	вычисления <i>RD</i> критерия (<i>функции Лагранжа</i>)
+		lambda_t lambda;
+		//!	\brief Значение <i>RD функции Лагранжа</i> для всего спектра
+		j_t j;
+		//!	\brief Примерное среднее количество бит, затрачиваемых на кодирование
+		//!	одного пиксела (элемента изображения)
+		/*!	Данное поле доступно (заполняется корректным значением) только
+			если при оптимизации был выбран режим без виртуального кодирования
+			(см. #OPTIMIZATION_USE_VIRTUAL_ENCODING). Является некоторой
+			приблизительной оценкой битовых затрат, необходимых для сжатия
+			изображения при использовании результатов оптимизации. Реальные
+			битовые затраты обычно несколько меньше.
+		*/
+		h_t bpp;
+	};
+
+	//!	\brief Структура представляющая результат проведённого кодирования
+	/*! Данная структура носит чисто информативный характер и не является
+		необходимой для последующего восстановления изображения. По данным
+		этой структуры можно сделать вывод о степени и качестве сжатия
+		изображения, а также о результатах проведения отдельных этапов
+		кодирования (например, оптимизации или подбора параметров).
+	*/
+	struct enc_result_t
+	{
+		//!	\brief Результат проведённой оптимизации
+		optimize_result_t optimization;
+		//!	\brief Среднее количество бит, затрачиваемых на кодирование
+		//!	одного пиксела (элемента изображения)
+		/*!	Данное поле доступно (заполняется корректным значением) всегда и
+			является реальной характеристикой, а не абстрактной приблизительной
+			оценкой битовых затрат.
+		*/
+		h_t bpp;
+	};
+
+	//!	\brief Тип для функции обратного вызова, вызываемой по завершении
+	//!	этапа оптимизации топологии ветвей дерева вейвлет коэффициентов
+	/*!	\param[in] result Результат произведённой оптимизации
+		\param[in] param Пользовательский параметр
+	*/
+	typedef void (* optimize_callback_f)(const optimize_result_t &result,
+										 void *const param);
 
 	// public constants --------------------------------------------------------
 
@@ -147,21 +204,82 @@ public:
 
 	//@}
 
+	//!	\name Настройка енкодера
+	//@{
+
+	//!	\brief Устанавливает функцию обратного вызова, вызываемую при
+	//!	завершении оптимизации топологии ветвей дерева вейвлет коэффициентов
+	void optimize_callback(const optimize_callback_f &callback,
+						   void *const param = 0);
+
+	//@}
+
 	//!	\name Функции кодированя
 	//@{
 
-	//!	\brief Функция осуществляющая непосредственное кодирование изображения
-	void encode(const w_t *const w, const q_t q, const lambda_t &lambda,
-				header_t &header);
+	//!	\brief Производит кодирование изображения с заранее заданными
+	//!	параметрами <i>q</i> и <i>lambda</i>
+	enc_result_t encode(const w_t *const w, const q_t q, const lambda_t &lambda,
+						tunes_t &tunes);
+
+	//!	\brief Производит кодирование изображения при фиксированном параметре
+	//!	<i>lambda</i>, подбирая параметр <i>q</i> минимизируя значение функции
+	//!	<i>RD критерия Лагранжа</i>
+	enc_result_t encode_fixed_lambda(
+						const w_t *const w, const lambda_t &lambda,
+						tunes_t &tunes,
+						const q_t &q_min, const q_t &q_max, const q_t &q_eps,
+						const j_t &j_eps = 0, const sz_t &max_iterations = 0);
+
+	//!	\brief Производит кодирование изображения при фиксированном параметре
+	//!	<i>lambda</i>, подбирая параметр <i>q</i> минимизируя значение функции
+	//!	<i>RD критерия Лагранжа</i> (упрощённая версия)
+	enc_result_t encode_fixed_lambda(const w_t *const w, const lambda_t &lambda,
+									 tunes_t &tunes);
+
+	//!	\brief Производит кодирование изображения при фиксированном параметре
+	//!	<i>q</i>, подбирая параметр <i>lambda</i> пытаясь достичь заданных
+	//!	битовых затрат
+	enc_result_t encode_fixed_q(
+						const w_t *const w, const q_t &q,
+						const h_t &bpp, const h_t &bpp_eps,
+						tunes_t &tunes,
+						const lambda_t &lambda_min,
+						const lambda_t &lambda_max,
+						const lambda_t &lambda_eps = 0,
+						const sz_t &max_iterations = 0);
+
+	//!	\brief Производит кодирование изображения при фиксированном параметре
+	//!	<i>q</i>, подбирая параметр <i>lambda</i> пытаясь достичь заданных
+	//!	битовых затрат (упрощённая версия)
+	enc_result_t encode_fixed_q(const w_t *const w, const q_t &q,
+								const h_t &bpp, tunes_t &tunes);
+
+	//!	\brief Производит кодирование изображения, подбирая параметры
+	//!	<i>q</i> и <i>lambda</i> чтобы достич заданных битовых затрат с
+	//!	минимальной ошибкой кодирования
+	enc_result_t encode_fixed_bpp(
+						const w_t *const w,
+						const h_t &bpp, const h_t &bpp_eps,
+						const q_t &q_min, const q_t &q_max, const q_t &q_eps,
+						const lambda_t &lambda_eps,
+						tunes_t &tunes);
+
+	//!	\brief Производит кодирование изображения, подбирая параметры
+	//!	<i>q</i> и <i>lambda</i> чтобы достич заданных битовых затрат с
+	//!	минимальной ошибкой кодирования (упрощённая версия)
+	enc_result_t encode_fixed_bpp(const w_t *const w, const h_t &bpp,
+								  tunes_t &tunes);
 
 	//@}
 
 	//!	\name Функции декодирования
 	//@{
 
-	//!	\brief Функция осуществляющая непосредственное декодирование изображения
+	//!	\brief Функция осуществляющая непосредственное декодирование
+	//!	сжатого изображения
 	void decode(const byte_t *const data, const sz_t data_sz,
-				const header_t &header);
+				const tunes_t &tunes);
 
 	//@}
 
@@ -190,48 +308,26 @@ public:
 
 	//@}
 
+	//!	\brief Вспомогательные функции
+	//@{
+
+	//!	\brief Преобразует показатель качества в параметр кодирования
+	//!	<i>lambda</i>
+	static lambda_t quality_to_lambda(const double &quality);
+
+	//@}
+
 protected:
 	// protected types ---------------------------------------------------------
 
 	//! \brief Структура описывает топологию подрезанной ветви
-	struct _branch_topology_t {
+	struct _branch_topology_t
+	{
 		//!	\brief Групповой признак подрезания ветвей
 		n_t n;
 		//!	\brief Значение функции <i>Лагранжа</i>, при выполнении
 		//!	подрезания ветвей, соответсвенно полю <i>n</i>
 		j_t j;
-	};
-
-	//!	\brief Структура описывает результат проведённой оптимизации
-	//!	топологии ветвей всего спектра
-	struct _optimize_result_t {
-		//!	\brief Значение квантователя, при котором была
-		//!	произведена оптимизация
-		q_t q;
-		//!	\brief Значение параметра <i>lambda</i> используемого для
-		//!	вычисления <i>RD</i> критерия (функции Лагранжа)
-		lambda_t lambda;
-		//!	\brief Значение функции <i>Лагранжа</i> для всего спектра
-		j_t j;
-		//!	\brief Среднее количество бит, затрачиваемых на кодирование
-		//!	одного пиксела (элемента изображения)
-		h_t bpp;
-	};
-
-	//!	\brief Структура описывает результат поиска (подбора) параметра
-	//!	кодирования
-	struct _search_result_t {
-		//!	\brief Результат проведённой оптимизации топологии ветвей
-		_optimize_result_t optimized;
-	};
-
-	//!	\brief Структура описывает результат кодирования
-	struct _encode_result_t {
-		//!	\brief Значение функции <i>Лагранжа</i> для всего спектра
-		j_t j;
-		//!	\brief Среднее количество бит, затрачиваемых на кодирование
-		//!	одного пиксела (элемента изображения)
-		h_t bpp;
 	};
 
 	// protected methods -------------------------------------------------------
@@ -580,71 +676,63 @@ protected:
 	//@{
 
 	//!	\brief Производит оптимизацию топологии всех ветвей в спектре
-	_optimize_result_t _optimize_wtree(const lambda_t &lambda,
-									   const bool virtual_encode = false);
+	optimize_result_t _optimize_wtree(const lambda_t &lambda,
+									  const bool refresh_wtree = false,
+									  const bool virtual_encode = false);
 
 	//!	\brief Производит оптимизацию топологии всех ветвей в спектре
 	//! с предварительным квантованием и настройкой арифметического
 	//!	кодера.
-	_optimize_result_t _optimize_wtree(const lambda_t &lambda,
-									   const q_t &q, models_desc_t &models,
-									   const bool virtual_encode = false);
+	optimize_result_t _optimize_wtree(const lambda_t &lambda,
+									  const q_t &q, models_desc_t &models,
+									  const bool virtual_encode = false);
+
+	//!	\brief Производит поиск квантователя <i>q</i> при заданном параметре
+	//!	<i>lambda</i>, минимизируя значение <i>RD функции Лагранжа J</i>
+	optimize_result_t _search_q_min_j(
+							const lambda_t &lambda,
+							const q_t &q_min, const q_t &q_max,
+							const q_t &q_eps, models_desc_t &models,
+							const j_t &j_eps = 0,
+							const bool virtual_encode = false,
+							const sz_t &max_iterations = 0);
 
 	//!	\brief Производит поиск параметра <i>lambda</i>, подбирая его
 	//! под битрейт <i>bpp</i>
-	_search_result_t _search_lambda(const h_t &bpp,
-									const lambda_t &lambda_min,
-									const lambda_t &lambda_max,
-									const h_t &bpp_eps,
-									const lambda_t &lambda_eps,
-									const bool virtual_encode = false);
+	optimize_result_t _search_lambda_at_bpp(
+							const h_t &bpp, const h_t &bpp_eps,
+							const lambda_t &lambda_min,
+							const lambda_t &lambda_max,
+							const lambda_t &lambda_eps,
+							const bool virtual_encode = false,
+							const sz_t &max_iterations = 0);
 
-	//!	\brief Производит поиск квантователя <i>q</i> при фиксированном
-	//!	параметре <i>lambda</i> минимизируя значение <i>RD</i> функции
-	//!	Лагранжа</i> <i>J</i>
-	_search_result_t _search_q_min_j(const lambda_t &lambda,
-									 models_desc_t &models,
-									 const q_t &q_min, const q_t &q_max,
-									 const q_t &q_eps, const j_t &j_eps = 0,
-									 const bool virtual_encode = false);
+	//!	\brief Производит итерацию поиска параметра <i>lambda</i> при
+	//! заданном параметре <i>q</i> для функции _search_q_lambda_for_bpp
+	optimize_result_t _search_q_lambda_for_bpp_iter(
+							const q_t &q, const h_t &bpp,
+							const h_t &bpp_eps, const lambda_t &lambda_eps,
+							models_desc_t &models, w_t &d, h_t &deviation,
+							const bool virtual_encode = false,
+							const sz_t &max_iterations = 0);
 
-	_search_result_t _search_q_and_lambda_iter(const h_t &bpp, const q_t &q,
-											   models_desc_t &models,
-											   w_t &d)
-	{
-		static const h_t bpp_eps			= 0.01f;
-		static const lambda_t lambda_eps	= 0.001f;
+	//!	\brief Производит поиск параметров <i>q</i> и <i>lambda</i>, пытаясь
+	//!	достичь нужных битовых затрат на кодирование изображения
+	optimize_result_t _search_q_lambda_for_bpp(
+							const h_t &bpp, const h_t &bpp_eps,
+							const q_t &q_min, const q_t &q_max,
+							const q_t &q_eps, const lambda_t &lambda_eps,
+							models_desc_t &models,
+							const bool virtual_encode = false);
 
-		_wtree.quantize(q);
-		models = _mk_acoder_smart_models();
-		_acoder.use(_mk_acoder_models(models));
+	//@}
 
-		const q_t lambda_min = 0.05f*q*q;
-		const q_t lambda_max = 0.20f*q*q;
+	//!	\name Вычисление характеристик
+	//@{
 
-		_search_result_t result = _search_lambda(bpp, lambda_min, lambda_max,
-												 bpp_eps, lambda_eps);
-
-		if (result.optimized.bpp >= bpp + bpp_eps)
-		{
-			d = 1000000000;
-			_dbg_out_stream << "\tbad" << std::endl;
-		}
-		else if (result.optimized.bpp <= bpp - bpp_eps)
-		{
-			d = 1000000000;
-			_dbg_out_stream << "\tbad" << std::endl;
-		}
-		else
-		{
-			d = _wtree.distortion_wc<w_t>();
-		}
-
-		return result;
-	}
-
-	_search_result_t _search_q_and_lambda(const h_t &bpp,
-										  models_desc_t &models);
+	//!	\brief Возвращает реальные средние битовые затраты на кодирование
+	//!	одного элемента изображения (пикселя)
+	h_t _calc_encoded_bpp(const bool including_tunes = true);
 
 	//@}
 
@@ -656,6 +744,14 @@ private:
 
 	//! \brief Арифметический кодер
 	acoder _acoder;
+
+	//!	\brief Функция вызываемая после выполнения операции оптимизации
+	//!	ветвей деревая вейвлет коэффициентов
+	optimize_callback_f _optimize_callback;
+
+	//!	\brief Параметр, передаваемый в функцию обратного вызова
+	//!	_optimize_callback
+	void *_optimize_callback_param;
 
 	#ifdef LIBWIC_DEBUG
 	//!	\brief Стандартный файловый поток для вывода информации в

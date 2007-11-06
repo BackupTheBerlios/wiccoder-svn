@@ -38,16 +38,20 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "wictool", "wictool\wictool.
 		{FA912ACC-27C1-4CFF-B314-95E01E6FB783} = {FA912ACC-27C1-4CFF-B314-95E01E6FB783}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "wicfilters", "wicfilters\wicfilters.vcproj", "{1C99052A-6D05-4F6F-A3D8-60276F3EBF0D}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfiguration) = preSolution
 		Debug = Debug
 		Release = Release
 	EndGlobalSection
+	GlobalSection(ProjectDependencies) = postSolution
+	EndGlobalSection
 	GlobalSection(ProjectConfiguration) = postSolution
 		{4D46FB41-70DC-461E-AB7E-4DE86E3A6ADE}.Debug.ActiveCfg = Debug|Win32
-		{4D46FB41-70DC-461E-AB7E-4DE86E3A6ADE}.Debug.Build.0 = Debug|Win32
 		{4D46FB41-70DC-461E-AB7E-4DE86E3A6ADE}.Release.ActiveCfg = Release|Win32
-		{4D46FB41-70DC-461E-AB7E-4DE86E3A6ADE}.Release.Build.0 = Release|Win32
 		{FA912ACC-27C1-4CFF-B314-95E01E6FB783}.Debug.ActiveCfg = Debug|Win32
 		{FA912ACC-27C1-4CFF-B314-95E01E6FB783}.Debug.Build.0 = Debug|Win32
 		{FA912ACC-27C1-4CFF-B314-95E01E6FB783}.Release.ActiveCfg = Release|Win32
@@ -72,6 +76,10 @@ Global
 		{28AC9211-0C0A-46E1-B1D3-C3D05B8E7297}.Debug.Build.0 = Debug|Win32
 		{28AC9211-0C0A-46E1-B1D3-C3D05B8E7297}.Release.ActiveCfg = Release|Win32
 		{28AC9211-0C0A-46E1-B1D3-C3D05B8E7297}.Release.Build.0 = Release|Win32
+		{1C99052A-6D05-4F6F-A3D8-60276F3EBF0D}.Debug.ActiveCfg = Debug|Win32
+		{1C99052A-6D05-4F6F-A3D8-60276F3EBF0D}.Debug.Build.0 = Debug|Win32
+		{1C99052A-6D05-4F6F-A3D8-60276F3EBF0D}.Release.ActiveCfg = Release|Win32
+		{1C99052A-6D05-4F6F-A3D8-60276F3EBF0D}.Release.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 	EndGlobalSection
