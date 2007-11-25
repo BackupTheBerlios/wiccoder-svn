@@ -61,6 +61,18 @@ encoder::~encoder() {
 	\param[in] param Пользовательский параметр, передаваемый в функцию
 	обратного вызова
 */
+void encoder::optimize_tree_callback(const optimize_tree_callback_f &callback,
+									 void *const param)
+{
+	_optimize_tree_callback			= callback;
+	_optimize_tree_callback_param	= param;
+}
+
+
+/*!	\param[in] callback Функция обратного вызова
+	\param[in] param Пользовательский параметр, передаваемый в функцию
+	обратного вызова
+*/
 void encoder::optimize_callback(const optimize_callback_f &callback,
 								void *const param)
 {
@@ -1608,7 +1620,14 @@ j_t encoder::_optimize_tree(const p_t &root, const lambda_t &lambda)
 	_optimize_tree_step_2(root, lambda);
 	_optimize_tree_step_3(root, lambda);
 
-	return (_wtree.at(root).j1);
+	const j_t j = _wtree.at(root).j1;
+
+	if (0 != _optimize_tree_callback)
+	{
+		_optimize_tree_callback(root, _optimize_tree_callback_param);
+	}
+
+	return j;
 }
 
 

@@ -20,8 +20,8 @@
 // standard C++ library headers
 #include <new>							// for std::bad_alloc exception class
 #include <vector>
+#include <string>
 #include <assert.h>
-#include <string>						// for debug output only
 #include <fstream>						// for debug output only
 #include <iomanip>						// for debug output only
 
@@ -31,6 +31,14 @@
 
 // libwic headers
 #include <wic/libwic/types.h>
+
+
+////////////////////////////////////////////////////////////////////////////////
+// defines
+
+//!	\brief Если этот макрос определён, модели арифметического кодера будут
+//!	загружаться из файла "models.bin"
+#define LOAD_ARCODER_MODELS
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -139,6 +147,21 @@ public:
 	typedef std::vector<model_t> models_t;
 
 	// public constants --------------------------------------------------------
+
+	//!	\brief Константы соответствующие различным группам моделей
+	//!	арифметического кодера
+	/*!	Данные константы используются в функциях загрузки и сохранения моделей
+		арифметического кодера.
+
+		\sa save_models(), load_models()
+	*/
+	enum models_e
+	{
+		//!	\brief Модели арифметического енкодера
+		encoder_models	= 0x01,
+		//!	\brief Модели арифметического декодера
+		decoder_models	= 0x02
+	};
 
 	// public methods ----------------------------------------------------------
 
@@ -252,6 +275,17 @@ public:
 	{
 		return static_cast<result_t>(get_value(model_no));
 	}
+
+	//@}
+
+	//!	\name Загрузка и сохранение моделей
+	//@{
+
+	//!	\brief Производит сохранение моделей арифметического кодера
+	void save_models(const models_e &models, const std::string &path);
+
+	//!	\brief Производит загрузку моделей арифметического кодера
+	void load_models(const models_e &models, const std::string &path);
 
 	//@}
 

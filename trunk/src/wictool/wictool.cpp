@@ -1044,6 +1044,28 @@ void free_spectre(spectre_t &spectre)
 
 /*!
 */
+void wic_optimize_tree_callback(const wic::p_t &root,
+								void *const param)
+{
+	if (0 == param) return;
+	wic::encoder *const encoder = (wic::encoder *)param;
+
+	static int i = 0;
+
+	if (0 == root.getx() && 0 == root.gety()) i = 0;
+
+	if (16 == ++i)
+	{
+		#ifndef LOAD_ARCODER_MODELS
+		encoder->coder().save_models(wic::acoder::encoder_models,
+									 "models.bin");
+		#endif
+	}
+}
+
+
+/*!
+*/
 void wic_optimize_callback(const wic::encoder::optimize_result_t &result,
 						   void *const param)
 {
@@ -1700,6 +1722,8 @@ int main(int argc, char **args)
 
 			wic::encoder encoder(spectre.w, spectre.h, params.steps);
 			encoder.optimize_callback(wic_optimize_callback, 0);
+			encoder.optimize_tree_callback(wic_optimize_tree_callback,
+										   &encoder);
 
 			wic::encoder::tunes_t tunes;
 			wic::encoder::enc_result_t enc_result;

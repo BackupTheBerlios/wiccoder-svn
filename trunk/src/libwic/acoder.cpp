@@ -104,6 +104,10 @@ void acoder::encode_start()
 	// инициализация моделей
 	_init_models(_aencoder);
 
+	#ifdef LOAD_ARCODER_MODELS
+	load_models(encoder_models, "models.bin");
+	#endif
+
 	#ifdef LIBWIC_DEBUG
 	for (models_t::iterator i = _models.begin(); _models.end() != i; ++i)
 	{
@@ -195,6 +199,10 @@ void acoder::decode_start()
 	// инициализация моделей
 	_init_models(_adecoder);
 
+	#ifdef LOAD_ARCODER_MODELS
+	load_models(decoder_models, "models.bin");
+	#endif
+
 	#ifdef LIBWIC_DEBUG
 	for (models_t::iterator i = _models.begin(); _models.end() != i; ++i)
 	{
@@ -248,6 +256,48 @@ acoder::value_type acoder::get_value(const sz_t model_no)
 	#endif
 
 	return (dec_val - model._delta);
+}
+
+
+/*!	\param[in] models Идентификатор группы моделей для сохранения
+	\param[in] path Путь к файлу в который будут сохранены модели
+*/
+void acoder::save_models(const models_e &models, const std::string &path)
+{
+	switch (models)
+	{
+	case encoder_models:
+		_aencoder->save(path.c_str());
+		break;
+
+	case decoder_models:
+		_adecoder->save(path.c_str());
+		break;
+
+	default:
+		break;
+	}
+}
+
+
+/*!	\param[in] models Идентификатор группы моделей для загрузки
+	\param[in] path Путь к файлу из которого будут загружены модели
+*/
+void acoder::load_models(const models_e &models, const std::string &path)
+{
+	switch (models)
+	{
+	case encoder_models:
+		_aencoder->load(path.c_str());
+		break;
+
+	case decoder_models:
+		_adecoder->load(path.c_str());
+		break;
+
+	default:
+		break;
+	}
 }
 
 
