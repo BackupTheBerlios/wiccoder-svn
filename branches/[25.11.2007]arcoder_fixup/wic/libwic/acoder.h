@@ -39,6 +39,7 @@
 //!	\brief Если этот макрос определён, модели арифметического кодера будут
 //!	загружаться из файла "models.bin"
 #define LOAD_ARCODER_MODELS
+#undef LOAD_ARCODER_MODELS
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -112,9 +113,9 @@ public:
 		*/
 		value_type _symbols;
 
+		#ifdef LIBWIC_DEBUG
 		//!	\name Поля для отладки
 		//@{
-		#ifdef LIBWIC_DEBUG
 
 		//!	\brief Количество символов, закодированных с использованием этой
 		//!	модели
@@ -139,8 +140,8 @@ public:
 		*/
 		std::vector<unsigned int> _decoded_freqs;
 
-		#endif
 		//@}
+		#endif
 	};
 
 	//!	\brief Описание моделей, используемых арифметическим кодером

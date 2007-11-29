@@ -60,10 +60,11 @@ int main(int argc, char **args) {
 	tests_list.push_back(test_snake_2d_iterator);
 	tests_list.push_back(test_LL_children_iterator);
 	tests_list.push_back(test_wtree_prnt);
-	tests_list.push_back(test_acoder_integration);
+	// tests_list.push_back(test_acoder_integration);
 	tests_list.push_back(test_lvl_from_point);
 	tests_list.push_back(test_from_point);
 	tests_list.push_back(test_dpcm);
+	tests_list.push_back(test_acoder_dummy_saves);
 
 	// for each item in list
 	for (tests_list_t::const_iterator i = tests_list.begin();

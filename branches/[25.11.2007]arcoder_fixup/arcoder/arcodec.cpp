@@ -229,6 +229,156 @@ void arcoder_base::load(std::istream& ins)
 		throw MException(0,"Invalid configuration file.");
 }
 
+
+/*!	\param[in,out] outs Output stream
+	\param[in] count Number of models to save
+	\param[in] offsets Array of size <i>count</i> with offsets of
+	zero-symbol in models.
+*/
+void arcoder_base::load_dummy(std::istream& ins,
+							  const int count,
+							  const int *const offsets)
+{
+	// Число сохранённых моделей
+	const int N = ins.get();
+
+	// Проверка аргументов функции
+	if (count > models.Size() || count > N)
+		throw MException(0, "count argument too large");
+	if (count > N)
+		throw MException(0, "count argument too large");
+
+	// Загрузка смещений
+	int *const saved_offsets = new int[N];
+
+	ins.read((char *)saved_offsets,	N * sizeof(saved_offsets[0]));
+
+	// загружаем каждую модель по отдельности
+	for (int i = 0; count > i; ++i)
+	{
+		// Количество символов в загруженной модели
+		int M = 0;
+
+		ins.read((char *)(&M), sizeof(M));
+
+		// Количество использованных символов в моделе
+		int U = 0;
+
+		ins.read((char *)(&U), sizeof(U));
+
+		// Количество символов в текущей модели
+		int L = models[i].NO_OF_CHARS;
+
+		// Частоты появления символов в загруженной модели
+		int *const saved_freq = new int[M + 1];
+		ins.read((char *)saved_freq,
+				 (M + 1)*sizeof(saved_freq[0]));
+
+		// Корректировка размеров
+		M += 1;
+		L += 1;
+
+		// Корректировка загруженной модели
+		if (M >= U && L >= U  && 0 < U) --(saved_freq[U - 1]);
+
+		// Выбор модели в арифметическом кодере
+		model(i);
+
+		const int d = saved_offsets[i] - offsets[i];
+
+		// Изменение частоты символа
+		for (int k1 = 0; M > k1 && L > k1; ++k1)
+		{
+			const int k2 = k1 + d;
+
+			for(int j = 0; saved_freq[k1] > j; ++j)
+				update_model(k2);
+		}
+
+		delete[] saved_freq;
+	}
+
+	// Удаление памяти занимаемой загруженными смещениями
+	delete[] saved_offsets;
+}
+
+
+/*!	\param[in] modelfile Путь к файлу с сохранёнными моделями
+	\param[in] count Количество загружаемых моделей
+	\param[in] offsets Массив смещений нулевых элементов
+*/
+bool arcoder_base::load_dummy(const char *const modelfile,
+							  const int count,
+							  const int *const offsets)
+{
+	std::ifstream ins(modelfile, std::ios::in | std::ios::binary);
+
+	if (ins.fail()) return false;
+
+	load_dummy(ins, count, offsets);
+
+	return true;
+}
+
+
+/*!	\param[in,out] outs Output stream
+	\param[in] count Number of models to save
+	\param[in] offsets Array of size <i>count</i> with offsets of
+	zero-symbol in models.
+*/
+void arcoder_base::save_dummy(std::ostream& outs,
+							  const int count,
+							  const int *const offsets)
+{
+	// Вибираем наименьшую из двух характеристик количества
+	// сохраняемых моделей
+	const int N = (count > models.Size())? models.Size(): count;
+
+	// Число сохраняемых моделей
+	outs.put(N);
+
+	// Сохранение смещений
+	outs.write((char *)offsets,	N * sizeof(offsets[0]));
+
+	// Сохранение каждой модели по отдельности
+	for (int i = 0; N > i; ++i)
+	{
+		// Количество символов в модели
+		const int M = models[i].NO_OF_CHARS;
+
+		outs.write((char *)(&M), sizeof(M));
+		const int kkk = models[i].nsymbols;
+
+		// Количество использованных символов в моделе
+		const int U = models[i].nsymbols;
+		outs.write((char *)(&U), sizeof(U));
+
+		// частоты появления символов
+		const int *const freq = models[i].freq();
+		outs.write((char *)freq, (M + 1)*sizeof(freq[0]));
+	}
+}
+
+
+/*!	\param[in] modelfile Путь к файлу для сохранения моделей
+	\param[in] count Количество сохраняемых моделей
+	\param[in] offsets Массив смещений нулевых элементов
+*/
+bool arcoder_base::save_dummy(const char *const modelfile, const int count,
+							  const int *const offsets)
+{
+	std::ofstream outs(modelfile, std::ios::out | std::ios::binary);
+
+	if (outs.fail()) return false;
+
+	save_dummy(outs, count, offsets);
+
+	outs.close();
+
+	return true;
+}
+
+
 // Сохраняет конфигурацию кодека и статистику в поток
 void arcoder_base::save(std::ostream& outs) const
 {
