@@ -287,10 +287,17 @@ void arcoder_base::load_dummy(std::istream& ins,
 		const int d = saved_offsets[i] - offsets[i];
 
 		// »зменение частоты символа
-		for (int k1 = 0; M > k1 && L > k1; ++k1)
+		for (int k1 = 0; M > k1; ++k1)
 		{
+			// вычисление индекса элемента в загружаемой модели
 			const int k2 = k1 + d;
 
+			// проверка граничных условий
+			if (0 >= k2) continue;
+
+			if (L <= k2) break;
+
+			// изменение загружаемой модели
 			for(int j = 0; saved_freq[k1] > j; ++j)
 				update_model(k2);
 		}
