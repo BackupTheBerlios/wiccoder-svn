@@ -667,7 +667,7 @@ sz_t encoder::_ind_map(const pi_t &pi, const sz_t lvl) {
 /*!	\param[in] desc Описание моделей арифметического кодера
 	\return Модели для арифметического кодера
 */
-acoder::models_t encoder::_mk_acoder_models(const models_desc_t &desc)
+acoder::models_t encoder::_mk_acoder_models(const models_desc_t &desc) const
 {
 	// создание моделей для кодирования
 	acoder::models_t models;
@@ -704,6 +704,30 @@ acoder::models_t encoder::_mk_acoder_models(const models_desc_t &desc)
 }
 
 
+/*!	\param[in] desc Описание моделей арифметического кодера
+	\return Модели для арифметического кодера
+*/
+acoder::models_t encoder::_mk_acoder_models(const models_desc2_t &desc) const
+{
+	// создание моделей для кодирования
+	acoder::models_t models;
+
+	for (sz_t i = 0; ACODER_TOTAL_MODELS_COUNT > i; ++i)
+	{
+		acoder::model_t model;
+		model.min = desc.mins[i];
+		model.max = desc.maxs[i];
+
+		models.push_back(model);
+	}
+
+	// проверка утверждений
+	assert(ACODER_TOTAL_MODELS_COUNT == models.size());
+
+	return models;
+}
+
+
 /*!	\return Описание моделей для арифметического кодера
 
 	Описание моделей (значение максимального и минимального элемента в модели)
@@ -716,11 +740,11 @@ acoder::models_t encoder::_mk_acoder_models(const models_desc_t &desc)
 	- для моделей #2..#5: минимальные элемент из всех оставшихся саббендов,
 	  максимальный элемент также из всех оставшихся саббендов
 */
-encoder::models_desc_t encoder::_mk_acoder_smart_models()
+encoder::models_desc_t encoder::_mk_acoder_smart_models() const
 {
 	// создание моделей для кодирования
 	models_desc_t desc;
-	
+
 	// модел #0 ----------------------------------------------------------------
 	{
 		const subbands::subband_t &sb_LL = _wtree.sb().get_LL();
@@ -778,6 +802,37 @@ encoder::models_desc_t encoder::_mk_acoder_smart_models()
 	}
 
 	return desc;
+}
+
+
+/*!	\param[in] ac Арифметический кодер, статистика которого будет использована
+	для построения описания моделей
+*/
+encoder::models_desc2_t encoder::_mk_acoder_post_models(const acoder &ac) const
+{
+	encoder::models_desc2_t desc;
+
+	for (sz_t i = 0; sz_t(ac.models().size()) > i; ++i)
+	{
+		desc.mins[i] = ac.rmin(i);
+		desc.maxs[i] = ac.rmax(i);
+	}
+
+	return desc;
+}
+
+
+/*!
+*/
+void encoder::_init_acoder()
+{
+	/*
+	// определение суб-оптимальных моделей для арифметического кодера
+	models = _mk_acoder_smart_models();
+
+	// загрузка моделей в арифметический кодер
+	_acoder.use(_mk_acoder_models(models));
+	*/
 }
 
 

@@ -80,6 +80,23 @@ namespace wic {
 */
 class encoder {
 public:
+	// public constants --------------------------------------------------------
+
+	//!	\brief Минимальное допустимое количество уровней разложения
+	static const sz_t MINIMUM_LEVELS			= 3;
+
+	//!	\brief Количество моделей, используемых арифметическим кодером для
+	//!	кодирования коэффициентов
+	static const sz_t ACODER_SPEC_MODELS_COUNT	= 6;
+
+	//!	\brief Количество моделей, используемых арифметическим кодером для
+	//!	кодирования групповых признаков подрезания
+	static const sz_t ACODER_MAP_MODELS_COUNT	= 5;
+
+	//!	\brief Общее количество моделей, используемых арифметическим кодером
+	static const sz_t ACODER_TOTAL_MODELS_COUNT	= ACODER_SPEC_MODELS_COUNT +
+												  ACODER_MAP_MODELS_COUNT;
+
 	// public types ------------------------------------------------------------
 
 	//!	\brief Описания моделей арифметического кодера
@@ -101,6 +118,18 @@ public:
 		short mdl_x_min;
 		//!	\brief Максимальный коэффициент для моделей #2..#5
 		short mdl_x_max;
+	};
+
+	//!	\brief Описание моделей арифметического кодера (более полное)
+	/*!	Содержит описания моделей арифметического кодера. Представляет собой
+		более подробную версию структуры models_desc_t. 
+
+		\sa models_desc_t
+	*/
+	struct models_desc2_t
+	{
+		short mins[ACODER_TOTAL_MODELS_COUNT];
+		short maxs[ACODER_TOTAL_MODELS_COUNT];
 	};
 
 	//!	\brief Структура для хранения информации необходимой для последующего
@@ -178,23 +207,6 @@ public:
 	*/
 	typedef void (* optimize_callback_f)(const optimize_result_t &result,
 										 void *const param);
-
-	// public constants --------------------------------------------------------
-
-	//!	\brief Минимальное допустимое количество уровней разложения
-	static const sz_t MINIMUM_LEVELS			= 3;
-
-	//!	\brief Количество моделей, используемых арифметическим кодером для
-	//!	кодирования коэффициентов
-	static const sz_t ACODER_SPEC_MODELS_COUNT	= 6;
-
-	//!	\brief Количество моделей, используемых арифметическим кодером для
-	//!	кодирования групповых признаков подрезания
-	static const sz_t ACODER_MAP_MODELS_COUNT	= 5;
-
-	//!	\brief Общее количество моделей, используемых арифметическим кодером
-	static const sz_t ACODER_TOTAL_MODELS_COUNT	= ACODER_SPEC_MODELS_COUNT +
-												  ACODER_MAP_MODELS_COUNT;
 
 	// public methods ----------------------------------------------------------
 
@@ -438,11 +450,24 @@ protected:
 	}
 
 	//!	\brief Создаёт модели для арифметического кодера по их описанию
-	acoder::models_t _mk_acoder_models(const models_desc_t &desc);
+	acoder::models_t _mk_acoder_models(const models_desc_t &desc) const;
+
+	//!	\brief Создаёт модели для арифметического кодера по их описанию
+	acoder::models_t _mk_acoder_models(const models_desc2_t &desc) const;
 
 	//!	\brief Создаёт описание моделей, используемых арифметическим кодером,
-	//!	основываясь на специальных критериях
-	encoder::models_desc_t _mk_acoder_smart_models();
+	//!	основываясь на специальных критериях (значения минимальных и
+	//!	максимальных элементов различных саббендов)
+	models_desc_t _mk_acoder_smart_models() const;
+
+	//!	\brief Создаёт описание моделей, используемых арифметическим кодером,
+	//! исходя из накопленной статистики кодирования или декодирования
+	//!	аркодера
+	models_desc2_t _mk_acoder_post_models(const acoder &ac) const;
+
+	//!	\brief Производит инициализацию арифметического кодера для
+	//!	дальнейшего использования
+	void _init_acoder();
 
 	//@}
 

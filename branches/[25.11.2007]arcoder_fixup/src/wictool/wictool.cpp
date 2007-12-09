@@ -1047,6 +1047,7 @@ void free_spectre(spectre_t &spectre)
 void wic_optimize_tree_callback(const wic::p_t &root,
 								void *const param)
 {
+	/*
 	if (0 == param) return;
 	wic::encoder *const encoder = (wic::encoder *)param;
 
@@ -1061,6 +1062,7 @@ void wic_optimize_tree_callback(const wic::p_t &root,
 									 "models.bin");
 		#endif
 	}
+	*/
 }
 
 

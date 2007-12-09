@@ -82,11 +82,35 @@ sz_t acoder::encoded_sz() const
 }
 
 
-/*!
+/*!	\param[in] models Описание моделей арифметического кодера
 */
 void acoder::use(const models_t &models)
 {
 	_mk_coders(models);
+}
+
+
+/*!	\param[in] model_no Номер модели
+	\return Минимальное значение символа, закодированного в указанной
+	модели
+*/
+const acoder::value_type &acoder::rmin(const sz_t &model_no) const
+{
+	assert(0 <= model_no && model_no < sz_t(_models.size()));
+
+	return _models[model_no]._rmin;
+}
+
+
+/*!	\param[in] model_no Номер модели
+	\return Максимальное значение символа, закодированного в указанной
+	модели
+*/
+const acoder::value_type &acoder::rmax(const sz_t &model_no) const
+{
+	assert(0 <= model_no && model_no < sz_t(_models.size()));
+
+	return _models[model_no]._rmax;
 }
 
 
@@ -169,6 +193,11 @@ void acoder::put_value(const value_type &value, const sz_t model_no,
 	++(model._encoded_freqs[enc_val]);
 	#endif
 
+	// обновление максимального и минимального значения закодированного
+	// символа
+	if (value < model._rmin) model._rmin = value;
+	if (value > model._rmax) model._rmax = value;
+
 	// выбор модели и кодирование (учитывая смещение)
 	_aencoder->model(model_no);
 
@@ -247,7 +276,14 @@ acoder::value_type acoder::get_value(const sz_t model_no)
 	++(model._decoded_freqs[dec_val]);
 	#endif
 
-	return (dec_val - model._delta);
+	dec_val -= model._delta;
+
+	// обновление максимального и минимального значения декодированного
+	// символа
+	if (dec_val < model._rmin) model._rmin = dec_val;
+	if (dec_val > model._rmax) model._rmax = dec_val;
+
+	return dec_val;
 }
 
 
@@ -432,14 +468,19 @@ void acoder::_rm_models(const int *const models_ptr)
 	Функция выполняет следующие действия:
 	- актуализирует поле model_t::_delta
 	- актуализирует поле model_t::_symbols
+	- актуализирует поле model_t::_rmin
+	- актуализирует поле model_t::_rmax
 */
 void acoder::_refresh_models(models_t &models)
 {
 	for (models_t::iterator i = models.begin(); models.end() != i; ++i)
 	{
-		model_t &model = (*i);
-		model._delta = - model.min;
-		model._symbols = _symbols_count(model);
+		model_t &model	= (*i);
+		model._delta	= - model.min;
+		model._symbols	= _symbols_count(model);
+
+		model._rmin		= model.max;
+		model._rmax		= model.min;
 	}
 }
 
