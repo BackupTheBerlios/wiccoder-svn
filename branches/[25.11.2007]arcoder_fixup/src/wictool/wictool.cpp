@@ -1054,7 +1054,7 @@ void wic_optimize_tree_callback(const wic::p_t &root,
 
 	if (0 == root.getx() && 0 == root.gety()) i = 0;
 
-	if (16 == ++i)
+	if (32 == ++i)
 	{
 		#ifndef LOAD_ARCODER_MODELS
 		encoder->coder().save_models(wic::acoder::encoder_models,

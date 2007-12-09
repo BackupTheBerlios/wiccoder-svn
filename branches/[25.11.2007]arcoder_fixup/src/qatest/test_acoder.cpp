@@ -162,7 +162,7 @@ bool test_acoder_dummy_saves()
 		const int *const em = encoder.freq();
 		const int *const dm = decoder.freq();
 
-		for (int j = 0; (emc + 1) > j; ++j)
+		for (int j = 0; (emc + 2) > j; ++j)
 		{
 			if (em[j] == dm[j]) continue;
 

@@ -440,7 +440,7 @@ protected:
 	//!	\brief Создаёт модели для арифметического кодера по их описанию
 	acoder::models_t _mk_acoder_models(const models_desc_t &desc);
 
-	//!	\brief Создаёт модели, используемые арифметическим кодером,
+	//!	\brief Создаёт описание моделей, используемых арифметическим кодером,
 	//!	основываясь на специальных критериях
 	encoder::models_desc_t _mk_acoder_smart_models();
 
