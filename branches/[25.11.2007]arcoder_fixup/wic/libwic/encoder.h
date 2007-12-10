@@ -97,6 +97,16 @@ public:
 	static const sz_t ACODER_TOTAL_MODELS_COUNT	= ACODER_SPEC_MODELS_COUNT +
 												  ACODER_MAP_MODELS_COUNT;
 
+	//!	\brief Константа идентифицирующая используемую структуру для хранения
+	//!	описаний моделей арифметического кодера (соответствует структуре
+	//!	models_desc1_t)
+	static const short MODELS_DESC_V1			= 1;
+
+	//!	\brief Константа идентифицирующая используемую структуру для хранения
+	//!	описаний моделей арифметического кодера (соответствует структуре
+	//!	models_desc2_t)
+	static const short MODELS_DESC_V2			= 2;
+
 	// public types ------------------------------------------------------------
 
 	//!	\brief Описания моделей арифметического кодера
@@ -104,7 +114,7 @@ public:
 		Используя эту информацию, енкодер воссоздаёт модели, которые декодер
 		использовал для кодирования.
 	*/
-	struct models_desc_t
+	struct models_desc1_t
 	{
 		//!	\brief Минимальный коэффициент для модели #0
 		short mdl_0_min;
@@ -130,6 +140,37 @@ public:
 	{
 		short mins[ACODER_TOTAL_MODELS_COUNT];
 		short maxs[ACODER_TOTAL_MODELS_COUNT];
+	};
+
+	//!	\brief Унифицированное описание моделей арифметического кодера
+	/*!	Структура объединяет в себе различные способы представления
+		описания моделей арифметического кодера. Большинство функций,
+		работающих с этой структурой автоматически определяют
+		использованный способ представления, либо просят указать его
+		явно (в качестве одного из аргументов).
+	*/
+	struct models_desc_t
+	{
+		//!	\brief Объединение различных способов представления описания
+		//!	моделей арифметического кодера
+		union versions_u
+		{
+			//!	\brief Версия 1
+			models_desc1_t v1;
+			//!	\brief Версия 2
+			models_desc2_t v2;
+		};
+
+		//!	\brief Версия структуры, используемой для хранения описаний
+		//!	моделей арифметического кодера
+		/*!	Возможные значения:
+			- MODELS_DESC_V1 если используется структура models_desc1_t
+			- MODELS_DESC_V2 если используется структура models_desc2_t
+		*/
+		short version;
+
+		//!	\brief Описание моделей арифметического кодера
+		versions_u md;
 	};
 
 	//!	\brief Структура для хранения информации необходимой для последующего
@@ -450,24 +491,26 @@ protected:
 	}
 
 	//!	\brief Создаёт модели для арифметического кодера по их описанию
-	acoder::models_t _mk_acoder_models(const models_desc_t &desc) const;
+	acoder::models_t _mk_acoder_models(const models_desc1_t &desc) const;
 
 	//!	\brief Создаёт модели для арифметического кодера по их описанию
 	acoder::models_t _mk_acoder_models(const models_desc2_t &desc) const;
 
+	//!	\brief Создаёт модели для арифметического кодера по их описанию
+	acoder::models_t _mk_acoder_models(const models_desc_t &desc) const;
+
 	//!	\brief Создаёт описание моделей, используемых арифметическим кодером,
 	//!	основываясь на специальных критериях (значения минимальных и
 	//!	максимальных элементов различных саббендов)
-	models_desc_t _mk_acoder_smart_models() const;
+	models_desc1_t _mk_acoder_smart_models() const;
 
 	//!	\brief Создаёт описание моделей, используемых арифметическим кодером,
 	//! исходя из накопленной статистики кодирования или декодирования
 	//!	аркодера
 	models_desc2_t _mk_acoder_post_models(const acoder &ac) const;
 
-	//!	\brief Производит инициализацию арифметического кодера для
-	//!	дальнейшего использования
-	void _init_acoder();
+	//!	\brief Производит установку моделей арифметического кодера
+	models_desc_t _setup_acoder_models(const short version);
 
 	//@}
 

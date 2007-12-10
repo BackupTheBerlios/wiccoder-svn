@@ -44,7 +44,7 @@ const char WIC_SIGNATURE[3]	= {'W', 'I', 'C'};
 
 /*!
 */
-const char WIC_VERSION		= '0';
+const char WIC_VERSION		= '1';
 
 
 ///////////////////////////////////////////////////////////////////////////////

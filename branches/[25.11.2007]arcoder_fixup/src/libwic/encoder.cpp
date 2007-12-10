@@ -367,11 +367,10 @@ encoder::encode_fixed_q(const w_t *const w, const q_t &q,
 	_wtree.cheap_load(w, q);
 
 	// генерация характеристик моделей арифметического кодера
-	tunes.models = _mk_acoder_smart_models();
-	_acoder.use(_mk_acoder_models(tunes.models));
+	tunes.models = _setup_acoder_models(MODELS_DESC_V1);
 
 	// минимизация RD функции Лагранжа
-	result.optimization = 
+	result.optimization =
 		#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
 		_search_lambda_at_bpp(bpp, bpp_eps,
 							  lambda_min, lambda_max, lambda_eps,
@@ -667,7 +666,7 @@ sz_t encoder::_ind_map(const pi_t &pi, const sz_t lvl) {
 /*!	\param[in] desc Описание моделей арифметического кодера
 	\return Модели для арифметического кодера
 */
-acoder::models_t encoder::_mk_acoder_models(const models_desc_t &desc) const
+acoder::models_t encoder::_mk_acoder_models(const models_desc1_t &desc) const
 {
 	// создание моделей для кодирования
 	acoder::models_t models;
@@ -728,6 +727,36 @@ acoder::models_t encoder::_mk_acoder_models(const models_desc2_t &desc) const
 }
 
 
+/*!	\param[in] desc Описание моделей арифметического кодера в унифицированном
+	формате
+	\return Модели для арифметического кодера
+*/
+acoder::models_t encoder::_mk_acoder_models(const models_desc_t &desc) const
+{
+	// описание моделей, как их понимает арифметический кодер
+	acoder::models_t models;
+
+	// выбор способа представления описаний
+	switch (desc.version)
+	{
+		case MODELS_DESC_V1:
+			models = _mk_acoder_models(desc.md.v1);
+			break;
+
+		case MODELS_DESC_V2:
+			models = _mk_acoder_models(desc.md.v2);
+			break;
+
+		default:
+			// unsupported models description
+			assert(false);
+			break;
+	}
+
+	return models;
+}
+
+
 /*!	\return Описание моделей для арифметического кодера
 
 	Описание моделей (значение максимального и минимального элемента в модели)
@@ -740,10 +769,10 @@ acoder::models_t encoder::_mk_acoder_models(const models_desc2_t &desc) const
 	- для моделей #2..#5: минимальные элемент из всех оставшихся саббендов,
 	  максимальный элемент также из всех оставшихся саббендов
 */
-encoder::models_desc_t encoder::_mk_acoder_smart_models() const
+encoder::models_desc1_t encoder::_mk_acoder_smart_models() const
 {
 	// создание моделей для кодирования
-	models_desc_t desc;
+	models_desc1_t desc;
 
 	// модел #0 ----------------------------------------------------------------
 	{
@@ -810,6 +839,9 @@ encoder::models_desc_t encoder::_mk_acoder_smart_models() const
 */
 encoder::models_desc2_t encoder::_mk_acoder_post_models(const acoder &ac) const
 {
+	// проверка утверждений
+	assert(ACODER_TOTAL_MODELS_COUNT == ac.models().size());
+
 	encoder::models_desc2_t desc;
 
 	for (sz_t i = 0; sz_t(ac.models().size()) > i; ++i)
@@ -822,17 +854,40 @@ encoder::models_desc2_t encoder::_mk_acoder_post_models(const acoder &ac) const
 }
 
 
-/*!
+/*!	\param[in] version Версия представления описания моделей арифметического
+	кодера
+	\return Описание моделей арифметического кодера, которые были
+	установленны этой функцией
 */
-void encoder::_init_acoder()
+encoder::models_desc_t encoder::_setup_acoder_models(const short version)
 {
-	/*
+	// описание моделей для арифметического кодера
+	models_desc_t desc;
+
+	// идентификатор используемого представления описания моделей
+	desc.version = version;
+
 	// определение суб-оптимальных моделей для арифметического кодера
-	models = _mk_acoder_smart_models();
+	switch (version)
+	{
+		case MODELS_DESC_V1:
+			desc.md.v1 = _mk_acoder_smart_models();
+			break;
+
+		case MODELS_DESC_V2:
+			desc.md.v2 = _mk_acoder_post_models(_acoder);
+			break;
+
+		default:
+			// unsupported models description
+			assert(false);
+			break;
+	}
 
 	// загрузка моделей в арифметический кодер
-	_acoder.use(_mk_acoder_models(models));
-	*/
+	_acoder.use(_mk_acoder_models(desc));
+
+	return desc;
 }
 
 
@@ -1814,11 +1869,8 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 	// квантование коэффициентов
 	_wtree.quantize(q);
 
-	// определение суб-оптимальных моделей для арифметического кодера
-	models = _mk_acoder_smart_models();
-
 	// загрузка моделей в арифметический кодер
-	_acoder.use(_mk_acoder_models(models));
+	models = _setup_acoder_models(MODELS_DESC_V1);
 
 	// оптимизация топологии ветвей
 	return _optimize_wtree(lambda, false, virtual_encode);
@@ -2215,8 +2267,7 @@ encoder::_search_q_lambda_for_bpp_iter(
 	_wtree.quantize(q);
 
 	// определение характеристик моделей арифметического кодера
-	models = _mk_acoder_smart_models();
-	_acoder.use(_mk_acoder_models(models));
+	models = _setup_acoder_models(MODELS_DESC_V1);
 
 	// выбор диапазона поиска параметра lambda
 	const lambda_t lambda_min = lambda_t(0.05f * q*q);
