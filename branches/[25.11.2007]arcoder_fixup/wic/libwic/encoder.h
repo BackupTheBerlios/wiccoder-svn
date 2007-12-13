@@ -292,7 +292,8 @@ public:
 						const w_t *const w, const lambda_t &lambda,
 						tunes_t &tunes,
 						const q_t &q_min, const q_t &q_max, const q_t &q_eps,
-						const j_t &j_eps = 0, const sz_t &max_iterations = 0);
+						const j_t &j_eps = 0, const sz_t &max_iterations = 0,
+						const bool precise_bpp = false);
 
 	//!	\brief Производит кодирование изображения при фиксированном параметре
 	//!	<i>lambda</i>, подбирая параметр <i>q</i> минимизируя значение функции
@@ -510,7 +511,7 @@ protected:
 	models_desc2_t _mk_acoder_post_models(const acoder &ac) const;
 
 	//!	\brief Производит установку моделей арифметического кодера
-	models_desc_t _setup_acoder_models(const short version);
+	models_desc_t _setup_acoder_models();
 
 	//@}
 
@@ -763,7 +764,8 @@ protected:
 	//!	кодера.
 	optimize_result_t _optimize_wtree(const lambda_t &lambda,
 									  const q_t &q, models_desc_t &models,
-									  const bool virtual_encode = false);
+									  const bool virtual_encode = false,
+									  const bool precise_bpp = false);
 
 	//!	\brief Производит поиск квантователя <i>q</i> при заданном параметре
 	//!	<i>lambda</i>, минимизируя значение <i>RD функции Лагранжа J</i>
@@ -773,7 +775,8 @@ protected:
 							const q_t &q_eps, models_desc_t &models,
 							const j_t &j_eps = 0,
 							const bool virtual_encode = false,
-							const sz_t &max_iterations = 0);
+							const sz_t &max_iterations = 0,
+							const bool precise_bpp = false);
 
 	//!	\brief Производит поиск параметра <i>lambda</i>, подбирая его
 	//! под битрейт <i>bpp</i>
@@ -802,6 +805,22 @@ protected:
 							const q_t &q_eps, const lambda_t &lambda_eps,
 							models_desc_t &models,
 							const bool virtual_encode = false);
+
+	//@}
+
+	//!	\name Выполнение реального кодирования
+	//@{
+
+	//!	\brief Выполняет реальное кодирование спектра коэффициентов
+	//!	вейвлет преобразования, используя текущие настройки арифметического
+	//!	кодера
+	h_t _real_encode();
+
+	//!	\brief Выполняет реальное кодирование спектра коэффициентов
+	//!	вейвлет преобразования, предварительно подстроив текущие настройки
+	//!	арифметического кодера
+	h_t _real_encode_tight(models_desc_t &desc,
+						   const bool restore_models = false);
 
 	//@}
 

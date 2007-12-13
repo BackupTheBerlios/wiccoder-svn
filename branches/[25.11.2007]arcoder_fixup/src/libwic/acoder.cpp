@@ -513,6 +513,7 @@ void acoder::_init_models(arcoder_base *const coder_base)
 		}
 	}
 
+	/*
 	coder_base->model(6);
 	coder_base->update_model(7);
 	coder_base->update_model(7);
@@ -562,6 +563,7 @@ void acoder::_init_models(arcoder_base *const coder_base)
 	coder_base->update_model(0xf);
 	coder_base->update_model(0xf);
 	coder_base->update_model(0xf);
+	*/
 }
 
 
