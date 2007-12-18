@@ -98,6 +98,11 @@ public:
 												  ACODER_MAP_MODELS_COUNT;
 
 	//!	\brief Константа идентифицирующая используемую структуру для хранения
+	//!	описаний моделей арифметического кодера (соответствует отсутствию
+	//!	иформации о моделях)
+	static const short MODELS_DESC_NONE			= 0;
+
+	//!	\brief Константа идентифицирующая используемую структуру для хранения
 	//!	описаний моделей арифметического кодера (соответствует структуре
 	//!	models_desc1_t)
 	static const short MODELS_DESC_V1			= 1;
@@ -214,6 +219,22 @@ public:
 			битовые затраты обычно несколько меньше.
 		*/
 		h_t bpp;
+
+		//!	\brief Описание моделей арифметического кодера
+		/*!	В это поле может быть помещено описание моделей арифметического
+			кодера, если в процессе оптимизации топологии удалось подобрать
+			более удачные модели для кодирования деревьев спектра. Новое
+			описание моделей доступно только тогда, когда поле
+			models_desc_t::version не равно MODELS_DESC_NONE.
+		*/
+		models_desc_t models;
+
+		//!	\brief Признак проведённого реального кодирования
+		/*!	Если <i>true</i>, то в процессе оптимизации было проведено
+			реальное кодирование деревьев спектра и его можно не производить
+			повторно.
+		*/
+		bool real_encoded;
 	};
 
 	//!	\brief Структура представляющая результат проведённого кодирования
@@ -311,7 +332,8 @@ public:
 						const lambda_t &lambda_min,
 						const lambda_t &lambda_max,
 						const lambda_t &lambda_eps = 0,
-						const sz_t &max_iterations = 0);
+						const sz_t &max_iterations = 0,
+						const bool precise_bpp = false);
 
 	//!	\brief Производит кодирование изображения при фиксированном параметре
 	//!	<i>q</i>, подбирая параметр <i>lambda</i> пытаясь достичь заданных
@@ -512,6 +534,9 @@ protected:
 
 	//!	\brief Производит установку моделей арифметического кодера
 	models_desc_t _setup_acoder_models();
+
+	//!	\brief Производит установку моделей арифметического кодера
+	models_desc_t _setup_acoder_post_models();
 
 	//@}
 
@@ -757,15 +782,23 @@ protected:
 	//!	\brief Производит оптимизацию топологии всех ветвей в спектре
 	optimize_result_t _optimize_wtree(const lambda_t &lambda,
 									  const bool refresh_wtree = false,
-									  const bool virtual_encode = false);
+									  const bool virtual_encode = false,
+									  const bool precise_bpp = false);
+
+	//!	\brief Производит оптимизацию топологии всех ветвей в спектре
+	// с предварительной установкой моделей арифметического кодера
+	optimize_result_t _optimize_wtree_m(const lambda_t &lambda,
+										const models_desc_t &models,
+										const bool refresh_wtree = false,
+										const bool virtual_encode = false,
+										const bool precise_bpp = false);
 
 	//!	\brief Производит оптимизацию топологии всех ветвей в спектре
 	//! с предварительным квантованием и настройкой арифметического
 	//!	кодера.
-	optimize_result_t _optimize_wtree(const lambda_t &lambda,
-									  const q_t &q, models_desc_t &models,
-									  const bool virtual_encode = false,
-									  const bool precise_bpp = false);
+	optimize_result_t _optimize_wtree_q(const lambda_t &lambda, const q_t &q,
+										const bool virtual_encode = false,
+										const bool precise_bpp = false);
 
 	//!	\brief Производит поиск квантователя <i>q</i> при заданном параметре
 	//!	<i>lambda</i>, минимизируя значение <i>RD функции Лагранжа J</i>
@@ -819,8 +852,7 @@ protected:
 	//!	\brief Выполняет реальное кодирование спектра коэффициентов
 	//!	вейвлет преобразования, предварительно подстроив текущие настройки
 	//!	арифметического кодера
-	h_t _real_encode_tight(models_desc_t &desc,
-						   const bool restore_models = false);
+	h_t _real_encode_tight(models_desc_t &desc);
 
 	//@}
 
