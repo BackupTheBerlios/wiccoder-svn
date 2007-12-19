@@ -242,23 +242,21 @@ encoder::encode_fixed_lambda(
 	// минимизация RD функции Лагранжа
 	result.optimization = 
 		#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
-		_search_q_min_j(lambda, q_min, q_max, q_eps,
-						tunes.models, j_eps, true, max_iterations,
-						precise_bpp);
+		_search_q_min_j(lambda, q_min, q_max, q_eps, j_eps,
+						true, max_iterations, precise_bpp);
 		#else
-		_search_q_min_j(lambda, q_min, q_max, q_eps,
-						tunes.models, j_eps, false, max_iterations,
-						precise_bpp);
+		_search_q_min_j(lambda, q_min, q_max, q_eps, j_eps,
+						false, max_iterations, precise_bpp);
 		#endif
 
-	// кодирование всего дерева (если необходимо)
-	if (!precise_bpp)
+	// кодирование всего дерева, если необходимо
+	if (result.optimization.real_encoded)
 	{
-		result.bpp = _real_encode();
+		tunes.models = result.optimization.models;
 	}
 	else
 	{
-		result.bpp = result.optimization.bpp;
+		result.bpp = _real_encode_tight(tunes.models);
 	}
 
 	// сохранение параметров, необходимых для последующего декодирования
@@ -2019,9 +2017,6 @@ encoder::_optimize_wtree_q(const lambda_t &lambda, const q_t &q,
 	<i>q</i> при котором значение <i>RD функции Лагранжа</i> минимально
 	(при фиксированном параметре <i>lambda</i>).
 
-	\param[out] models Описание моделей арифметического кодера, которое
-	необходимо для последующего декодирования изображения
-
 	\param[in] j_eps Необходимая погрешность нахождения минимума <i>RD
 	функции Лагранжа</i>. Так как абсолютная величина функции <i>J</i>
 	зависит от многих факторов (таких как размер изображения, его тип,
@@ -2075,8 +2070,7 @@ encoder::_optimize_wtree_q(const lambda_t &lambda, const q_t &q,
 encoder::optimize_result_t
 encoder::_search_q_min_j(const lambda_t &lambda,
 						 const q_t &q_min, const q_t &q_max,
-						 const q_t &q_eps, models_desc_t &models,
-						 const j_t &j_eps,
+						 const q_t &q_eps, const j_t &j_eps,
 						 const bool virtual_encode,
 						 const sz_t &max_iterations,
 						 const bool precise_bpp)
@@ -2098,10 +2092,10 @@ encoder::_search_q_min_j(const lambda_t &lambda,
 	q_t q_b = q_a + factor_b * (q_d - q_a);
 	q_t q_c = q_a + factor_c * (q_d - q_a);
 
-	optimize_result_t result_b = _optimize_wtree(lambda, q_b, models,
-												 virtual_encode, precise_bpp);
-	optimize_result_t result_c = _optimize_wtree(lambda, q_c, models,
-												 virtual_encode, precise_bpp);
+	optimize_result_t result_b = _optimize_wtree_q(lambda, q_b, virtual_encode,
+												   precise_bpp);
+	optimize_result_t result_c = _optimize_wtree_q(lambda, q_c, virtual_encode,
+												   precise_bpp);
 
 	// запоминание предыдущего и последнего результатов
 	optimize_result_t result_prev	= result_b;
@@ -2137,9 +2131,8 @@ encoder::_search_q_min_j(const lambda_t &lambda,
 
 			result_c = result_b;
 
-			result = result_b = _optimize_wtree(lambda, q_b,
-												models, virtual_encode,
-												precise_bpp);
+			result = result_b = _optimize_wtree_q(lambda, q_b, virtual_encode,
+												  precise_bpp);
 		}
 		else
 		{
@@ -2149,9 +2142,8 @@ encoder::_search_q_min_j(const lambda_t &lambda,
 
 			result_b = result_c;
 
-			result = result_c = _optimize_wtree(lambda, q_c,
-												models, virtual_encode,
-												precise_bpp);
+			result = result_c = _optimize_wtree_q(lambda, q_c, virtual_encode,
+												  precise_bpp);
 		}
 
 		// увеличение количества итераций

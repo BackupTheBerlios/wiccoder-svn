@@ -805,8 +805,7 @@ protected:
 	optimize_result_t _search_q_min_j(
 							const lambda_t &lambda,
 							const q_t &q_min, const q_t &q_max,
-							const q_t &q_eps, models_desc_t &models,
-							const j_t &j_eps = 0,
+							const q_t &q_eps, const j_t &j_eps = 0,
 							const bool virtual_encode = false,
 							const sz_t &max_iterations = 0,
 							const bool precise_bpp = false);
