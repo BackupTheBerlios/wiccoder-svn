@@ -786,7 +786,7 @@ protected:
 									  const bool precise_bpp = false);
 
 	//!	\brief Производит оптимизацию топологии всех ветвей в спектре
-	// с предварительной установкой моделей арифметического кодера
+	//! с предварительной установкой моделей арифметического кодера
 	optimize_result_t _optimize_wtree_m(const lambda_t &lambda,
 										const models_desc_t &models,
 										const bool refresh_wtree = false,
@@ -818,7 +818,8 @@ protected:
 							const lambda_t &lambda_max,
 							const lambda_t &lambda_eps,
 							const bool virtual_encode = false,
-							const sz_t &max_iterations = 0);
+							const sz_t &max_iterations = 0,
+							const bool precise_bpp = false);
 
 	//!	\brief Производит итерацию поиска параметра <i>lambda</i> при
 	//! заданном параметре <i>q</i> для функции _search_q_lambda_for_bpp

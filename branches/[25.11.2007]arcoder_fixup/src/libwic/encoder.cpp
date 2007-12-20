@@ -388,21 +388,21 @@ encoder::encode_fixed_q(const w_t *const w, const q_t &q,
 		#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
 		_search_lambda_at_bpp(bpp, bpp_eps,
 							  lambda_min, lambda_max, lambda_eps,
-							  true, max_iterations);
+							  true, max_iterations, precise_bpp);
 		#else
 		_search_lambda_at_bpp(bpp, bpp_eps,
 							  lambda_min, lambda_max, lambda_eps,
-							  false, max_iterations);
+							  false, max_iterations, precise_bpp);
 		#endif
 
-	// кодирование всего дерева
-	if (!precise_bpp)
+	// кодирование всего дерева, если необходимо
+	if (result.optimization.real_encoded)
 	{
-		result.bpp = _real_encode_tight(tunes.models);
+		tunes.models = result.optimization.models;
 	}
 	else
 	{
-		result.bpp = result.optimization.bpp;
+		result.bpp = _real_encode_tight(tunes.models);
 	}
 
 	// сохранение параметров, необходимых для последующего декодирования
@@ -2040,9 +2040,7 @@ encoder::_optimize_wtree_q(const lambda_t &lambda, const q_t &q,
 	проведения реального кодирования с ужатыми моделями арифметического кодера
 	(см. _real_encode_tight). В этом случае, после этапа оптимизации нет нужды
 	производить реальное кодирование, так как оно уже произведено функцией
-	_real_encode_tight. Однако следует обратить внимание, что текущие модели
-	арифметического кодера после выполнения функции не изменяются, даже если
-	при реальном кодировании были использованы другие (уменьшенные) модели.
+	_real_encode_tight.
 
 	\return Результат произведённого поиска
 
@@ -2192,6 +2190,13 @@ encoder::_search_q_min_j(const lambda_t &lambda,
 	минимума <i>RD функции Лагранжа</i>. Если это значение равно <i>0</i>,
 	количество выполняемых итераций не ограничено.
 
+	\param[in] precise_bpp Если <i>true</i>, при выполнении операции
+	оптимизации топологии будет производиться уточнение битовых затрат путем
+	проведения реального кодирования с ужатыми моделями арифметического кодера
+	(см. _real_encode_tight). В этом случае, после этапа оптимизации нет нужды
+	производить реальное кодирование, так как оно уже произведено функцией
+	_real_encode_tight.
+
 	\return Результат проведённого поиска. Возможна ситуация, когда нужная
 	<i>lambda</i> лежит вне указанного диапазона. В этом случае, функция
 	подберёт такую <i>lambda</i>, которая максимально удовлетворяет условиям
@@ -2245,7 +2250,8 @@ encoder::_search_lambda_at_bpp(
 							const lambda_t &lambda_max,
 							const lambda_t &lambda_eps,
 							const bool virtual_encode,
-							const sz_t &max_iterations)
+							const sz_t &max_iterations,
+							const bool precise_bpp)
 {
 	// проверка утверждений
 	assert(0 < bpp);
@@ -2256,8 +2262,12 @@ encoder::_search_lambda_at_bpp(
 	lambda_t lambda_a	= lambda_min;
 	lambda_t lambda_b	= lambda_max;
 
+	// Запоминание текущих моделей арифметического кодера
+	const acoder::models_t original_models = _acoder.models();
+
 	// результат последней оптимизации
 	optimize_result_t result;
+	result.
 
 	// счётчик итераций
 	sz_t iterations = 0;
@@ -2266,9 +2276,12 @@ encoder::_search_lambda_at_bpp(
 	// break
 	do
 	{
-		// вычисление значений bpp на левой границе диапазона
+		// вычисление значений bpp на левой границе диапазона. Тут нет нужды
+		// использовать функцию _optimize_wtree_m() так как модели
+		// арифметического кодера ещё не испорчены
 		optimize_result_t result_a = _optimize_wtree(lambda_a, true,
-													 virtual_encode);
+													 virtual_encode,
+													 precise_bpp);
 
 		// проверка на допустимость входного диапазона
 		if (result_a.bpp <= (bpp + bpp_eps))
@@ -2278,9 +2291,17 @@ encoder::_search_lambda_at_bpp(
 			break;
 		}
 
+		if (MODELS_DESC_NONE != result_a.optimization.models.version)
+		{
+			// необходимо перезагрузить модели в арифметический кодер
+			// так как они были изменены функцией оптимизации
+			_acoder.use(original_models);
+		}
+
 		// вычисление значений bpp на правой границе диапазона
 		optimize_result_t result_b = _optimize_wtree(lambda_b, true,
-													 virtual_encode);
+													 virtual_encode,
+													 precise_bpp);
 
 		// проверка на допустимость входного диапазона
 		if (result_b.bpp >= (bpp - bpp_eps))
@@ -2290,6 +2311,11 @@ encoder::_search_lambda_at_bpp(
 			break;
 		}
 
+		// Здесь переменная result не обязательно инициализированна,
+		// но даже будучи инициализированной она не пригодна для
+		// возврата её как результата так как может отражать результат
+		// предыдущего кодирования, а не последнего
+
 		// поиск оптимального значения lamda (дихотомия)
 		for (;;)
 		{
@@ -2297,7 +2323,8 @@ encoder::_search_lambda_at_bpp(
 			const lambda_t lambda_c = (lambda_b + lambda_a) / 2;
 
 			// оптимизация топологии ветвей
-			result = _optimize_wtree(lambda_c, true, virtual_encode);
+			result = _optimize_wtree(lambda_c, true, virtual_encode,
+									 precise_bpp);
 
 			// проверить, достигнута ли нужная точность по bpp
 			if (bpp_eps >= abs(result.bpp - bpp)) break;
