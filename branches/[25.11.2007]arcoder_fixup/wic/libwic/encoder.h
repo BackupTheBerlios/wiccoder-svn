@@ -538,6 +538,11 @@ protected:
 	//!	\brief Производит установку моделей арифметического кодера
 	models_desc_t _setup_acoder_post_models();
 
+	//!	\brief Восстанавливает модели арифметического кодера после проведённой
+	//!	оптимизации (вспомогательная функция)
+	bool _restore_spoiled_models(const optimize_result_t &result,
+								 const acoder::models_t &models);
+
 	//@}
 
 	//!	\name Поддержка арифметического кодирования

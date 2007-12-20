@@ -922,6 +922,32 @@ encoder::models_desc_t encoder::_setup_acoder_post_models()
 }
 
 
+/*!	\param[in] result Результат проведённой оптимизации, в резултате которой
+	могли поменяться модели арифметического кодера
+	\param[in] models Оригинальные модели арифметического кодера, которые
+	следует востановить в случае их изменения процедурой оптимизации топологии
+	\return <i>true</i> если измененённые модели были восстановлены и
+	<i>false</i> если модели не изменились процедурой оптимизации.
+*/
+bool encoder::_restore_spoiled_models(const optimize_result_t &result,
+									  const acoder::models_t &models)
+{
+	// Проверка, были ли в процессе оптимизации изменены 
+	if (MODELS_DESC_NONE == result.models.version) return false;
+
+	// Дополнительная проверка на равенство старых и новых моделей.
+	// Сейчас не используется, так как в текущей реализации функций
+	// оптимизации топологии версия описания моделей устанавливается
+	// только в случае их изменения.
+	// if (models == _mk_acoder_models(result.models)) return false;
+
+	// восстановление моделей используемых арифметическим кодером
+	_acoder.use(models);
+
+	return true;
+}
+
+
 /*!	\param[in] m Номер модели для кодирования
 	\param[in] wk Значение коэффициента для кодирования
 	\return Битовые затраты, необходимые для кодирования коэффициента с
@@ -2267,7 +2293,11 @@ encoder::_search_lambda_at_bpp(
 
 	// результат последней оптимизации
 	optimize_result_t result;
-	result.
+	result.q			= 0;
+	result.lambda		= 0;
+	result.j			= 0;
+	result.bpp			= 0;
+	result.real_encoded = false;
 
 	// счётчик итераций
 	sz_t iterations = 0;
@@ -2291,12 +2321,9 @@ encoder::_search_lambda_at_bpp(
 			break;
 		}
 
-		if (MODELS_DESC_NONE != result_a.optimization.models.version)
-		{
-			// необходимо перезагрузить модели в арифметический кодер
-			// так как они были изменены функцией оптимизации
-			_acoder.use(original_models);
-		}
+		// восстановление моделей арифметического кодера, если они были
+		// изменены функцией оптимизации топологии
+		_restore_spoiled_models(result_a, original_models);
 
 		// вычисление значений bpp на правой границе диапазона
 		optimize_result_t result_b = _optimize_wtree(lambda_b, true,
@@ -2311,16 +2338,26 @@ encoder::_search_lambda_at_bpp(
 			break;
 		}
 
-		// Здесь переменная result не обязательно инициализированна,
-		// но даже будучи инициализированной она не пригодна для
-		// возврата её как результата так как может отражать результат
-		// предыдущего кодирования, а не последнего
+		// Внимание: здесь переменная result не обязательно инициализированна,
+		// но даже будучи инициализированной она не пригодна для возврата
+		// в качестве результата так как может отражать результат предыдущей
+		// оптимизации, а не последней!!!
+
+		// Ввиду выше описанного нет ничего повинного в следующей строчке,
+		// которая нужна чтобы упростить дальнейшую логику восстановления
+		// моделей арифметического кодера, для которой необходимо, чтобы в
+		// переменной result был результат последней проведённой оптимизации
+		result = result_b;
 
 		// поиск оптимального значения lamda (дихотомия)
 		for (;;)
 		{
 			// подсчёт значения bpp для середины диапазона
 			const lambda_t lambda_c = (lambda_b + lambda_a) / 2;
+
+			// восстановление моделей арифметического кодера, если они были
+			// изменены функцией оптимизации топологии
+			_restore_spoiled_models(result, original_models);
 
 			// оптимизация топологии ветвей
 			result = _optimize_wtree(lambda_c, true, virtual_encode,
@@ -2333,8 +2370,10 @@ encoder::_search_lambda_at_bpp(
 			if (0 < max_iterations && max_iterations <= iterations) break;
 
 			// сужение диапазона поиска
-			if (bpp > result.bpp) lambda_b = lambda_c;
-			else lambda_a = lambda_c;
+			if (bpp > result.bpp)
+				lambda_b = lambda_c;
+			else
+				lambda_a = lambda_c;
 
 			// проверить, достигнута ли нужная точность по lambda
 			if (lambda_eps >= abs(lambda_b - lambda_a)) break;
