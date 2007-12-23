@@ -349,7 +349,7 @@ public:
 						const h_t &bpp, const h_t &bpp_eps,
 						const q_t &q_min, const q_t &q_max, const q_t &q_eps,
 						const lambda_t &lambda_eps,
-						tunes_t &tunes);
+						tunes_t &tunes, const bool precise_bpp = false);
 
 	//!	\brief Производит кодирование изображения, подбирая параметры
 	//!	<i>q</i> и <i>lambda</i> чтобы достич заданных битовых затрат с
@@ -833,7 +833,8 @@ protected:
 							const h_t &bpp_eps, const lambda_t &lambda_eps,
 							models_desc_t &models, w_t &d, h_t &deviation,
 							const bool virtual_encode = false,
-							const sz_t &max_iterations = 0);
+							const sz_t &max_iterations = 0,
+							const bool precise_bpp = false);
 
 	//!	\brief Производит поиск параметров <i>q</i> и <i>lambda</i>, пытаясь
 	//!	достичь нужных битовых затрат на кодирование изображения
@@ -842,7 +843,8 @@ protected:
 							const q_t &q_min, const q_t &q_max,
 							const q_t &q_eps, const lambda_t &lambda_eps,
 							models_desc_t &models,
-							const bool virtual_encode = false);
+							const bool virtual_encode = false,
+							const bool precise_bpp = false);
 
 	//@}
 

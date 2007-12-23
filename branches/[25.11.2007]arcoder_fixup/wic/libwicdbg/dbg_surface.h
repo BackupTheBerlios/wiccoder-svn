@@ -1,0 +1,179 @@
+/*!	\file     dbg_surface.h
+	\version  0.0.1
+	\author   mice, ICQ: 332-292-380, mailto:wonder.mice@gmail.com
+	\brief    Описание класса wicdbg::dbg_surface - поверхности для отладки
+			  процесса кодирования
+
+	\todo     Более подробно описать файл dbg_surface.h
+*/
+
+#ifndef WIC_LIBWICDBG_DBG_SURFACE
+#define WIC_LIBWICDBG_DBG_SURFACE
+
+///////////////////////////////////////////////////////////////////////////////
+// include
+
+// standard C++ library headers
+#include <string>
+#include <assert.h>
+
+// imgs headers
+#include <imgs/bmp_file.h>
+#include <imgs/bmp_dump.h>
+
+// libwic headers
+#include <wic/libwic/types.h>
+
+// libwicdbg headers
+#include <wic/libwicdbg/dbg_pixel.h>
+
+
+///////////////////////////////////////////////////////////////////////////////
+// wicdbg namespace
+namespace wicdbg
+{
+
+
+////////////////////////////////////////////////////////////////////////////////
+// dbg_surface class declaration
+//!	\brief Отладочная поверхность, которая позволяет сохранять дополнительную
+//!	информацию о кодируемых коэффициентах и представлять её в удобной форме.
+/*!
+*/
+class dbg_surface
+{
+public:
+	// public types ------------------------------------------------------------
+
+	//!	\brief Псевдоним для типа imgs::img_rgb::rgb24_t, чтобы упростить его
+	//!	использование
+	typedef imgs::img_rgb::rgb24_t rgb24_t;
+
+	// public constants --------------------------------------------------------
+
+	//!	\brief Номер не существующей модели арифметического кодера
+	static const wic::sz_t INVALID_MODEL	= 0xFFFFFFFF;
+
+	// public methods ----------------------------------------------------------
+
+	//!	\name Конструкторы и деструкторы
+	//@{
+
+	//!	\brief Конструктор
+	dbg_surface(const wic::sz_t w, const wic::sz_t h);
+
+	//!	\brief Деструктор
+	~dbg_surface();
+
+	//@}
+
+	//!	\brief Информация о поверхности
+	//@{
+
+	//!	\bref Возвращает ширину поверхности
+	wic::sz_t width() const { return _w; }
+
+	//!	\bref Возвращает высоту поверхности
+	wic::sz_t height() const { return _h; }
+
+	//!	\bref Возвращает общее количество элементов в поверхности
+	wic::sz_t size() const { return _sz; }
+
+	//@}
+
+	//!	\brief Работа с поверхностью
+	//@{
+
+	//!	\brief Производит очистку поверхности, заполняя все поля элементов
+	//! изначальными значениями
+	void clear();
+
+	//!	\brief Возвращает константную ссылку на элемент с определённым
+	//!	смещением
+	const dbg_pixel &get(const wic::sz_t i) const;
+
+	//!	\brief Возвращает ссылку на элемент с определёнными смещением
+	dbg_pixel &get(const wic::sz_t i);
+
+	//!	\brief Возвращает константную ссылку на элемент с определёнными
+	//!	координатами
+	const dbg_pixel &get(const wic::sz_t x, const wic::sz_t y) const;
+
+	//!	\brief Возвращает ссылку на элемент с определёнными координатами
+	dbg_pixel &get(const wic::sz_t x, const wic::sz_t y);
+
+	//@}
+
+	//!	\brief Экспорт поверхности в файл
+	//@{
+
+	//!	\brief
+	/*!
+	*/
+	template <const dbg_pixel::dbg_pixel_members member>
+	void save(const std::string &path, const bool as_bmp = false) const
+	{
+		// проверка утверждений
+		assert(0 < _w && 0 < _h && 0 < _sz);
+		assert(0 != _surface);
+
+		// псевдоним для типа используемого члена
+		typedef dbg_pixel::type_selector<member>::result member_type;
+
+		// создание временного массива
+		member_type *const data = new member_type[_sz];
+
+		// копирование значения выбранного члена во временный масив
+		for (wic::sz_t i = 0; _sz > i; ++i)
+		{
+			data[i] = _surface[i].get<member>();
+		}
+
+		// сохранение в выбранном формате
+		if (as_bmp)
+		{
+			imgs::bmp_dump<member_type, wic::sz_t>::dump(data, _w, _h,
+														 path);
+		}
+		else
+		{
+			imgs::bmp_dump<member_type, wic::sz_t>::txt_dump(data, _w, _h,
+															 path);
+		}
+
+		// освобождение временного массива
+		delete[] data;
+	}
+
+	//@}
+
+protected:
+	// protected members -------------------------------------------------------
+
+	//!	\brief Возвращает смещение элемента по его координатам
+	wic::sz_t _offset(const wic::sz_t x, const wic::sz_t y) const;
+
+private:
+	// private data ------------------------------------------------------------
+
+	//!	\brief Ширина поверхности
+	const wic::sz_t _w;
+
+	//!	\brief Высота поверхности
+	const wic::sz_t _h;
+
+	//!	\brief Количество элементов в поверхности
+	const wic::sz_t _sz;
+
+	//!	\brief Содержание поверхности
+	dbg_pixel *_surface;
+
+};
+
+
+
+}	// end of namespace wicdbg
+
+
+
+#endif	// WIC_LIBWICDBG_DBG_SURFACE

@@ -15,6 +15,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "qatest", "qatest\qatest.vcp
 	ProjectSection(ProjectDependencies) = postProject
 		{93749B0E-BEBA-452C-AF9E-94E4F6D0622B} = {93749B0E-BEBA-452C-AF9E-94E4F6D0622B}
 		{07DA2167-1E9F-4A46-9512-AFABD21DD976} = {07DA2167-1E9F-4A46-9512-AFABD21DD976}
+		{82F8099E-56FE-4C5D-8515-8D3F25061975} = {82F8099E-56FE-4C5D-8515-8D3F25061975}
 		{FA912ACC-27C1-4CFF-B314-95E01E6FB783} = {FA912ACC-27C1-4CFF-B314-95E01E6FB783}
 	EndProjectSection
 EndProject
@@ -39,6 +40,10 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "wictool", "wictool\wictool.
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "wicfilters", "wicfilters\wicfilters.vcproj", "{1C99052A-6D05-4F6F-A3D8-60276F3EBF0D}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libwicdbg", "libwicdbg\libwicdbg.vcproj", "{82F8099E-56FE-4C5D-8515-8D3F25061975}"
 	ProjectSection(ProjectDependencies) = postProject
 	EndProjectSection
 EndProject
@@ -80,6 +85,10 @@ Global
 		{1C99052A-6D05-4F6F-A3D8-60276F3EBF0D}.Debug.Build.0 = Debug|Win32
 		{1C99052A-6D05-4F6F-A3D8-60276F3EBF0D}.Release.ActiveCfg = Release|Win32
 		{1C99052A-6D05-4F6F-A3D8-60276F3EBF0D}.Release.Build.0 = Release|Win32
+		{82F8099E-56FE-4C5D-8515-8D3F25061975}.Debug.ActiveCfg = Debug|Win32
+		{82F8099E-56FE-4C5D-8515-8D3F25061975}.Debug.Build.0 = Debug|Win32
+		{82F8099E-56FE-4C5D-8515-8D3F25061975}.Release.ActiveCfg = Release|Win32
+		{82F8099E-56FE-4C5D-8515-8D3F25061975}.Release.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 	EndGlobalSection

@@ -495,7 +495,7 @@ encoder::encode_fixed_bpp(
 						const h_t &bpp, const h_t &bpp_eps,
 						const q_t &q_min, const q_t &q_max, const q_t &q_eps,
 						const lambda_t &lambda_eps,
-						tunes_t &tunes)
+						tunes_t &tunes, const bool precise_bpp)
 {
 	// результат проведённой оптимизации
 	enc_result_t result;
@@ -511,25 +511,25 @@ encoder::encode_fixed_bpp(
 		#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
 		_search_q_lambda_for_bpp(bpp, bpp_eps,
 								 q_min, q_max, q_eps,
-								 lambda_eps, tunes.models, true);
+								 lambda_eps, tunes.models, true, precise_bpp);
 		#else
 		_search_q_lambda_for_bpp(bpp, bpp_eps,
 								 q_min, q_max, q_eps,
-								 lambda_eps, tunes.models, false);
+								 lambda_eps, tunes.models, false, precise_bpp);
 		#endif
 
-	// кодирование всего дерева
-	_acoder.encode_start();
-
-	_encode_wtree();
-
-	_acoder.encode_stop();
+	// кодирование всего дерева, если необходимо
+	if (result.optimization.real_encoded)
+	{
+		tunes.models = result.optimization.models;
+	}
+	else
+	{
+		result.bpp = _real_encode_tight(tunes.models);
+	}
 
 	// сохранение параметров, необходимых для последующего декодирования
 	tunes.q = _wtree.q();
-
-	// отчёт о проделанной работе
-	result.bpp = _calc_encoded_bpp();
 
 	return result;
 }
@@ -553,6 +553,7 @@ encoder::encode_fixed_bpp(
 	- <i>q_max = 64</i>
 	- <i>q_eps = 0.1</i>
 	- <i>lambda_eps = 0</i>
+	- <i>precise_bpp = true</i>
 
 	\sa _search_q_lambda_for_bpp(), encode_fixed_bpp
 */
@@ -568,8 +569,11 @@ encoder::encode_fixed_bpp(const w_t *const w, const h_t &bpp,
 
 	static const lambda_t lambda_eps	= 0;
 
+	static const bool precise_bpp		= true;
+
 	return encode_fixed_bpp(w, bpp, bpp_eps,
-							q_min, q_max, q_eps, lambda_eps, tunes);
+							q_min, q_max, q_eps, lambda_eps, tunes,
+							precise_bpp);
 }
 
 
@@ -2442,6 +2446,13 @@ encoder::_search_lambda_at_bpp(
 	\param[in] max_iterations Максимальное количество итераций, выполняемых
 	функцией _search_lambda_at_bpp()
 
+	\param[in] precise_bpp Если <i>true</i>, при выполнении операции
+	оптимизации топологии будет производиться уточнение битовых затрат путем
+	проведения реального кодирования с ужатыми моделями арифметического кодера
+	(см. _real_encode_tight). В этом случае, после этапа оптимизации нет нужды
+	производить реальное кодирование, так как оно уже произведено функцией
+	_real_encode_tight.
+
 	\return Результат произведённого поиска
 
 	Параметр <i>lambda</i> будет искаться в диапазоне
@@ -2458,7 +2469,8 @@ encoder::_search_q_lambda_for_bpp_iter(
 							const h_t &bpp_eps, const lambda_t &lambda_eps,
 							models_desc_t &models, w_t &d, h_t &deviation,
 							const bool virtual_encode,
-							const sz_t &max_iterations)
+							const sz_t &max_iterations,
+							const bool precise_bpp)
 {
 	// квантование спектра
 	_wtree.quantize(q);
@@ -2474,7 +2486,8 @@ encoder::_search_q_lambda_for_bpp_iter(
 	const optimize_result_t result =
 				_search_lambda_at_bpp(bpp, bpp_eps,
 									  lambda_min, lambda_max, lambda_eps,
-									  virtual_encode, max_iterations);
+									  virtual_encode, max_iterations,
+									  precise_bpp);
 
 	// подсчёт среднеквадратичного отклонения (ошибки)
 	d = _wtree.distortion_wc<w_t>();
@@ -2521,6 +2534,13 @@ encoder::_search_q_lambda_for_bpp_iter(
 	быстрее, но его использование делает невозможным определение средних
 	битовых затрат на кодирование одного пиксела изображения.
 
+	\param[in] precise_bpp Если <i>true</i>, при выполнении операции
+	оптимизации топологии будет производиться уточнение битовых затрат путем
+	проведения реального кодирования с ужатыми моделями арифметического кодера
+	(см. _real_encode_tight). В этом случае, после этапа оптимизации нет нужды
+	производить реальное кодирование, так как оно уже произведено функцией
+	_real_encode_tight.
+
 	Функция использует метод золотого сечения для подбора параметра <i>q</i>,
 	а для подбора параметра <i>lambda</i> использует функцию
 	_search_q_lambda_for_bpp_iter().
@@ -2533,7 +2553,8 @@ encoder::_search_q_lambda_for_bpp(
 							const q_t &q_min, const q_t &q_max,
 							const q_t &q_eps, const lambda_t &lambda_eps,
 							models_desc_t &models,
-							const bool virtual_encode)
+							const bool virtual_encode,
+							const bool precise_bpp)
 {
 	// максимальное количество итераций для подбора параметра lambda
 	static const sz_t max_iterations	= 0;
@@ -2557,7 +2578,7 @@ encoder::_search_q_lambda_for_bpp(
 					_search_q_lambda_for_bpp_iter(
 										q_b, bpp, bpp_eps, lambda_eps, models,
 										dw_b, deviation_b, virtual_encode,
-										max_iterations);
+										max_iterations, precise_bpp);
 
 	// подбор параметра lambda во второй точке
 	w_t dw_c		= 0;
@@ -2566,7 +2587,7 @@ encoder::_search_q_lambda_for_bpp(
 					_search_q_lambda_for_bpp_iter(
 										q_c, bpp, bpp_eps, lambda_eps, models,
 										dw_c, deviation_c, virtual_encode,
-										max_iterations);
+										max_iterations, precise_bpp);
 
 	// результаты последнего поиска параметра lambda
 	h_t deviation				= deviation_c;
@@ -2588,7 +2609,7 @@ encoder::_search_q_lambda_for_bpp(
 					_search_q_lambda_for_bpp_iter(
 										q_b, bpp, bpp_eps, lambda_eps, models,
 										dw_b, deviation_b, virtual_encode,
-										max_iterations);
+										max_iterations, precise_bpp);
 			deviation = deviation_b;
         }
         else
@@ -2604,7 +2625,7 @@ encoder::_search_q_lambda_for_bpp(
 					_search_q_lambda_for_bpp_iter(
 										q_c, bpp, bpp_eps, lambda_eps, models,
 										dw_c, deviation_b, virtual_encode,
-										max_iterations);
+										max_iterations, precise_bpp);
 			deviation = deviation_c;
         }
     }
