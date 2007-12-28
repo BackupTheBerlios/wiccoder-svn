@@ -41,15 +41,25 @@ struct dbg_pixel
 	wic::wk_t wc;
 
 	//!	\brief Номер модели, в которую попал закодированный коэффициент
-	wic::sz_t m;
+	//!	<i>wc</i>
+	wic::sz_t wc_model;
+
+	//!	\brief Признак подрезания ветвей
+	wic::n_t n;
+
+	//!	\brief Модель арифметического кодера, в которую попал признак
+	//!	подрезания ветвей <i>n</i>
+	wic::sz_t n_model;
 
 	// public constants --------------------------------------------------------
 
 	//! \brief Набор констант для идентификации полей структуры
-	enum dbg_pixel_members
+	enum members
 	{
 		member_wc,			//!< \brief Соответствует полю wc
-		member_m			//!< \brief Соответствует полю m
+		member_wc_model,	//!< \brief Соответствует полю wc_model
+		member_n,			//!< \brief Соответствует полю n
+		member_n_model		//!< \brief Соответствует полю n_model
 	};
 
 	// public types ------------------------------------------------------------
@@ -57,7 +67,7 @@ struct dbg_pixel
 	//! \brief Шаблон для выбора подходящего типа
 	/*!	Шаблон выбирает тип поля по его целочисленному идентификатору
 	*/
-	template <const dbg_pixel_members member>
+	template <const members member>
 	struct type_selector {
 		typedef void result;
 	};
@@ -68,9 +78,21 @@ struct dbg_pixel
 		typedef wic::wk_t result;
 	};
 
-	//! \brief Специализация для поля m
+	//! \brief Специализация для поля wc_model
 	template <>
-	struct type_selector<member_m> {
+	struct type_selector<member_wc_model> {
+		typedef wic::sz_t result;
+	};
+
+	//! \brief Специализация для поля n
+	template <>
+	struct type_selector<member_n> {
+		typedef wic::n_t result;
+	};
+
+	//! \brief Специализация для поля n_model
+	template <>
+	struct type_selector<member_n_model> {
 		typedef wic::sz_t result;
 	};
 
@@ -78,7 +100,7 @@ struct dbg_pixel
 	//!	значение поля по его идентификатору
 	/*! \sa type_selector
 	*/
-	template <const dbg_pixel_members member>
+	template <const members member>
 	struct field {
 		static typename type_selector<member>::result &get(dbg_pixel &pixel) {
 			return void;
@@ -93,11 +115,27 @@ struct dbg_pixel
 		}
 	};
 
-	//! \brief Специализация для поля m
+	//! \brief Специализация для поля wc_model
 	template <>
-	struct field<member_m> {
-		static type_selector<member_m>::result &get(dbg_pixel &pixel) {
-			return pixel.m;
+	struct field<member_wc_model> {
+		static type_selector<member_wc_model>::result &get(dbg_pixel &pixel) {
+			return pixel.wc_model;
+		}
+	};
+
+	//! \brief Специализация для поля n
+	template <>
+	struct field<member_n> {
+		static type_selector<member_n>::result &get(dbg_pixel &pixel) {
+			return pixel.n;
+		}
+	};
+
+	//! \brief Специализация для поля n_model
+	template <>
+	struct field<member_n_model> {
+		static type_selector<member_n_model>::result &get(dbg_pixel &pixel) {
+			return pixel.n_model;
 		}
 	};
 
@@ -108,7 +146,7 @@ struct dbg_pixel
 	/*!	Ради этой функции собственно и затевалось всё безобразие
 		происходившее выше :^)
 	*/
-	template <const dbg_pixel_members member>
+	template <const members member>
 	typename type_selector<member>::result &get() {
 		return field<member>::get(*this);
 	}
@@ -117,9 +155,9 @@ struct dbg_pixel
 	//!	идентификатору
 	/*!	Константная версия предыдущей функции
 	*/
-	template <const dbg_pixel_members member>
+	template <const members member>
 	const typename type_selector<member>::result &get() const {
-		return field<member>::get(*(const_cast<wnode *>(this)));
+		return field<member>::get(*(const_cast<dbg_pixel *>(this)));
 	}
 
 };

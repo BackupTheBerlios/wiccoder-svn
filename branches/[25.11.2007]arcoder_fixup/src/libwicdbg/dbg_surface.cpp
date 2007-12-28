@@ -65,8 +65,10 @@ void dbg_surface::clear()
 	for (wic::sz_t i = 0; _sz > i; ++i)
 	{
 		dbg_pixel &pixel = _surface[i];
-		pixel.wc	= 0;
-		pixel.m		= INVALID_MODEL;
+		pixel.wc		= 0;
+		pixel.wc_model	= INVALID_MODEL;
+		pixel.n			= 0;
+		pixel.n_model	= INVALID_MODEL;
 	}
 }
 
@@ -118,6 +120,24 @@ dbg_pixel &dbg_surface::get(const wic::sz_t x, const wic::sz_t y)
 {
 	// возврат результата
 	return get(_offset(x, y));
+}
+
+
+/*!	\param[in] p Координаты элемента
+	\return Константная ссылка на элемент поверхности
+*/
+const dbg_pixel &dbg_surface::get(const wic::p_t &p) const
+{
+	return get(p.x, p.y);
+}
+
+
+/*!	\param[in] p Координаты элемента
+	\return Ссылка на элемент поверхности
+*/
+dbg_pixel &dbg_surface::get(const wic::p_t &p)
+{
+	return get(p.x, p.y);
 }
 
 

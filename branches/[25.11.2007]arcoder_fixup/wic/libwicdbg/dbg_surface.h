@@ -14,8 +14,10 @@
 // include
 
 // standard C++ library headers
-#include <string>
 #include <assert.h>
+#include <string>
+#include <fstream>
+#include <iomanip>
 
 // imgs headers
 #include <imgs/bmp_file.h>
@@ -52,7 +54,7 @@ public:
 	// public constants --------------------------------------------------------
 
 	//!	\brief Номер не существующей модели арифметического кодера
-	static const wic::sz_t INVALID_MODEL	= 0xFFFFFFFF;
+	static const wic::sz_t INVALID_MODEL	= 0x0F;
 
 	// public methods ----------------------------------------------------------
 
@@ -102,6 +104,13 @@ public:
 	//!	\brief Возвращает ссылку на элемент с определёнными координатами
 	dbg_pixel &get(const wic::sz_t x, const wic::sz_t y);
 
+	//!	\brief Возвращает константную ссылку на элемент с определёнными
+	//!	координатами
+	const dbg_pixel &get(const wic::p_t &p) const;
+
+	//!	\brief Возвращает ссылку на элемент с определёнными координатами
+	dbg_pixel &get(const wic::p_t &p);
+
 	//@}
 
 	//!	\brief Экспорт поверхности в файл
@@ -110,7 +119,7 @@ public:
 	//!	\brief
 	/*!
 	*/
-	template <const dbg_pixel::dbg_pixel_members member>
+	template <const dbg_pixel::members member>
 	void save(const std::string &path, const bool as_bmp = false) const
 	{
 		// проверка утверждений
@@ -143,6 +152,50 @@ public:
 
 		// освобождение временного массива
 		delete[] data;
+	}
+
+	//!	\ brief
+	/*!
+	*/
+	template <const dbg_pixel::members member>
+	void diff(const dbg_surface &another, const std::string &diff_path)
+	{
+		// проверка утверждений
+		assert(size()	== another.size());
+		assert(width()	== another.width());
+		assert(height()	== another.height());
+
+		// поток для вывода информации о различиях
+		std::ofstream diff_out(diff_path.c_str());
+
+		// тип члена с которым производится работа
+		typedef dbg_pixel::type_selector<member>::result member_type;
+
+		// количество найденных различий
+		wic::sz_t diffs_count = 0;
+
+		// цикл по всей поверхности
+		for (wic::sz_t y = 0; height() > y; ++y)
+		{
+			for (wic::sz_t x = 0; width() > x; ++x)
+			{
+				// получение значений членов различных поверхностей
+				const member_type a = get(x, y).get<member>();
+				const member_type b = another.get(x, y).get<member>();
+
+				// сравнение значений
+				if (a == b) continue;
+
+				// увеличение количества найденных различий
+				++diffs_count;
+
+				// запись информации о различии в файл
+				diff_out << std::setw(5) << diffs_count << " - ["
+						 << std::setw(4) << x << ", "
+						 << std::setw(4) << y << "]: a = "
+						 << a << ", b = " << b << std::endl;
+			}
+		}
 	}
 
 	//@}

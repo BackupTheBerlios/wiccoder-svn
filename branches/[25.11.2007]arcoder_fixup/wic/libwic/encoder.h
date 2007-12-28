@@ -14,6 +14,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 // include
 
+// code configuration headers
+#include <wic/libwic/defines.h>
+
 // standard C++ library headers
 #include <assert.h>
 #include <algorithm>
@@ -25,6 +28,11 @@
 
 // external library header
 // none
+
+// libwicdbg headers
+#ifdef LIBWIC_USE_DBG_SURFACE
+#include <wic/libwicdbg/dbg_surface.h>
+#endif
 
 // libwic headers
 #include <wic/libwic/types.h>
@@ -901,6 +909,16 @@ private:
 	//!	\brief —тандартный файловый поток дл€ вывода информации в
 	//!	отладочном режиме
 	std::ofstream _dbg_out_stream;
+	#endif
+
+	#ifdef LIBWIC_USE_DBG_SURFACE
+	//!	\brief ќтладочна€ поверхность дл€ более изысканного поиска багов,
+	//!	используема€ во врем€ оптимизации топологии ветвей
+	wicdbg::dbg_surface _dbg_opt_surface;
+
+	//!	\brief ќтладочна€ поверхность дл€ более изысканного поиска багов,
+	//!	используема€ во врем€ реального кодировани€
+	wicdbg::dbg_surface _dbg_enc_surface;
 	#endif
 };
 

@@ -40,11 +40,11 @@ bool test_dbg_surface()
 
 	for (wic::sz_t i = 0; surface.size() > i; ++i)
 	{
-		surface.get(i).m = rand() % 12;
+		surface.get(i).wc_model = rand() % 12;
 	}
 
-	surface.save<wicdbg::dbg_pixel::member_m>("test_dbg_surface.txt", false);
-	surface.save<wicdbg::dbg_pixel::member_m>("test_dbg_surface.bmp", true);
+	surface.save<wicdbg::dbg_pixel::member_wc_model>("test_dbg_surface.txt", false);
+	surface.save<wicdbg::dbg_pixel::member_wc_model>("test_dbg_surface.bmp", true);
 
 	return false;
 }

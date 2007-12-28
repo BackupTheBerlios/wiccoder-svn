@@ -34,6 +34,9 @@ encoder::encoder(const sz_t width, const sz_t height, const sz_t lvls):
 	_acoder(width * height * sizeof(w_t) * 4),
 	_optimize_tree_callback(0), _optimize_tree_callback_param(0),
 	_optimize_callback(0), _optimize_callback_param(0)
+	#ifdef LIBWIC_USE_DBG_SURFACE
+	, _dbg_opt_surface(width, height), _dbg_enc_surface(width, height)
+	#endif
 {
 	// проверка утверждений
 	assert(MINIMUM_LEVELS <= lvls);
@@ -150,6 +153,7 @@ encoder::encode(const w_t *const w, const q_t q, const lambda_t &lambda,
 	if (result.optimization.real_encoded)
 	{
 		tunes.models = result.optimization.models;
+		result.bpp = result.optimization.bpp;
 	}
 	else
 	{
@@ -1382,21 +1386,47 @@ void encoder::_encode_tree_root(const p_t &root,
 	// получение корневого элемента
 	const wnode &root_node = _wtree.at(root);
 
+	// определение модели, используемой для кодирования коэффициента
+	const sz_t spec_model	= _ind_spec(0, subbands::LVL_0);
+
 	// закодировать коэффициент с нулевого уровня
-	_encode_spec(_ind_spec(0, subbands::LVL_0), root_node.wc,
-				 virtual_encode);
+	_encode_spec(spec_model, root_node.wc, virtual_encode);
+
+	// определение модели для кодирования признака подрезания
+	const sz_t map_model	= _ind_map(0, subbands::LVL_0);
 
 	// закодировать групповой признак подрезания с нулевого уровня
-	_encode_map(_ind_map(0, subbands::LVL_0), root_node.n,
-				virtual_encode);
+	_encode_map(map_model, root_node.n, virtual_encode);
+
+	#ifdef LIBWIC_USE_DBG_SURFACE
+	// запись отладочной информации о закодированном коэффициенте и признаке
+	// подрезания
+	wicdbg::dbg_pixel &dbg_pixel = _dbg_opt_surface.get(root);
+	dbg_pixel.wc		= root_node.wc;
+	dbg_pixel.wc_model	= spec_model;
+	dbg_pixel.n			= root_node.n;
+	dbg_pixel.n_model	= map_model;
+	#endif
 
 	// кодирование дочерних коэффициентов с первого уровня
 	for (wtree::coefs_iterator i = _wtree.iterator_over_LL_children(root);
 		 !i->end(); i->next())
 	{
+		// определение модели, используемой для кодирования коэффициента
+		const sz_t spec_model = _ind_spec(0, subbands::LVL_1);
+
+		// ссылка на кодируемый коэффициент
+		const wk_t &wc		= _wtree.at(i->get()).wc;
+
 		// закодировать коэффициенты с первого уровня
-		_encode_spec(_ind_spec(0, subbands::LVL_1), _wtree.at(i->get()).wc,
-					 virtual_encode);
+		_encode_spec(spec_model, wc, virtual_encode);
+
+		#ifdef LIBWIC_USE_DBG_SURFACE
+		// запись отладочной информации о закодированном коэффициенте
+		wicdbg::dbg_pixel &dbg_pixel = _dbg_opt_surface.get(i->get());
+		dbg_pixel.wc		= wc;
+		dbg_pixel.wc_model	= spec_model;
+		#endif
 	}
 }
 
@@ -1434,6 +1464,13 @@ void encoder::_encode_tree_leafs(const p_t &root, const sz_t lvl,
 			const sz_t model = _ind_spec<wnode::member_wc>(p_g, sb_g);
 
 			_encode_spec(model, node_g.wc, virtual_encode);
+
+			#ifdef LIBWIC_USE_DBG_SURFACE
+			// Запись кодируемого коэффициента в отладочную поверхность
+			wicdbg::dbg_pixel &dbg_pixel = _dbg_opt_surface.get(p_g);
+			dbg_pixel.wc		= node_g.wc;
+			dbg_pixel.wc_model	= model;
+			#endif
 		}
 
 		// на предпоследнем уровне нет групповых признаков подрезания
@@ -1459,6 +1496,13 @@ void encoder::_encode_tree_leafs(const p_t &root, const sz_t lvl,
 			const sz_t model = _ind_map<wnode::member_wc>(p_j, sb_g);
 
 			_encode_map(model, node_j.n, virtual_encode);
+
+			#ifdef LIBWIC_USE_DBG_SURFACE
+			// Запись признака подрезания в отладочную поверхность
+			wicdbg::dbg_pixel &dbg_pixel = _dbg_opt_surface.get(p_j);
+			dbg_pixel.n			= node_j.n;
+			dbg_pixel.n_model	= model;
+			#endif
 		}
 	}
 }
@@ -1525,6 +1569,16 @@ void encoder::_encode_wtree_root(const bool decode_mode)
 			// кодирование коэффициента и признака подрезания
 			_encode_spec(spec_LL_model, node.wc);
 			_encode_map(map_LL_model, node.n);
+
+			#ifdef LIBWIC_USE_DBG_SURFACE
+			// запись информации о кодируемых коэффициентов и признаках
+			// подрезания в отладочную поверхность
+			wicdbg::dbg_pixel &dbg_pixel = _dbg_enc_surface.get(p_i);
+			dbg_pixel.wc		= node.wc;
+			dbg_pixel.wc_model	= spec_LL_model;
+			dbg_pixel.n			= node.n;
+			dbg_pixel.n_model	= map_LL_model;
+			#endif
 		}
 	}
 
@@ -1543,9 +1597,25 @@ void encoder::_encode_wtree_root(const bool decode_mode)
 		{
 			// (де)кодирование очерендного коэффициента
 			if (decode_mode)
+			{
 				_wtree.at(i->get()).wc = _decode_spec(spec_1_model);
+			}
 			else
-				_encode_spec(spec_1_model, _wtree.at(i->get()).wc);
+			{
+				// ссылка на кодируемый коэффициент
+				const wk_t &wc = _wtree.at(i->get()).wc;
+
+				// кодирование коэффициента
+				_encode_spec(spec_1_model, wc);
+
+				#ifdef LIBWIC_USE_DBG_SURFACE
+				// запись информации о кодируемом коэффициенте в отладочную
+				// поверхность
+				wicdbg::dbg_pixel &dbg_pixel = _dbg_enc_surface.get(i->get());
+				dbg_pixel.wc		= wc;
+				dbg_pixel.wc_model	= spec_1_model;
+				#endif
+			}
 		}
 	}
 }
@@ -1597,9 +1667,21 @@ void encoder::_encode_wtree_level(const sz_t lvl,
 
 			// (де)кодирование коэффициента
 			if (decode_mode)
+			{
 				node_g.wc = _decode_spec(model);
+			}
 			else
+			{
 				_encode_spec(model, node_g.wc);
+
+				#ifdef LIBWIC_USE_DBG_SURFACE
+				// запись информации о кодируемом коэффициенте в отладочную
+				// поверхность
+				wicdbg::dbg_pixel &dbg_pixel = _dbg_enc_surface.get(p_g);
+				dbg_pixel.wc		= node_g.wc;
+				dbg_pixel.wc_model	= model;
+				#endif
+			}
 		}
 
 		// на предпоследнем уровне нет групповых признаков подрезания
@@ -1643,6 +1725,14 @@ void encoder::_encode_wtree_level(const sz_t lvl,
 			{
 				// кодирование признака подрезания
 				_encode_map(model, node_j.n);
+
+				#ifdef LIBWIC_USE_DBG_SURFACE
+				// запись информации о групповом признаке подрезания в
+				// отладочную поверхность
+				wicdbg::dbg_pixel &dbg_pixel = _dbg_enc_surface.get(p_j);
+				dbg_pixel.n			= node_j.n;
+				dbg_pixel.n_model	= model;
+				#endif
 			}
 		}
 	}
@@ -1655,6 +1745,14 @@ void encoder::_encode_wtree_level(const sz_t lvl,
 */
 void encoder::_encode_wtree(const bool decode_mode)
 {
+	#ifdef LIBWIC_USE_DBG_SURFACE
+	// очистка отладочной поверхности, если производится кодирование
+	if (!decode_mode)
+	{
+		_dbg_enc_surface.clear();
+	}
+	#endif
+
 	// (де)кодирование корневых элементов
 	_encode_wtree_root(decode_mode);
 
@@ -1667,6 +1765,19 @@ void encoder::_encode_wtree(const bool decode_mode)
 	{
 		_encode_wtree_level(lvl, decode_mode);
 	}
+
+	#ifdef LIBWIC_USE_DBG_SURFACE
+	// запись отладочной поверхности в файл
+	if (!decode_mode)
+	{
+		_dbg_enc_surface.save<wicdbg::dbg_pixel::member_wc>
+			("dumps/[encoder]dbg_enc_suface.wc.bmp", true);
+		_dbg_enc_surface.save<wicdbg::dbg_pixel::member_wc_model>
+			("dumps/[encoder]dbg_enc_suface.wc_model.bmp", true);
+		_dbg_opt_surface.diff<wicdbg::dbg_pixel::member_wc_model>
+			(_dbg_enc_surface, "dumps/[encoder]dbg_suface.wc_model.diff");
+	}
+	#endif
 }
 
 
@@ -1863,7 +1974,7 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 						 const bool virtual_encode,
 						 const bool precise_bpp)
 {
-	// инициализация возвращаемого результата
+	// Инициализация возвращаемого результата
 	optimize_result_t result;
 	result.q				= _wtree.q();
 	result.lambda			= lambda;
@@ -1872,10 +1983,15 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 	result.models.version	= MODELS_DESC_NONE;
 	result.real_encoded		= false;
 
-	// обновление дерева вейвлет коэффициентов (если требуется)
+	// Обновление дерева вейвлет коэффициентов (если требуется)
 	if (refresh_wtree) _wtree.filling_refresh();
 
-	// оптимизация топологии ветвей с кодированием
+	#ifdef LIBWIC_USE_DBG_SURFACE
+	// Очистка отладочной поверхности
+	_dbg_opt_surface.clear();
+	#endif
+
+	// Оптимизация топологии ветвей с кодированием
 	_acoder.encode_start();
 
 	for (wtree::coefs_iterator i =
@@ -1893,6 +2009,14 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 	}
 
 	_acoder.encode_stop();
+
+	#ifdef LIBWIC_USE_DBG_SURFACE
+	// Сохранение полей отладочной поверхности в файлы
+	_dbg_opt_surface.save<wicdbg::dbg_pixel::member_wc>
+		("dumps/[encoder]dbg_opt_suface.wc.bmp", true);
+	_dbg_opt_surface.save<wicdbg::dbg_pixel::member_wc_model>
+		("dumps/[encoder]dbg_opt_suface.wc_model.bmp", true);
+	#endif
 
 	// подсчёт bpp, если производилось реальное кодирование
 	if (precise_bpp)
@@ -2642,6 +2766,9 @@ encoder::_search_q_lambda_for_bpp(
 */
 h_t encoder::_real_encode()
 {
+	#ifdef LIBWIC_USE_DBG_SURFACE
+	#endif
+
 	// кодирование всего дерева
 	_acoder.encode_start();
 
@@ -2672,15 +2799,7 @@ h_t encoder::_real_encode_tight(models_desc_t &desc)
 	// Определение и установка моделей арифметического кодера
 	desc = _setup_acoder_post_models();
 
-	// кодирование всего дерева
-	_acoder.encode_start();
-
-	_encode_wtree();
-
-	_acoder.encode_stop();
-
-	// подсчёт и возврат средних битовых затрат
-	return _calc_encoded_bpp();
+	return _real_encode();
 }
 
 
