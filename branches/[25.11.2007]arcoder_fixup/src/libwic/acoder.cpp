@@ -501,7 +501,7 @@ void acoder::_init_models(arcoder_base *const coder_base)
 	coder_base->ResetStatistics();
 
 	// инициализация моделей
-	for (sz_t i = 0; 2/*coder_base->Models().Size()*/ > i; i++)
+	for (sz_t i = 0; 4 > i; i++)
 	{
 		const model_t &model = _models[i];
 
@@ -513,9 +513,14 @@ void acoder::_init_models(arcoder_base *const coder_base)
 		}
 	}
 
-	/*
+	coder_base->model(4);
+	const model_t &model4 = _models[4];
+	coder_base->update_model(model4._delta);
+
 	coder_base->model(6);
-	coder_base->update_model(7);
+	const model_t &model6 = _models[6];
+
+	/*
 	coder_base->update_model(7);
 	coder_base->update_model(7);
 	coder_base->update_model(7);
