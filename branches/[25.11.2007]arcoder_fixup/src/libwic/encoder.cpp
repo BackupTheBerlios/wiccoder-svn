@@ -571,7 +571,7 @@ encoder::encode_fixed_bpp(const w_t *const w, const h_t &bpp,
 	static const q_t q_max				= q_t(64);
 	static const q_t q_eps				= q_t(0.1);
 
-	static const lambda_t lambda_eps	= 0;
+	static const lambda_t lambda_eps	= 0.00001;
 
 	static const bool precise_bpp		= true;
 
@@ -873,6 +873,14 @@ encoder::models_desc2_t encoder::_mk_acoder_post_models(const acoder &ac) const
 	{
 		desc.mins[i] = ac.rmin(i);
 		desc.maxs[i] = ac.rmax(i);
+
+		// проверка на пустую модель (в которых rmin > rmax)
+		// данные действия необходимы, если в модель не попало ни одного
+		// элемента
+		if (desc.mins[i] > desc.maxs[i])
+		{
+			desc.mins[i] = desc.maxs[i] = 0;
+		}
 	}
 
 	return desc;
@@ -1195,8 +1203,8 @@ j_t encoder::_calc_jx_value(const p_t &root, const j_t &j_map,
 {
 	assert(_wtree.sb().test_LL(root));
 
-	// получаем ссылку на LL саббенд
-	const subbands::subband_t &sb_LL = _wtree.sb().get_LL();
+	// получаем ссылку саббенды
+	const subbands &sb = _wtree.sb();
 
 	j_t j = j_map;
 
@@ -1208,8 +1216,11 @@ j_t encoder::_calc_jx_value(const p_t &root, const j_t &j_map,
 
 		const wnode &node = _wtree.at(p);
 
+		// получаем ссылку на саббенд в котором лежит рассматриваемый элемент
+		const subbands::subband_t &sb_i = sb.from_point(p, subbands::LVL_1);
+
 		j += _calc_rd_iteration(p, node.wc, lambda,
-								_ind_spec<wnode::member_wc>(p, sb_LL));
+								_ind_spec<wnode::member_wc>(p, sb_i));
 	}
 
 	wnode &node = _wtree.at(root);
@@ -2784,9 +2795,13 @@ h_t encoder::_real_encode()
 /*!	\param[out] desc Описание моделей арифметического кодера, которые
 	были использованый при кодировании
 
-	\param[in] restore_models Если <i>true</i> модели арифметического
-	кодера будут востановлены после завершения кодирования. Удобно при
-	подборе параметров кодирования.
+	\param[in] double_path Если <i>true</i> кодирование будет производится
+	в два прохода. При первом проходе кодирования производится настройка
+	моделей. Сейчас нет возможности кодировать в один проход (что быстрее)
+	так как возможен перескок коэффициентов из одной модели в другую.
+	Связано это с тем, что на этапе оптимизации нам ещё не известны финальные
+	значения всех коэффициентов и как следствие значение вычисляемых
+	прогнозов.
 
 	\return Средние битовые затраты на кодирование спектра вейвлет
 	коэффициентов
@@ -2794,8 +2809,19 @@ h_t encoder::_real_encode()
 	\attention Следует очень осторожно использовать эту функцию так как
 	она изменяет модели, используемые арифметическим кодером.
 */
-h_t encoder::_real_encode_tight(models_desc_t &desc)
+h_t encoder::_real_encode_tight(models_desc_t &desc, const bool double_path)
 {
+	// двойной проход должен быть включён при текущем положении дел
+	assert(double_path);
+
+	// выполнение первого прохода, если необходимо
+	if (double_path)
+	{
+		_setup_acoder_models();
+
+		_real_encode();
+	}
+
 	// Определение и установка моделей арифметического кодера
 	desc = _setup_acoder_post_models();
 
@@ -2816,6 +2842,14 @@ h_t encoder::_calc_encoded_bpp(const bool including_tunes)
 						 + ((including_tunes)? sizeof(tunes_t): 0);
 
 	return h_t(data_sz * BITS_PER_BYTE) / h_t(_wtree.nodes_count());
+}
+
+
+/*!
+*/
+void encoder::_test_wc_136_0()
+{
+	assert(0 != _wtree.at(136, 0).wc);
 }
 
 

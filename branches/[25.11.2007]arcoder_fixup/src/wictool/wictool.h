@@ -15,6 +15,9 @@
 // standard C++ library headers
 #include <string>
 
+// wavelet filters headers
+#include <wavelets/devis/wavelet.h>
+
 // libwic headers
 #include <wic/libwic/types.h>
 
@@ -214,6 +217,9 @@ int stat(const bmp_file_diff_src_t &diff_src,
 //!	\brief Получает название вейвлет преобразования из командной строки
 int get_wavelet_filter(const int argc, const char *const *const args,
 					   std::string &result, std::ostream *const err = 0);
+
+//!	\brief Получает вейвлет фильтр из библиотеки devis'а по его имени
+FilterSet *get_devis_filter(const std::string &name);
 
 //!	\brief Проверяет указанные размеры на возможность использования
 //!	вейвлет преобразования
