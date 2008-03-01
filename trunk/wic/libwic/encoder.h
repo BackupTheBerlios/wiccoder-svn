@@ -14,6 +14,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 // include
 
+// code configuration headers
+#include <wic/libwic/defines.h>
+
 // standard C++ library headers
 #include <assert.h>
 #include <algorithm>
@@ -25,6 +28,11 @@
 
 // external library header
 // none
+
+// libwicdbg headers
+#ifdef LIBWIC_USE_DBG_SURFACE
+#include <wic/libwicdbg/dbg_surface.h>
+#endif
 
 // libwic headers
 #include <wic/libwic/types.h>
@@ -80,6 +88,38 @@ namespace wic {
 */
 class encoder {
 public:
+	// public constants --------------------------------------------------------
+
+	//!	\brief Минимальное допустимое количество уровней разложения
+	static const sz_t MINIMUM_LEVELS			= 3;
+
+	//!	\brief Количество моделей, используемых арифметическим кодером для
+	//!	кодирования коэффициентов
+	static const sz_t ACODER_SPEC_MODELS_COUNT	= 6;
+
+	//!	\brief Количество моделей, используемых арифметическим кодером для
+	//!	кодирования групповых признаков подрезания
+	static const sz_t ACODER_MAP_MODELS_COUNT	= 5;
+
+	//!	\brief Общее количество моделей, используемых арифметическим кодером
+	static const sz_t ACODER_TOTAL_MODELS_COUNT	= ACODER_SPEC_MODELS_COUNT +
+												  ACODER_MAP_MODELS_COUNT;
+
+	//!	\brief Константа идентифицирующая используемую структуру для хранения
+	//!	описаний моделей арифметического кодера (соответствует отсутствию
+	//!	иформации о моделях)
+	static const short MODELS_DESC_NONE			= 0;
+
+	//!	\brief Константа идентифицирующая используемую структуру для хранения
+	//!	описаний моделей арифметического кодера (соответствует структуре
+	//!	models_desc1_t)
+	static const short MODELS_DESC_V1			= 1;
+
+	//!	\brief Константа идентифицирующая используемую структуру для хранения
+	//!	описаний моделей арифметического кодера (соответствует структуре
+	//!	models_desc2_t)
+	static const short MODELS_DESC_V2			= 2;
+
 	// public types ------------------------------------------------------------
 
 	//!	\brief Описания моделей арифметического кодера
@@ -87,7 +127,7 @@ public:
 		Используя эту информацию, енкодер воссоздаёт модели, которые декодер
 		использовал для кодирования.
 	*/
-	struct models_desc_t
+	struct models_desc1_t
 	{
 		//!	\brief Минимальный коэффициент для модели #0
 		short mdl_0_min;
@@ -101,6 +141,49 @@ public:
 		short mdl_x_min;
 		//!	\brief Максимальный коэффициент для моделей #2..#5
 		short mdl_x_max;
+	};
+
+	//!	\brief Описание моделей арифметического кодера (более полное)
+	/*!	Содержит описания моделей арифметического кодера. Представляет собой
+		более подробную версию структуры models_desc_t. 
+
+		\sa models_desc_t
+	*/
+	struct models_desc2_t
+	{
+		short mins[ACODER_TOTAL_MODELS_COUNT];
+		short maxs[ACODER_TOTAL_MODELS_COUNT];
+	};
+
+	//!	\brief Унифицированное описание моделей арифметического кодера
+	/*!	Структура объединяет в себе различные способы представления
+		описания моделей арифметического кодера. Большинство функций,
+		работающих с этой структурой автоматически определяют
+		использованный способ представления, либо просят указать его
+		явно (в качестве одного из аргументов).
+	*/
+	struct models_desc_t
+	{
+		//!	\brief Объединение различных способов представления описания
+		//!	моделей арифметического кодера
+		union versions_u
+		{
+			//!	\brief Версия 1
+			models_desc1_t v1;
+			//!	\brief Версия 2
+			models_desc2_t v2;
+		};
+
+		//!	\brief Версия структуры, используемой для хранения описаний
+		//!	моделей арифметического кодера
+		/*!	Возможные значения:
+			- MODELS_DESC_V1 если используется структура models_desc1_t
+			- MODELS_DESC_V2 если используется структура models_desc2_t
+		*/
+		short version;
+
+		//!	\brief Описание моделей арифметического кодера
+		versions_u md;
 	};
 
 	//!	\brief Структура для хранения информации необходимой для последующего
@@ -144,6 +227,22 @@ public:
 			битовые затраты обычно несколько меньше.
 		*/
 		h_t bpp;
+
+		//!	\brief Описание моделей арифметического кодера
+		/*!	В это поле может быть помещено описание моделей арифметического
+			кодера, если в процессе оптимизации топологии удалось подобрать
+			более удачные модели для кодирования деревьев спектра. Новое
+			описание моделей доступно только тогда, когда поле
+			models_desc_t::version не равно MODELS_DESC_NONE.
+		*/
+		models_desc_t models;
+
+		//!	\brief Признак проведённого реального кодирования
+		/*!	Если <i>true</i>, то в процессе оптимизации было проведено
+			реальное кодирование деревьев спектра и его можно не производить
+			повторно.
+		*/
+		bool real_encoded;
 	};
 
 	//!	\brief Структура представляющая результат проведённого кодирования
@@ -178,23 +277,6 @@ public:
 	*/
 	typedef void (* optimize_callback_f)(const optimize_result_t &result,
 										 void *const param);
-
-	// public constants --------------------------------------------------------
-
-	//!	\brief Минимальное допустимое количество уровней разложения
-	static const sz_t MINIMUM_LEVELS			= 3;
-
-	//!	\brief Количество моделей, используемых арифметическим кодером для
-	//!	кодирования коэффициентов
-	static const sz_t ACODER_SPEC_MODELS_COUNT	= 6;
-
-	//!	\brief Количество моделей, используемых арифметическим кодером для
-	//!	кодирования групповых признаков подрезания
-	static const sz_t ACODER_MAP_MODELS_COUNT	= 5;
-
-	//!	\brief Общее количество моделей, используемых арифметическим кодером
-	static const sz_t ACODER_TOTAL_MODELS_COUNT	= ACODER_SPEC_MODELS_COUNT +
-												  ACODER_MAP_MODELS_COUNT;
 
 	// public methods ----------------------------------------------------------
 
@@ -239,7 +321,8 @@ public:
 						const w_t *const w, const lambda_t &lambda,
 						tunes_t &tunes,
 						const q_t &q_min, const q_t &q_max, const q_t &q_eps,
-						const j_t &j_eps = 0, const sz_t &max_iterations = 0);
+						const j_t &j_eps = 0, const sz_t &max_iterations = 0,
+						const bool precise_bpp = false);
 
 	//!	\brief Производит кодирование изображения при фиксированном параметре
 	//!	<i>lambda</i>, подбирая параметр <i>q</i> минимизируя значение функции
@@ -257,7 +340,8 @@ public:
 						const lambda_t &lambda_min,
 						const lambda_t &lambda_max,
 						const lambda_t &lambda_eps = 0,
-						const sz_t &max_iterations = 0);
+						const sz_t &max_iterations = 0,
+						const bool precise_bpp = false);
 
 	//!	\brief Производит кодирование изображения при фиксированном параметре
 	//!	<i>q</i>, подбирая параметр <i>lambda</i> пытаясь достичь заданных
@@ -273,7 +357,7 @@ public:
 						const h_t &bpp, const h_t &bpp_eps,
 						const q_t &q_min, const q_t &q_max, const q_t &q_eps,
 						const lambda_t &lambda_eps,
-						tunes_t &tunes);
+						tunes_t &tunes, const bool precise_bpp = false);
 
 	//!	\brief Производит кодирование изображения, подбирая параметры
 	//!	<i>q</i> и <i>lambda</i> чтобы достич заданных битовых затрат с
@@ -438,11 +522,34 @@ protected:
 	}
 
 	//!	\brief Создаёт модели для арифметического кодера по их описанию
-	acoder::models_t _mk_acoder_models(const models_desc_t &desc);
+	acoder::models_t _mk_acoder_models(const models_desc1_t &desc) const;
 
-	//!	\brief Создаёт модели, используемые арифметическим кодером,
-	//!	основываясь на специальных критериях
-	encoder::models_desc_t _mk_acoder_smart_models();
+	//!	\brief Создаёт модели для арифметического кодера по их описанию
+	acoder::models_t _mk_acoder_models(const models_desc2_t &desc) const;
+
+	//!	\brief Создаёт модели для арифметического кодера по их описанию
+	acoder::models_t _mk_acoder_models(const models_desc_t &desc) const;
+
+	//!	\brief Создаёт описание моделей, используемых арифметическим кодером,
+	//!	основываясь на специальных критериях (значения минимальных и
+	//!	максимальных элементов различных саббендов)
+	models_desc1_t _mk_acoder_smart_models() const;
+
+	//!	\brief Создаёт описание моделей, используемых арифметическим кодером,
+	//! исходя из накопленной статистики кодирования или декодирования
+	//!	аркодера
+	models_desc2_t _mk_acoder_post_models(const acoder &ac) const;
+
+	//!	\brief Производит установку моделей арифметического кодера
+	models_desc_t _setup_acoder_models();
+
+	//!	\brief Производит установку моделей арифметического кодера
+	models_desc_t _setup_acoder_post_models();
+
+	//!	\brief Восстанавливает модели арифметического кодера после проведённой
+	//!	оптимизации (вспомогательная функция)
+	bool _restore_spoiled_models(const optimize_result_t &result,
+								 const acoder::models_t &models);
 
 	//@}
 
@@ -688,24 +795,33 @@ protected:
 	//!	\brief Производит оптимизацию топологии всех ветвей в спектре
 	optimize_result_t _optimize_wtree(const lambda_t &lambda,
 									  const bool refresh_wtree = false,
-									  const bool virtual_encode = false);
+									  const bool virtual_encode = false,
+									  const bool precise_bpp = false);
+
+	//!	\brief Производит оптимизацию топологии всех ветвей в спектре
+	//! с предварительной установкой моделей арифметического кодера
+	optimize_result_t _optimize_wtree_m(const lambda_t &lambda,
+										const models_desc_t &models,
+										const bool refresh_wtree = false,
+										const bool virtual_encode = false,
+										const bool precise_bpp = false);
 
 	//!	\brief Производит оптимизацию топологии всех ветвей в спектре
 	//! с предварительным квантованием и настройкой арифметического
 	//!	кодера.
-	optimize_result_t _optimize_wtree(const lambda_t &lambda,
-									  const q_t &q, models_desc_t &models,
-									  const bool virtual_encode = false);
+	optimize_result_t _optimize_wtree_q(const lambda_t &lambda, const q_t &q,
+										const bool virtual_encode = false,
+										const bool precise_bpp = false);
 
 	//!	\brief Производит поиск квантователя <i>q</i> при заданном параметре
 	//!	<i>lambda</i>, минимизируя значение <i>RD функции Лагранжа J</i>
 	optimize_result_t _search_q_min_j(
 							const lambda_t &lambda,
 							const q_t &q_min, const q_t &q_max,
-							const q_t &q_eps, models_desc_t &models,
-							const j_t &j_eps = 0,
+							const q_t &q_eps, const j_t &j_eps = 0,
 							const bool virtual_encode = false,
-							const sz_t &max_iterations = 0);
+							const sz_t &max_iterations = 0,
+							const bool precise_bpp = false);
 
 	//!	\brief Производит поиск параметра <i>lambda</i>, подбирая его
 	//! под битрейт <i>bpp</i>
@@ -715,7 +831,8 @@ protected:
 							const lambda_t &lambda_max,
 							const lambda_t &lambda_eps,
 							const bool virtual_encode = false,
-							const sz_t &max_iterations = 0);
+							const sz_t &max_iterations = 0,
+							const bool precise_bpp = false);
 
 	//!	\brief Производит итерацию поиска параметра <i>lambda</i> при
 	//! заданном параметре <i>q</i> для функции _search_q_lambda_for_bpp
@@ -724,7 +841,8 @@ protected:
 							const h_t &bpp_eps, const lambda_t &lambda_eps,
 							models_desc_t &models, w_t &d, h_t &deviation,
 							const bool virtual_encode = false,
-							const sz_t &max_iterations = 0);
+							const sz_t &max_iterations = 0,
+							const bool precise_bpp = false);
 
 	//!	\brief Производит поиск параметров <i>q</i> и <i>lambda</i>, пытаясь
 	//!	достичь нужных битовых затрат на кодирование изображения
@@ -733,7 +851,23 @@ protected:
 							const q_t &q_min, const q_t &q_max,
 							const q_t &q_eps, const lambda_t &lambda_eps,
 							models_desc_t &models,
-							const bool virtual_encode = false);
+							const bool virtual_encode = false,
+							const bool precise_bpp = false);
+
+	//@}
+
+	//!	\name Выполнение реального кодирования
+	//@{
+
+	//!	\brief Выполняет реальное кодирование спектра коэффициентов
+	//!	вейвлет преобразования, используя текущие настройки арифметического
+	//!	кодера
+	h_t _real_encode();
+
+	//!	\brief Выполняет реальное кодирование спектра коэффициентов
+	//!	вейвлет преобразования, предварительно подстроив текущие настройки
+	//!	арифметического кодера
+	h_t _real_encode_tight(models_desc_t &desc, const bool double_path = true);
 
 	//@}
 
@@ -743,6 +877,14 @@ protected:
 	//!	\brief Возвращает реальные средние битовые затраты на кодирование
 	//!	одного элемента изображения (пикселя)
 	h_t _calc_encoded_bpp(const bool including_tunes = true);
+
+	//@}
+
+	//!	\name Набор временных отладочных функций
+	//@{
+
+	//!	\brief Проверяет на неравенство нулю элемента [136, 0]
+	void _test_wc_136_0();
 
 	//@}
 
@@ -775,6 +917,20 @@ private:
 	//!	\brief Стандартный файловый поток для вывода информации в
 	//!	отладочном режиме
 	std::ofstream _dbg_out_stream;
+	#endif
+
+	#ifdef LIBWIC_USE_DBG_SURFACE
+	//!	\brief Отладочная поверхность для более изысканного поиска багов,
+	//!	используемая во время оптимизации топологии ветвей
+	wicdbg::dbg_surface _dbg_opt_surface;
+
+	//!	\brief Отладочная поверхность для более изысканного поиска багов,
+	//!	используемая во время реального кодирования
+	wicdbg::dbg_surface _dbg_enc_surface;
+
+	//!	\brief Отладочная поверхность для более изысканного поиска багов,
+	//!	используемая во время декодирования
+	wicdbg::dbg_surface _dbg_dec_surface;
 	#endif
 };
 

@@ -32,7 +32,12 @@ namespace wic {
 encoder::encoder(const sz_t width, const sz_t height, const sz_t lvls):
 	_wtree(width, height, lvls),
 	_acoder(width * height * sizeof(w_t) * 4),
+	_optimize_tree_callback(0), _optimize_tree_callback_param(0),
 	_optimize_callback(0), _optimize_callback_param(0)
+	#ifdef LIBWIC_USE_DBG_SURFACE
+	, _dbg_opt_surface(width, height), _dbg_enc_surface(width, height),
+	_dbg_dec_surface(width, height)
+	#endif
 {
 	// проверка утверждений
 	assert(MINIMUM_LEVELS <= lvls);
@@ -138,25 +143,26 @@ encoder::encode(const w_t *const w, const q_t q, const lambda_t &lambda,
 	_wtree.load_field<wnode::member_w>(w);
 
 	// оптимизация топологии ветвей
-	result.optimization = 
+	result.optimization =
 		#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
-		_optimize_wtree(lambda, q, tunes.models, true);
+		_optimize_wtree_q(lambda, q, true, true);
 		#else
-		_optimize_wtree(lambda, q, tunes.models, false);
+		_optimize_wtree_q(lambda, q, false, true);
 		#endif
 
-	// кодирование всего дерева
-	_acoder.encode_start();
-
-	_encode_wtree();
-
-	_acoder.encode_stop();
+	// кодирование всего дерева, если необходимо
+	if (result.optimization.real_encoded)
+	{
+		tunes.models = result.optimization.models;
+		result.bpp = result.optimization.bpp;
+	}
+	else
+	{
+		result.bpp = _real_encode_tight(tunes.models);
+	}
 
 	// запись данных необходимых для последующего декодирования
 	tunes.q = _wtree.q();
-
-	// отчёт о проделанной работе
-	result.bpp = _calc_encoded_bpp();
 
 	// завершение кодирования
 	return result;
@@ -197,6 +203,9 @@ encoder::encode(const w_t *const w, const q_t q, const lambda_t &lambda,
 	минимума <i>RD функции Лагранжа</i>. Если это значение равно <i>0</i>,
 	количество выполняемых итераций не ограничено.
 
+	\param[in] precise_bpp Смотри аналогичный параметр в функции
+	_search_q_min_j()
+
 	Функция производит кодирование изображения при фиксированном параметре
 	<i>lambda</i>, подбирая параметр кодирования <i>q</i> таким образом,
 	чтобы значение функции <i>RD критерия Лагранжа</i> было минимальным.
@@ -223,7 +232,8 @@ encoder::encode_fixed_lambda(
 						const w_t *const w, const lambda_t &lambda,
 						tunes_t &tunes,
 						const q_t &q_min, const q_t &q_max, const q_t &q_eps,
-						const j_t &j_eps, const sz_t &max_iterations)
+						const j_t &j_eps, const sz_t &max_iterations,
+						const bool precise_bpp)
 {
 	// результат проведённой оптимизации
 	enc_result_t result;
@@ -237,25 +247,26 @@ encoder::encode_fixed_lambda(
 	// минимизация RD функции Лагранжа
 	result.optimization = 
 		#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
-		_search_q_min_j(lambda, q_min, q_max, q_eps,
-						tunes.models, j_eps, true, max_iterations);
+		_search_q_min_j(lambda, q_min, q_max, q_eps, j_eps,
+						true, max_iterations, precise_bpp);
 		#else
-		_search_q_min_j(lambda, q_min, q_max, q_eps,
-						tunes.models, j_eps, false, max_iterations);
+		_search_q_min_j(lambda, q_min, q_max, q_eps, j_eps,
+						false, max_iterations, precise_bpp);
 		#endif
 
-	// кодирование всего дерева
-	_acoder.encode_start();
-
-	_encode_wtree();
-
-	_acoder.encode_stop();
+	// кодирование всего дерева, если необходимо
+	if (result.optimization.real_encoded)
+	{
+		tunes.models = result.optimization.models;
+		result.bpp = result.optimization.bpp;
+	}
+	else
+	{
+		result.bpp = _real_encode_tight(tunes.models);
+	}
 
 	// сохранение параметров, необходимых для последующего декодирования
 	tunes.q = _wtree.q();
-
-	// отчёт о проделанной работе
-	result.bpp = _calc_encoded_bpp();
 
 	return result;
 }
@@ -277,9 +288,10 @@ encoder::encode_fixed_lambda(
 	значения аргументов:
 	- <i>q_min = 1</i>
 	- <i>q_max = 64</i>
-	- <i>q_eps = 0.1</i>
+	- <i>q_eps = 0.01</i>
 	- <i>j_eps = 0.0</i>
 	- <i>max_iterations = 0</i>
+	- <i>precise_bpp = true</i>
 
 	Код функции косвенно использует макрос #OPTIMIZATION_USE_VIRTUAL_ENCODING.
 	Если он определён будет производиться виртуальное кодирование коэффициентов,
@@ -290,7 +302,7 @@ encoder::enc_result_t
 encoder::encode_fixed_lambda(const w_t *const w, const lambda_t &lambda,
 							 tunes_t &tunes)
 {
-	static const q_t q_eps	= q_t(0.1);
+	static const q_t q_eps	= q_t(0.01);
 	static const j_t j_eps	= j_t(0);
 
 	static const q_t q_min	= q_t(1);
@@ -298,8 +310,10 @@ encoder::encode_fixed_lambda(const w_t *const w, const lambda_t &lambda,
 
 	static const sz_t max_iterations	= 0;
 
+	static const bool precise_bpp		= true;
+
 	return encode_fixed_lambda(w, lambda, tunes, q_min, q_max, q_eps,
-							   j_eps, 0);
+							   j_eps, 0, precise_bpp);
 }
 
 
@@ -331,6 +345,11 @@ encoder::encode_fixed_lambda(const w_t *const w, const lambda_t &lambda,
 	минимума <i>RD функции Лагранжа</i>. Если это значение равно <i>0</i>,
 	количество выполняемых итераций не ограничено.
 
+	\param[in] precise_bpp Если <i>true</i> после каждого этапа оптимизации
+	топологии деревьев спектра вейвлет коэффициентов будет произведено
+	реальное кодирование с уменьшеными моделями арифметического кодера для
+	уточнения оценки битовых затрат.
+
 	\return Результат проведённого поиска. Возможна ситуация, когда нужная
 	<i>lambda</i> лежит вне указанного диапазона. В этом случае, функция
 	подберёт такую <i>lambda</i>, которая максимально удовлетворяет условиям
@@ -354,7 +373,8 @@ encoder::encode_fixed_q(const w_t *const w, const q_t &q,
 						const lambda_t &lambda_min,
 						const lambda_t &lambda_max,
 						const lambda_t &lambda_eps,
-						const sz_t &max_iterations)
+						const sz_t &max_iterations,
+						const bool precise_bpp)
 {
 	// результат проведённой оптимизации
 	enc_result_t result;
@@ -367,33 +387,33 @@ encoder::encode_fixed_q(const w_t *const w, const q_t &q,
 	_wtree.cheap_load(w, q);
 
 	// генерация характеристик моделей арифметического кодера
-	tunes.models = _mk_acoder_smart_models();
-	_acoder.use(_mk_acoder_models(tunes.models));
+	tunes.models = _setup_acoder_models();
 
 	// минимизация RD функции Лагранжа
-	result.optimization = 
+	result.optimization =
 		#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
 		_search_lambda_at_bpp(bpp, bpp_eps,
 							  lambda_min, lambda_max, lambda_eps,
-							  true, max_iterations);
+							  true, max_iterations, precise_bpp);
 		#else
 		_search_lambda_at_bpp(bpp, bpp_eps,
 							  lambda_min, lambda_max, lambda_eps,
-							  false, max_iterations);
+							  false, max_iterations, precise_bpp);
 		#endif
 
-	// кодирование всего дерева
-	_acoder.encode_start();
-
-	_encode_wtree();
-
-	_acoder.encode_stop();
+	// кодирование всего дерева, если необходимо
+	if (result.optimization.real_encoded)
+	{
+		tunes.models = result.optimization.models;
+		result.bpp = result.optimization.bpp;
+	}
+	else
+	{
+		result.bpp = _real_encode_tight(tunes.models);
+	}
 
 	// сохранение параметров, необходимых для последующего декодирования
 	tunes.q = _wtree.q();
-
-	// отчёт о проделанной работе
-	result.bpp = _calc_encoded_bpp();
 
 	return result;
 }
@@ -419,6 +439,7 @@ encoder::encode_fixed_q(const w_t *const w, const q_t &q,
 	- <i>lambda_max = 0.20*q*q</i>
 	- <i>lambda_eps = 0.0</i>
 	- <i>max_iterations = 0</i>
+	- <i>precise_bpp = true</i>
 
 	Код функции косвенно использует макрос #OPTIMIZATION_USE_VIRTUAL_ENCODING.
 	Если он определён будет производиться виртуальное кодирование коэффициентов,
@@ -437,9 +458,11 @@ encoder::encode_fixed_q(const w_t *const w, const q_t &q,
 
 	static const sz_t max_iterations	= 0;
 
+	static const bool precise_bpp		= true;
+
 	return encode_fixed_q(w, q, bpp, bpp_eps, tunes,
 						  lambda_min, lambda_max, lambda_eps,
-						  max_iterations);
+						  max_iterations, precise_bpp);
 }
 
 
@@ -479,7 +502,7 @@ encoder::encode_fixed_bpp(
 						const h_t &bpp, const h_t &bpp_eps,
 						const q_t &q_min, const q_t &q_max, const q_t &q_eps,
 						const lambda_t &lambda_eps,
-						tunes_t &tunes)
+						tunes_t &tunes, const bool precise_bpp)
 {
 	// результат проведённой оптимизации
 	enc_result_t result;
@@ -495,25 +518,26 @@ encoder::encode_fixed_bpp(
 		#ifdef OPTIMIZATION_USE_VIRTUAL_ENCODING
 		_search_q_lambda_for_bpp(bpp, bpp_eps,
 								 q_min, q_max, q_eps,
-								 lambda_eps, tunes.models, true);
+								 lambda_eps, tunes.models, true, precise_bpp);
 		#else
 		_search_q_lambda_for_bpp(bpp, bpp_eps,
 								 q_min, q_max, q_eps,
-								 lambda_eps, tunes.models, false);
+								 lambda_eps, tunes.models, false, precise_bpp);
 		#endif
 
-	// кодирование всего дерева
-	_acoder.encode_start();
-
-	_encode_wtree();
-
-	_acoder.encode_stop();
+	// кодирование всего дерева, если необходимо
+	if (result.optimization.real_encoded)
+	{
+		tunes.models = result.optimization.models;
+		result.bpp = result.optimization.bpp;
+	}
+	else
+	{
+		result.bpp = _real_encode_tight(tunes.models);
+	}
 
 	// сохранение параметров, необходимых для последующего декодирования
 	tunes.q = _wtree.q();
-
-	// отчёт о проделанной работе
-	result.bpp = _calc_encoded_bpp();
 
 	return result;
 }
@@ -535,8 +559,9 @@ encoder::encode_fixed_bpp(
 	- <i>bpp_eps = 0.001</i>
 	- <i>q_min = 1</i>
 	- <i>q_max = 64</i>
-	- <i>q_eps = 0.1</i>
+	- <i>q_eps = 0.01</i>
 	- <i>lambda_eps = 0</i>
+	- <i>precise_bpp = true</i>
 
 	\sa _search_q_lambda_for_bpp(), encode_fixed_bpp
 */
@@ -548,12 +573,15 @@ encoder::encode_fixed_bpp(const w_t *const w, const h_t &bpp,
 
 	static const q_t q_min				= q_t(1);
 	static const q_t q_max				= q_t(64);
-	static const q_t q_eps				= q_t(0.1);
+	static const q_t q_eps				= q_t(0.01);
 
-	static const lambda_t lambda_eps	= 0;
+	static const lambda_t lambda_eps	= 0.00001;
+
+	static const bool precise_bpp		= true;
 
 	return encode_fixed_bpp(w, bpp, bpp_eps,
-							q_min, q_max, q_eps, lambda_eps, tunes);
+							q_min, q_max, q_eps, lambda_eps, tunes,
+							precise_bpp);
 }
 
 
@@ -667,7 +695,7 @@ sz_t encoder::_ind_map(const pi_t &pi, const sz_t lvl) {
 /*!	\param[in] desc Описание моделей арифметического кодера
 	\return Модели для арифметического кодера
 */
-acoder::models_t encoder::_mk_acoder_models(const models_desc_t &desc)
+acoder::models_t encoder::_mk_acoder_models(const models_desc1_t &desc) const
 {
 	// создание моделей для кодирования
 	acoder::models_t models;
@@ -704,13 +732,77 @@ acoder::models_t encoder::_mk_acoder_models(const models_desc_t &desc)
 }
 
 
-/*!	\return Описание моделей для арифметического кодера
+/*!	\param[in] desc Описание моделей арифметического кодера
+	\return Модели для арифметического кодера
 */
-encoder::models_desc_t encoder::_mk_acoder_smart_models()
+acoder::models_t encoder::_mk_acoder_models(const models_desc2_t &desc) const
 {
 	// создание моделей для кодирования
-	models_desc_t desc;
-	
+	acoder::models_t models;
+
+	for (sz_t i = 0; ACODER_TOTAL_MODELS_COUNT > i; ++i)
+	{
+		acoder::model_t model;
+		model.min = desc.mins[i];
+		model.max = desc.maxs[i];
+
+		models.push_back(model);
+	}
+
+	// проверка утверждений
+	assert(ACODER_TOTAL_MODELS_COUNT == models.size());
+
+	return models;
+}
+
+
+/*!	\param[in] desc Описание моделей арифметического кодера в унифицированном
+	формате
+	\return Модели для арифметического кодера
+*/
+acoder::models_t encoder::_mk_acoder_models(const models_desc_t &desc) const
+{
+	// описание моделей, как их понимает арифметический кодер
+	acoder::models_t models;
+
+	// выбор способа представления описаний
+	switch (desc.version)
+	{
+		case MODELS_DESC_V1:
+			models = _mk_acoder_models(desc.md.v1);
+			break;
+
+		case MODELS_DESC_V2:
+			models = _mk_acoder_models(desc.md.v2);
+			break;
+
+		default:
+			// unsupported models description
+			assert(false);
+			break;
+	}
+
+	return models;
+}
+
+
+/*!	\return Описание моделей для арифметического кодера
+
+	Описание моделей (значение максимального и минимального элемента в модели)
+	составляется по следующему принципу:
+	- для модели #0: минимальный элемент из <i>LL</i> саббенда, максимальный
+	  элемент также из <i>LL</i> саббенда
+	- для модели #1: минимальный элемент из всех саббендов первого уровня
+	  (саббенды "дочерние" от <i>LL</i>), максимальный элемент также из всех
+	  саббендов первого уровня.
+	- для моделей #2..#5: минимальные элемент из всех оставшихся саббендов,
+	  максимальный элемент также из всех оставшихся саббендов
+*/
+encoder::models_desc1_t encoder::_mk_acoder_smart_models() const
+{
+	// создание моделей для кодирования
+	models_desc1_t desc;
+
 	// модел #0 ----------------------------------------------------------------
 	{
 		const subbands::subband_t &sb_LL = _wtree.sb().get_LL();
@@ -768,6 +860,111 @@ encoder::models_desc_t encoder::_mk_acoder_smart_models()
 	}
 
 	return desc;
+}
+
+
+/*!	\param[in] ac Арифметический кодер, статистика которого будет использована
+	для построения описания моделей
+*/
+encoder::models_desc2_t encoder::_mk_acoder_post_models(const acoder &ac) const
+{
+	// проверка утверждений
+	assert(ACODER_TOTAL_MODELS_COUNT == ac.models().size());
+
+	encoder::models_desc2_t desc;
+
+	for (sz_t i = 0; sz_t(ac.models().size()) > i; ++i)
+	{
+		desc.mins[i] = ac.rmin(i);
+		desc.maxs[i] = ac.rmax(i);
+
+		// проверка на пустую модель (в которых rmin > rmax)
+		// данные действия необходимы, если в модель не попало ни одного
+		// элемента
+		if (desc.mins[i] > desc.maxs[i])
+		{
+			desc.mins[i] = desc.maxs[i] = 0;
+		}
+	}
+
+	return desc;
+}
+
+
+/*!	\return Описание моделей арифметического кодера, которые были
+	установленны этой функцией
+
+	Для генерации описания моделей используется функция
+	_mk_acoder_smart_models()
+*/
+encoder::models_desc_t encoder::_setup_acoder_models()
+{
+	// описание моделей для арифметического кодера
+	models_desc_t desc;
+
+	// идентификатор используемого представления описания моделей
+	desc.version = MODELS_DESC_V1;
+
+	// определение суб-оптимальных моделей для арифметического кодера
+	desc.md.v1 = _mk_acoder_smart_models();
+
+	// загрузка моделей в арифметический кодер
+	_acoder.use(_mk_acoder_models(desc));
+
+	return desc;
+}
+
+
+/*!	\return Описание моделей арифметического кодера, которые были
+	установленны этой функцией
+
+	Для генерации описания моделей используется функция
+	_mk_acoder_post_models()
+*/
+encoder::models_desc_t encoder::_setup_acoder_post_models()
+{
+	// описание моделей для арифметического кодера
+	models_desc_t desc;
+
+	// используется вторая версия представления описания моделей
+	// арифметического кодера
+	desc.version = MODELS_DESC_V2;
+
+	// создание нового описания моделей арифметического кодера,
+	// основываясь на статистике кодирования, полученной при
+	// оптимизации топологии деревьев спектра вейвлет коэффициентов
+	desc.md.v2 = _mk_acoder_post_models(_acoder);
+
+	// загрузка моделей в арифметический кодер
+	_acoder.use(_mk_acoder_models(desc));
+
+	return desc;
+}
+
+
+/*!	\param[in] result Результат проведённой оптимизации, в резултате которой
+	могли поменяться модели арифметического кодера
+	\param[in] models Оригинальные модели арифметического кодера, которые
+	следует востановить в случае их изменения процедурой оптимизации топологии
+	\return <i>true</i> если измененённые модели были восстановлены и
+	<i>false</i> если модели не изменились процедурой оптимизации.
+*/
+bool encoder::_restore_spoiled_models(const optimize_result_t &result,
+									  const acoder::models_t &models)
+{
+	// Проверка, были ли в процессе оптимизации изменены 
+	if (MODELS_DESC_NONE == result.models.version) return false;
+
+	// Дополнительная проверка на равенство старых и новых моделей.
+	// Сейчас не используется, так как в текущей реализации функций
+	// оптимизации топологии версия описания моделей устанавливается
+	// только в случае их изменения.
+	// if (models == _mk_acoder_models(result.models)) return false;
+
+	// восстановление моделей используемых арифметическим кодером
+	_acoder.use(models);
+
+	return true;
 }
 
 
@@ -1010,8 +1207,8 @@ j_t encoder::_calc_jx_value(const p_t &root, const j_t &j_map,
 {
 	assert(_wtree.sb().test_LL(root));
 
-	// получаем ссылку на LL саббенд
-	const subbands::subband_t &sb_LL = _wtree.sb().get_LL();
+	// получаем ссылку саббенды
+	const subbands &sb = _wtree.sb();
 
 	j_t j = j_map;
 
@@ -1023,8 +1220,11 @@ j_t encoder::_calc_jx_value(const p_t &root, const j_t &j_map,
 
 		const wnode &node = _wtree.at(p);
 
+		// получаем ссылку на саббенд в котором лежит рассматриваемый элемент
+		const subbands::subband_t &sb_i = sb.from_point(p, subbands::LVL_1);
+
 		j += _calc_rd_iteration(p, node.wc, lambda,
-								_ind_spec<wnode::member_wc>(p, sb_LL));
+								_ind_spec<wnode::member_wc>(p, sb_i));
 	}
 
 	wnode &node = _wtree.at(root);
@@ -1201,21 +1401,47 @@ void encoder::_encode_tree_root(const p_t &root,
 	// получение корневого элемента
 	const wnode &root_node = _wtree.at(root);
 
+	// определение модели, используемой для кодирования коэффициента
+	const sz_t spec_model	= _ind_spec(0, subbands::LVL_0);
+
 	// закодировать коэффициент с нулевого уровня
-	_encode_spec(_ind_spec(0, subbands::LVL_0), root_node.wc,
-				 virtual_encode);
+	_encode_spec(spec_model, root_node.wc, virtual_encode);
+
+	// определение модели для кодирования признака подрезания
+	const sz_t map_model	= _ind_map(0, subbands::LVL_0);
 
 	// закодировать групповой признак подрезания с нулевого уровня
-	_encode_map(_ind_map(0, subbands::LVL_0), root_node.n,
-				virtual_encode);
+	_encode_map(map_model, root_node.n, virtual_encode);
+
+	#ifdef LIBWIC_USE_DBG_SURFACE
+	// запись отладочной информации о закодированном коэффициенте и признаке
+	// подрезания
+	wicdbg::dbg_pixel &dbg_pixel = _dbg_opt_surface.get(root);
+	dbg_pixel.wc		= root_node.wc;
+	dbg_pixel.wc_model	= spec_model;
+	dbg_pixel.n			= root_node.n;
+	dbg_pixel.n_model	= map_model;
+	#endif
 
 	// кодирование дочерних коэффициентов с первого уровня
 	for (wtree::coefs_iterator i = _wtree.iterator_over_LL_children(root);
 		 !i->end(); i->next())
 	{
+		// определение модели, используемой для кодирования коэффициента
+		const sz_t spec_model = _ind_spec(0, subbands::LVL_1);
+
+		// ссылка на кодируемый коэффициент
+		const wk_t &wc		= _wtree.at(i->get()).wc;
+
 		// закодировать коэффициенты с первого уровня
-		_encode_spec(_ind_spec(0, subbands::LVL_1), _wtree.at(i->get()).wc,
-					 virtual_encode);
+		_encode_spec(spec_model, wc, virtual_encode);
+
+		#ifdef LIBWIC_USE_DBG_SURFACE
+		// запись отладочной информации о закодированном коэффициенте
+		wicdbg::dbg_pixel &dbg_pixel = _dbg_opt_surface.get(i->get());
+		dbg_pixel.wc		= wc;
+		dbg_pixel.wc_model	= spec_model;
+		#endif
 	}
 }
 
@@ -1253,6 +1479,13 @@ void encoder::_encode_tree_leafs(const p_t &root, const sz_t lvl,
 			const sz_t model = _ind_spec<wnode::member_wc>(p_g, sb_g);
 
 			_encode_spec(model, node_g.wc, virtual_encode);
+
+			#ifdef LIBWIC_USE_DBG_SURFACE
+			// Запись кодируемого коэффициента в отладочную поверхность
+			wicdbg::dbg_pixel &dbg_pixel = _dbg_opt_surface.get(p_g);
+			dbg_pixel.wc		= node_g.wc;
+			dbg_pixel.wc_model	= model;
+			#endif
 		}
 
 		// на предпоследнем уровне нет групповых признаков подрезания
@@ -1278,6 +1511,13 @@ void encoder::_encode_tree_leafs(const p_t &root, const sz_t lvl,
 			const sz_t model = _ind_map<wnode::member_wc>(p_j, sb_g);
 
 			_encode_map(model, node_j.n, virtual_encode);
+
+			#ifdef LIBWIC_USE_DBG_SURFACE
+			// Запись признака подрезания в отладочную поверхность
+			wicdbg::dbg_pixel &dbg_pixel = _dbg_opt_surface.get(p_j);
+			dbg_pixel.n			= node_j.n;
+			dbg_pixel.n_model	= model;
+			#endif
 		}
 	}
 }
@@ -1344,6 +1584,16 @@ void encoder::_encode_wtree_root(const bool decode_mode)
 			// кодирование коэффициента и признака подрезания
 			_encode_spec(spec_LL_model, node.wc);
 			_encode_map(map_LL_model, node.n);
+
+			#ifdef LIBWIC_USE_DBG_SURFACE
+			// запись информации о кодируемых коэффициентов и признаках
+			// подрезания в отладочную поверхность
+			wicdbg::dbg_pixel &dbg_pixel = _dbg_enc_surface.get(p_i);
+			dbg_pixel.wc		= node.wc;
+			dbg_pixel.wc_model	= spec_LL_model;
+			dbg_pixel.n			= node.n;
+			dbg_pixel.n_model	= map_LL_model;
+			#endif
 		}
 	}
 
@@ -1362,9 +1612,25 @@ void encoder::_encode_wtree_root(const bool decode_mode)
 		{
 			// (де)кодирование очерендного коэффициента
 			if (decode_mode)
+			{
 				_wtree.at(i->get()).wc = _decode_spec(spec_1_model);
+			}
 			else
-				_encode_spec(spec_1_model, _wtree.at(i->get()).wc);
+			{
+				// ссылка на кодируемый коэффициент
+				const wk_t &wc = _wtree.at(i->get()).wc;
+
+				// кодирование коэффициента
+				_encode_spec(spec_1_model, wc);
+
+				#ifdef LIBWIC_USE_DBG_SURFACE
+				// запись информации о кодируемом коэффициенте в отладочную
+				// поверхность
+				wicdbg::dbg_pixel &dbg_pixel = _dbg_enc_surface.get(i->get());
+				dbg_pixel.wc		= wc;
+				dbg_pixel.wc_model	= spec_1_model;
+				#endif
+			}
 		}
 	}
 }
@@ -1416,9 +1682,29 @@ void encoder::_encode_wtree_level(const sz_t lvl,
 
 			// (де)кодирование коэффициента
 			if (decode_mode)
+			{
 				node_g.wc = _decode_spec(model);
+
+				#ifdef LIBWIC_USE_DBG_SURFACE
+				// запись информации о кодируемом коэффициенте в отладочную
+				// поверхность
+				wicdbg::dbg_pixel &dbg_pixel = _dbg_dec_surface.get(p_g);
+				dbg_pixel.wc		= node_g.wc;
+				dbg_pixel.wc_model	= model;
+				#endif
+			}
 			else
+			{
 				_encode_spec(model, node_g.wc);
+
+				#ifdef LIBWIC_USE_DBG_SURFACE
+				// запись информации о кодируемом коэффициенте в отладочную
+				// поверхность
+				wicdbg::dbg_pixel &dbg_pixel = _dbg_enc_surface.get(p_g);
+				dbg_pixel.wc		= node_g.wc;
+				dbg_pixel.wc_model	= model;
+				#endif
+			}
 		}
 
 		// на предпоследнем уровне нет групповых признаков подрезания
@@ -1457,11 +1743,27 @@ void encoder::_encode_wtree_level(const sz_t lvl,
 				// порождение ветвей в соответствии с полученным признаком
 				// подрезания
 				_wtree.uncut_leafs(p_j, node_j.n);
+
+				#ifdef LIBWIC_USE_DBG_SURFACE
+				// запись информации о групповом признаке подрезания в
+				// отладочную поверхность
+				wicdbg::dbg_pixel &dbg_pixel = _dbg_dec_surface.get(p_j);
+				dbg_pixel.n			= node_j.n;
+				dbg_pixel.n_model	= model;
+				#endif
 			}
 			else
 			{
 				// кодирование признака подрезания
 				_encode_map(model, node_j.n);
+
+				#ifdef LIBWIC_USE_DBG_SURFACE
+				// запись информации о групповом признаке подрезания в
+				// отладочную поверхность
+				wicdbg::dbg_pixel &dbg_pixel = _dbg_enc_surface.get(p_j);
+				dbg_pixel.n			= node_j.n;
+				dbg_pixel.n_model	= model;
+				#endif
 			}
 		}
 	}
@@ -1474,6 +1776,18 @@ void encoder::_encode_wtree_level(const sz_t lvl,
 */
 void encoder::_encode_wtree(const bool decode_mode)
 {
+	#ifdef LIBWIC_USE_DBG_SURFACE
+	// очистка отладочной поверхности, если производится кодирование
+	if (!decode_mode)
+	{
+		_dbg_enc_surface.clear();
+	}
+	else
+	{
+		_dbg_dec_surface.clear();
+	}
+	#endif
+
 	// (де)кодирование корневых элементов
 	_encode_wtree_root(decode_mode);
 
@@ -1486,6 +1800,34 @@ void encoder::_encode_wtree(const bool decode_mode)
 	{
 		_encode_wtree_level(lvl, decode_mode);
 	}
+
+	#ifdef LIBWIC_USE_DBG_SURFACE
+	// запись отладочной поверхности в файл
+	if (!decode_mode)
+	{
+		_dbg_enc_surface.save<wicdbg::dbg_pixel::member_wc>
+			("dumps/[encoder]dbg_enc_suface.wc.bmp", true);
+		_dbg_enc_surface.save<wicdbg::dbg_pixel::member_wc>
+			("dumps/[encoder]dbg_enc_suface.wc.txt", false);
+		_dbg_enc_surface.save<wicdbg::dbg_pixel::member_wc_model>
+			("dumps/[encoder]dbg_enc_suface.wc_model.bmp", true);
+		_dbg_enc_surface.save<wicdbg::dbg_pixel::member_n>
+			("dumps/[encoder]dbg_enc_suface.n.bmp", true);
+		_dbg_opt_surface.diff<wicdbg::dbg_pixel::member_wc_model>
+			(_dbg_enc_surface, "dumps/[encoder]dbg_suface.wc_model.diff");
+	}
+	else
+	{
+		_dbg_dec_surface.save<wicdbg::dbg_pixel::member_wc>
+			("dumps/[decoder]dbg_dec_suface.wc.bmp", true);
+		_dbg_dec_surface.save<wicdbg::dbg_pixel::member_wc>
+			("dumps/[decoder]dbg_dec_suface.wc.txt", false);
+		_dbg_dec_surface.save<wicdbg::dbg_pixel::member_wc_model>
+			("dumps/[decoder]dbg_dec_suface.wc_model.bmp", true);
+		_dbg_dec_surface.save<wicdbg::dbg_pixel::member_n>
+			("dumps/[decoder]dbg_dec_suface.n.bmp", true);
+	}
+	#endif
 }
 
 
@@ -1648,6 +1990,20 @@ j_t encoder::_optimize_tree(const p_t &root, const lambda_t &lambda)
 	без проведения реального кодирование невозможно оценить битовые
 	затраты.
 
+	\param[in] precise_bpp Если <i>true</i>, то после этапа оптимизации
+	будет проведён этап уточнения битовых затрат, заключающийся в том, что
+	модели арифметического кодера будут уменьшены функцией
+	_setup_acoder_post_models(), а затем будет произведено реальное
+	кодирование всех деревьев спектра (с оптимизированной топологией).
+	См. функцию _real_encode_tight() для дополнительной информации. Стоит
+	очень осторожно относиться к этому параметру, так как при выставлении
+	его в <i>true</i> модели арифметического кодера изменяются, что
+	затрудняет использование этой функции в процедурах подбора параметров
+	кодирования. Однако, также есть и приемущества. Если параметр выставлен
+	в <i>true</i>, то после проведённой оптимизации можно не производить
+	реальное кодирование, так как оно уже сделано (о чем будет указывать
+	поле результата optimize_result_t::real_encoded).
+
 	\return Результат проведённой оптимизации
 
 	Для корректной работы этой функции необходимо, чтобы поля wnode::w и
@@ -1665,19 +2021,27 @@ j_t encoder::_optimize_tree(const p_t &root, const lambda_t &lambda)
 encoder::optimize_result_t
 encoder::_optimize_wtree(const lambda_t &lambda,
 						 const bool refresh_wtree,
-						 const bool virtual_encode)
+						 const bool virtual_encode,
+						 const bool precise_bpp)
 {
-	// инициализация возвращаемого результата
+	// Инициализация возвращаемого результата
 	optimize_result_t result;
-	result.q		= _wtree.q();
-	result.lambda	= lambda;
-	result.j		= 0;
-	result.bpp		= 0;
+	result.q				= _wtree.q();
+	result.lambda			= lambda;
+	result.j				= 0;
+	result.bpp				= 0;
+	result.models.version	= MODELS_DESC_NONE;
+	result.real_encoded		= false;
 
-	// обновление дерева вейвлет коэффициентов (если требуется)
+	// Обновление дерева вейвлет коэффициентов (если требуется)
 	if (refresh_wtree) _wtree.filling_refresh();
 
-	// оптимизация топологии ветвей с кодированием
+	#ifdef LIBWIC_USE_DBG_SURFACE
+	// Очистка отладочной поверхности
+	_dbg_opt_surface.clear();
+	#endif
+
+	// Оптимизация топологии ветвей с кодированием
 	_acoder.encode_start();
 
 	for (wtree::coefs_iterator i =
@@ -1696,8 +2060,24 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 
 	_acoder.encode_stop();
 
+	#ifdef LIBWIC_USE_DBG_SURFACE
+	// Сохранение полей отладочной поверхности в файлы
+	_dbg_opt_surface.save<wicdbg::dbg_pixel::member_wc>
+		("dumps/[encoder]dbg_opt_suface.wc.bmp", true);
+	_dbg_opt_surface.save<wicdbg::dbg_pixel::member_wc_model>
+		("dumps/[encoder]dbg_opt_suface.wc_model.bmp", true);
+	_dbg_opt_surface.save<wicdbg::dbg_pixel::member_n>
+		("dumps/[encoder]dbg_opt_suface.n.bmp", true);
+	#endif
+
 	// подсчёт bpp, если производилось реальное кодирование
-	if (!virtual_encode)
+	if (precise_bpp)
+	{
+		result.bpp = _real_encode_tight(result.models);
+
+		result.real_encoded = true;
+	}
+	else if (!virtual_encode)
 	{
 		result.bpp = _calc_encoded_bpp();
 	}
@@ -1706,8 +2086,8 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 	#ifdef LIBWIC_DEBUG
 	if (_dbg_out_stream.good())
 	{
-		_dbg_out_stream << "[OWTR]: ";
-		_dbg_out_stream << "q: " << std::setw(8) << _wtree.q();
+		_dbg_out_stream << "[OWTR]:";
+		_dbg_out_stream << " q: " << std::setw(8) << _wtree.q();
 		_dbg_out_stream << " lambda: " << std::setw(8) << lambda;
 		_dbg_out_stream << " j: " << std::setw(8) << result.j;
 		_dbg_out_stream << " bpp: " << std::setw(8) << result.bpp;
@@ -1729,11 +2109,72 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 /*!	\param[in] lambda Параметр <i>lambda</i> используемый для
 	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
 	собой баланс между ошибкой и битовыми затратами.
+
+	\param[in] models Описание моделей арифметического кодера, которые
+	необходимо использовать для проведения оптимизации
+
+	\param[in] refresh_wtree Если <i>true</i>, то перед началом кодирования
+	будет вызвана функция wtree::filling_refresh(), которая сбросит спекрт
+	в начальное состояние. Используется при выполнении нескольких операций
+	оптимизации над одним спектром (например, в целях подбора оптимального
+	значение параметра <i>lambda</i>).
+
+	\param[in] virtual_encode Если <i>true</i>, то будет производиться
+	виртуальное кодирование (только перенастройка моделей, без помещения
+	кодируемого символа в выходной поток). При включённом виртуальном
+	кодировании, поле _optimize_result_t::bpp выставляется в 0, так как
+	без проведения реального кодирование невозможно оценить битовые
+	затраты.
+
+	\param[in] precise_bpp Если <i>true</i>, то после этапа оптимизации
+	будет проведён этап уточнения битовых затрат, заключающийся в том, что
+	модели арифметического кодера будут уменьшены функцией
+	_setup_acoder_post_models(), а затем будет произведено реальное
+	кодирование всех деревьев спектра (с оптимизированной топологией).
+	См. функцию _real_encode_tight() для дополнительной информации. Стоит
+	очень осторожно относиться к этому параметру, так как при выставлении
+	его в <i>true</i> модели арифметического кодера изменяются, что
+	затрудняет использование этой функции в процедурах подбора параметров
+	кодирования. Однако, также есть и приемущества. Если параметр выставлен
+	в <i>true</i>, то после проведённой оптимизации можно не производить
+	реальное кодирование, так как оно уже сделано (о чем будет указывать
+	поле результата optimize_result_t::real_encoded).
+
+	\sa _optimize_wtree()
+*/
+encoder::optimize_result_t
+encoder::_optimize_wtree_m(const lambda_t &lambda,
+						   const models_desc_t &models,
+						   const bool refresh_wtree,
+						   const bool virtual_encode,
+						   const bool precise_bpp)
+{
+	// Установка моделей арифметического кодера
+	_acoder.use(_mk_acoder_models(models));
+
+	// проведение оптимизации топологии
+	return _optimize_wtree(lambda, refresh_wtree, virtual_encode, precise_bpp);
+}
+
+
+/*!	\param[in] lambda Параметр <i>lambda</i> используемый для
+	вычисления <i>RD</i> критерия (функции Лагранжа). Представляет
+	собой баланс между ошибкой и битовыми затратами.
+
 	\param[in] q Квантователь
-	\param[out] models Описание моделей арифметического кодера
+
 	\param[in] virtual_encode Если <i>true</i> то будет производиться
 	виртуальное кодирование (только перенастройка моделей, без помещения
 	кодируемого символа в выходной поток).
+
+	\param[in] precise_bpp Если <i>true</i>, будет произведено уточнение
+	битовых затрат путем проведения реального кодирования с ужатыми
+	моделями арифметического кодера (см. _real_encode_tight). В этом случае,
+	после этапа оптимизации нет нужды производить реальное кодирование, так
+	как оно уже произведено функцией _real_encode_tight. Однако следует
+	обратить внимание, что текущие модели арифметического кодера после
+	выполнения функции изменяются.
+
 	\return Результат проведённой оптимизации
 
 	Эта версия функции <i>%encoder::_optimize_wtree()</i> сама производит
@@ -1742,21 +2183,28 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 	элементов спектра.
 */
 encoder::optimize_result_t
-encoder::_optimize_wtree(const lambda_t &lambda,
-						 const q_t &q, models_desc_t &models,
-						 const bool virtual_encode)
+encoder::_optimize_wtree_q(const lambda_t &lambda, const q_t &q,
+						   const bool virtual_encode,
+						   const bool precise_bpp)
 {
 	// квантование коэффициентов
 	_wtree.quantize(q);
 
-	// определение суб-оптимальных моделей для арифметического кодера
-	models = _mk_acoder_smart_models();
-
 	// загрузка моделей в арифметический кодер
-	_acoder.use(_mk_acoder_models(models));
+	const models_desc_t models = _setup_acoder_models();
 
 	// оптимизация топологии ветвей
-	return _optimize_wtree(lambda, false, virtual_encode);
+	optimize_result_t result = _optimize_wtree_m(lambda, models, false,
+												 virtual_encode, precise_bpp);
+
+	// Сохранение описания моделей арифметического кодера
+	if (MODELS_DESC_NONE == result.models.version)
+	{
+		result.models = models;
+	}
+
+	// возврат результата
+	return result;
 }
 
 
@@ -1775,9 +2223,6 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 	<i>q</i> при котором значение <i>RD функции Лагранжа</i> минимально
 	(при фиксированном параметре <i>lambda</i>).
 
-	\param[out] models Описание моделей арифметического кодера, которое
-	необходимо для последующего декодирования изображения
-
 	\param[in] j_eps Необходимая погрешность нахождения минимума <i>RD
 	функции Лагранжа</i>. Так как абсолютная величина функции <i>J</i>
 	зависит от многих факторов (таких как размер изображения, его тип,
@@ -1795,6 +2240,13 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 	\param[in] max_iterations Максимальное количество итераций нахождения
 	минимума <i>RD функции Лагранжа</i>. Если это значение равно <i>0</i>,
 	количество выполняемых итераций не ограничено.
+
+	\param[in] precise_bpp Если <i>true</i>, при выполнении операции
+	оптимизации топологии будет производиться уточнение битовых затрат путем
+	проведения реального кодирования с ужатыми моделями арифметического кодера
+	(см. _real_encode_tight). В этом случае, после этапа оптимизации нет нужды
+	производить реальное кодирование, так как оно уже произведено функцией
+	_real_encode_tight.
 
 	\return Результат произведённого поиска
 
@@ -1822,10 +2274,10 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 encoder::optimize_result_t
 encoder::_search_q_min_j(const lambda_t &lambda,
 						 const q_t &q_min, const q_t &q_max,
-						 const q_t &q_eps, models_desc_t &models,
-						 const j_t &j_eps,
+						 const q_t &q_eps, const j_t &j_eps,
 						 const bool virtual_encode,
-						 const sz_t &max_iterations)
+						 const sz_t &max_iterations,
+						 const bool precise_bpp)
 {
 	// проверка утверждений
 	assert(0 <= lambda);
@@ -1844,10 +2296,10 @@ encoder::_search_q_min_j(const lambda_t &lambda,
 	q_t q_b = q_a + factor_b * (q_d - q_a);
 	q_t q_c = q_a + factor_c * (q_d - q_a);
 
-	optimize_result_t result_b = _optimize_wtree(lambda, q_b, models,
-												 virtual_encode);
-	optimize_result_t result_c = _optimize_wtree(lambda, q_c, models,
-												 virtual_encode);
+	optimize_result_t result_b = _optimize_wtree_q(lambda, q_b, virtual_encode,
+												   precise_bpp);
+	optimize_result_t result_c = _optimize_wtree_q(lambda, q_c, virtual_encode,
+												   precise_bpp);
 
 	// запоминание предыдущего и последнего результатов
 	optimize_result_t result_prev	= result_b;
@@ -1883,8 +2335,8 @@ encoder::_search_q_min_j(const lambda_t &lambda,
 
 			result_c = result_b;
 
-			result = result_b = _optimize_wtree(lambda, q_b,
-												models, virtual_encode);
+			result = result_b = _optimize_wtree_q(lambda, q_b, virtual_encode,
+												  precise_bpp);
 		}
 		else
 		{
@@ -1894,8 +2346,8 @@ encoder::_search_q_min_j(const lambda_t &lambda,
 
 			result_b = result_c;
 
-			result = result_c = _optimize_wtree(lambda, q_c,
-												models, virtual_encode);
+			result = result_c = _optimize_wtree_q(lambda, q_c, virtual_encode,
+												  precise_bpp);
 		}
 
 		// увеличение количества итераций
@@ -1906,8 +2358,8 @@ encoder::_search_q_min_j(const lambda_t &lambda,
 	#ifdef LIBWIC_DEBUG
 	if (_dbg_out_stream.good())
 	{
-		_dbg_out_stream << "[SQMJ]: ";
-		_dbg_out_stream << "q: " << std::setw(8) << result.q;
+		_dbg_out_stream << "[SQMJ]:";
+		_dbg_out_stream << " q: " << std::setw(8) << result.q;
 		_dbg_out_stream << " lambda: " << std::setw(8) << result.lambda;
 		_dbg_out_stream << " j: " << std::setw(8) << result.j;
 		_dbg_out_stream << " bpp: " << std::setw(8) << result.bpp;
@@ -1943,6 +2395,13 @@ encoder::_search_q_min_j(const lambda_t &lambda,
 	\param[in] max_iterations Максимальное количество итераций нахождения
 	минимума <i>RD функции Лагранжа</i>. Если это значение равно <i>0</i>,
 	количество выполняемых итераций не ограничено.
+
+	\param[in] precise_bpp Если <i>true</i>, при выполнении операции
+	оптимизации топологии будет производиться уточнение битовых затрат путем
+	проведения реального кодирования с ужатыми моделями арифметического кодера
+	(см. _real_encode_tight). В этом случае, после этапа оптимизации нет нужды
+	производить реальное кодирование, так как оно уже произведено функцией
+	_real_encode_tight.
 
 	\return Результат проведённого поиска. Возможна ситуация, когда нужная
 	<i>lambda</i> лежит вне указанного диапазона. В этом случае, функция
@@ -1997,7 +2456,8 @@ encoder::_search_lambda_at_bpp(
 							const lambda_t &lambda_max,
 							const lambda_t &lambda_eps,
 							const bool virtual_encode,
-							const sz_t &max_iterations)
+							const sz_t &max_iterations,
+							const bool precise_bpp)
 {
 	// проверка утверждений
 	assert(0 < bpp);
@@ -2008,8 +2468,16 @@ encoder::_search_lambda_at_bpp(
 	lambda_t lambda_a	= lambda_min;
 	lambda_t lambda_b	= lambda_max;
 
+	// Запоминание текущих моделей арифметического кодера
+	const acoder::models_t original_models = _acoder.models();
+
 	// результат последней оптимизации
 	optimize_result_t result;
+	result.q			= 0;
+	result.lambda		= 0;
+	result.j			= 0;
+	result.bpp			= 0;
+	result.real_encoded = false;
 
 	// счётчик итераций
 	sz_t iterations = 0;
@@ -2018,9 +2486,12 @@ encoder::_search_lambda_at_bpp(
 	// break
 	do
 	{
-		// вычисление значений bpp на левой границе диапазона
+		// вычисление значений bpp на левой границе диапазона. Тут нет нужды
+		// использовать функцию _optimize_wtree_m() так как модели
+		// арифметического кодера ещё не испорчены
 		optimize_result_t result_a = _optimize_wtree(lambda_a, true,
-													 virtual_encode);
+													 virtual_encode,
+													 precise_bpp);
 
 		// проверка на допустимость входного диапазона
 		if (result_a.bpp <= (bpp + bpp_eps))
@@ -2030,9 +2501,14 @@ encoder::_search_lambda_at_bpp(
 			break;
 		}
 
+		// восстановление моделей арифметического кодера, если они были
+		// изменены функцией оптимизации топологии
+		_restore_spoiled_models(result_a, original_models);
+
 		// вычисление значений bpp на правой границе диапазона
 		optimize_result_t result_b = _optimize_wtree(lambda_b, true,
-													 virtual_encode);
+													 virtual_encode,
+													 precise_bpp);
 
 		// проверка на допустимость входного диапазона
 		if (result_b.bpp >= (bpp - bpp_eps))
@@ -2042,14 +2518,30 @@ encoder::_search_lambda_at_bpp(
 			break;
 		}
 
+		// Внимание: здесь переменная result не обязательно инициализированна,
+		// но даже будучи инициализированной она не пригодна для возврата
+		// в качестве результата так как может отражать результат предыдущей
+		// оптимизации, а не последней!!!
+
+		// Ввиду выше описанного нет ничего повинного в следующей строчке,
+		// которая нужна чтобы упростить дальнейшую логику восстановления
+		// моделей арифметического кодера, для которой необходимо, чтобы в
+		// переменной result был результат последней проведённой оптимизации
+		result = result_b;
+
 		// поиск оптимального значения lamda (дихотомия)
 		for (;;)
 		{
 			// подсчёт значения bpp для середины диапазона
 			const lambda_t lambda_c = (lambda_b + lambda_a) / 2;
 
+			// восстановление моделей арифметического кодера, если они были
+			// изменены функцией оптимизации топологии
+			_restore_spoiled_models(result, original_models);
+
 			// оптимизация топологии ветвей
-			result = _optimize_wtree(lambda_c, true, virtual_encode);
+			result = _optimize_wtree(lambda_c, true, virtual_encode,
+									 precise_bpp);
 
 			// проверить, достигнута ли нужная точность по bpp
 			if (bpp_eps >= abs(result.bpp - bpp)) break;
@@ -2058,8 +2550,10 @@ encoder::_search_lambda_at_bpp(
 			if (0 < max_iterations && max_iterations <= iterations) break;
 
 			// сужение диапазона поиска
-			if (bpp > result.bpp) lambda_b = lambda_c;
-			else lambda_a = lambda_c;
+			if (bpp > result.bpp)
+				lambda_b = lambda_c;
+			else
+				lambda_a = lambda_c;
 
 			// проверить, достигнута ли нужная точность по lambda
 			if (lambda_eps >= abs(lambda_b - lambda_a)) break;
@@ -2128,6 +2622,13 @@ encoder::_search_lambda_at_bpp(
 	\param[in] max_iterations Максимальное количество итераций, выполняемых
 	функцией _search_lambda_at_bpp()
 
+	\param[in] precise_bpp Если <i>true</i>, при выполнении операции
+	оптимизации топологии будет производиться уточнение битовых затрат путем
+	проведения реального кодирования с ужатыми моделями арифметического кодера
+	(см. _real_encode_tight). В этом случае, после этапа оптимизации нет нужды
+	производить реальное кодирование, так как оно уже произведено функцией
+	_real_encode_tight.
+
 	\return Результат произведённого поиска
 
 	Параметр <i>lambda</i> будет искаться в диапазоне
@@ -2144,24 +2645,37 @@ encoder::_search_q_lambda_for_bpp_iter(
 							const h_t &bpp_eps, const lambda_t &lambda_eps,
 							models_desc_t &models, w_t &d, h_t &deviation,
 							const bool virtual_encode,
-							const sz_t &max_iterations)
+							const sz_t &max_iterations,
+							const bool precise_bpp)
 {
 	// квантование спектра
 	_wtree.quantize(q);
 
 	// определение характеристик моделей арифметического кодера
-	models = _mk_acoder_smart_models();
-	_acoder.use(_mk_acoder_models(models));
+	models = _setup_acoder_models();
 
 	// выбор диапазона поиска параметра lambda
 	const lambda_t lambda_min = lambda_t(0.05f * q*q);
 	const lambda_t lambda_max = lambda_t(0.20f * q*q);
 
+	// вывод отладочной информации
+	#ifdef LIBWIC_DEBUG
+	if (_dbg_out_stream.good())
+	{
+		_dbg_out_stream << "[SQLI]: ";
+		_dbg_out_stream << "q: " << std::setw(8) << q;
+		_dbg_out_stream << " lambda_min: " << std::setw(8) << lambda_min;
+		_dbg_out_stream << " lambda_max: " << std::setw(8) << lambda_max;
+		_dbg_out_stream << std::endl;
+	}
+	#endif
+
 	// поиск параметра lambda
 	const optimize_result_t result =
 				_search_lambda_at_bpp(bpp, bpp_eps,
 									  lambda_min, lambda_max, lambda_eps,
-									  virtual_encode, max_iterations);
+									  virtual_encode, max_iterations,
+									  precise_bpp);
 
 	// подсчёт среднеквадратичного отклонения (ошибки)
 	d = _wtree.distortion_wc<w_t>();
@@ -2173,6 +2687,21 @@ encoder::_search_q_lambda_for_bpp_iter(
 		deviation = (bpp - result.bpp);	// q необходимо уменьшить (+1)
 	else
 		deviation = 0;					// q удовлетворительное
+
+	// вывод отладочной информации
+	#ifdef LIBWIC_DEBUG
+	if (_dbg_out_stream.good())
+	{
+		_dbg_out_stream << "[SQLI]: ";
+		_dbg_out_stream << "q: " << std::setw(8) << result.q;
+		_dbg_out_stream << " lambda: " << std::setw(8) << result.lambda;
+		_dbg_out_stream << " j: " << std::setw(8) << result.j;
+		_dbg_out_stream << " bpp: " << std::setw(8) << result.bpp;
+		_dbg_out_stream << " d: " << std::setw(8) << d;
+		_dbg_out_stream << " deviation: " << std::setw(8) << deviation;
+		_dbg_out_stream << std::endl;
+	}
+	#endif
 
 	// возврат результата
 	return result;
@@ -2208,6 +2737,13 @@ encoder::_search_q_lambda_for_bpp_iter(
 	быстрее, но его использование делает невозможным определение средних
 	битовых затрат на кодирование одного пиксела изображения.
 
+	\param[in] precise_bpp Если <i>true</i>, при выполнении операции
+	оптимизации топологии будет производиться уточнение битовых затрат путем
+	проведения реального кодирования с ужатыми моделями арифметического кодера
+	(см. _real_encode_tight). В этом случае, после этапа оптимизации нет нужды
+	производить реальное кодирование, так как оно уже произведено функцией
+	_real_encode_tight.
+
 	Функция использует метод золотого сечения для подбора параметра <i>q</i>,
 	а для подбора параметра <i>lambda</i> использует функцию
 	_search_q_lambda_for_bpp_iter().
@@ -2220,7 +2756,8 @@ encoder::_search_q_lambda_for_bpp(
 							const q_t &q_min, const q_t &q_max,
 							const q_t &q_eps, const lambda_t &lambda_eps,
 							models_desc_t &models,
-							const bool virtual_encode)
+							const bool virtual_encode,
+							const bool precise_bpp)
 {
 	// максимальное количество итераций для подбора параметра lambda
 	static const sz_t max_iterations	= 0;
@@ -2244,7 +2781,7 @@ encoder::_search_q_lambda_for_bpp(
 					_search_q_lambda_for_bpp_iter(
 										q_b, bpp, bpp_eps, lambda_eps, models,
 										dw_b, deviation_b, virtual_encode,
-										max_iterations);
+										max_iterations, precise_bpp);
 
 	// подбор параметра lambda во второй точке
 	w_t dw_c		= 0;
@@ -2253,14 +2790,14 @@ encoder::_search_q_lambda_for_bpp(
 					_search_q_lambda_for_bpp_iter(
 										q_c, bpp, bpp_eps, lambda_eps, models,
 										dw_c, deviation_c, virtual_encode,
-										max_iterations);
+										max_iterations, precise_bpp);
 
 	// результаты последнего поиска параметра lambda
 	h_t deviation				= deviation_c;
 	optimize_result_t result	= result_c;
 
 	// сужение диапазона поиска методом золотого сечения
-	while (q_eps < abs(q_b - q_c))
+	while (q_eps < abs(q_a - q_d))
     {
         if (deviation > 0 || (0 == deviation && dw_b <= dw_c))
         {
@@ -2275,7 +2812,7 @@ encoder::_search_q_lambda_for_bpp(
 					_search_q_lambda_for_bpp_iter(
 										q_b, bpp, bpp_eps, lambda_eps, models,
 										dw_b, deviation_b, virtual_encode,
-										max_iterations);
+										max_iterations, precise_bpp);
 			deviation = deviation_b;
         }
         else
@@ -2291,12 +2828,72 @@ encoder::_search_q_lambda_for_bpp(
 					_search_q_lambda_for_bpp_iter(
 										q_c, bpp, bpp_eps, lambda_eps, models,
 										dw_c, deviation_b, virtual_encode,
-										max_iterations);
+										max_iterations, precise_bpp);
 			deviation = deviation_c;
         }
     }
 
 	return result;
+}
+
+
+/*!	\return Средние битовые затраты на кодирование спектра вейвлет
+	коэффициентов
+
+	Данная функция использует текущие настройки моделей арифметического кодера
+	и не изменяет их.
+*/
+h_t encoder::_real_encode()
+{
+	#ifdef LIBWIC_USE_DBG_SURFACE
+	#endif
+
+	// кодирование всего дерева
+	_acoder.encode_start();
+
+	_encode_wtree();
+
+	_acoder.encode_stop();
+
+	// подсчёт и возврат средних битовых затрат
+	return _calc_encoded_bpp();
+}
+
+
+/*!	\param[out] desc Описание моделей арифметического кодера, которые
+	были использованый при кодировании
+
+	\param[in] double_path Если <i>true</i> кодирование будет производится
+	в два прохода. При первом проходе кодирования производится настройка
+	моделей. Сейчас нет возможности кодировать в один проход (что быстрее)
+	так как возможен перескок коэффициентов из одной модели в другую.
+	Связано это с тем, что на этапе оптимизации нам ещё не известны финальные
+	значения всех коэффициентов и как следствие значение вычисляемых
+	прогнозов.
+
+	\return Средние битовые затраты на кодирование спектра вейвлет
+	коэффициентов
+
+	\attention Следует очень осторожно использовать эту функцию так как
+	она изменяет модели, используемые арифметическим кодером.
+*/
+h_t encoder::_real_encode_tight(models_desc_t &desc, const bool double_path)
+{
+	// двойной проход должен быть включён при текущем положении дел
+	assert(double_path);
+
+	// выполнение первого прохода, если необходимо
+	if (double_path)
+	{
+		_setup_acoder_models();
+
+		_real_encode();
+	}
+
+	// Определение и установка моделей арифметического кодера
+	desc = _setup_acoder_post_models();
+
+	return _real_encode();
 }
 
 
@@ -2313,6 +2910,14 @@ h_t encoder::_calc_encoded_bpp(const bool including_tunes)
 						 + ((including_tunes)? sizeof(tunes_t): 0);
 
 	return h_t(data_sz * BITS_PER_BYTE) / h_t(_wtree.nodes_count());
+}
+
+
+/*!
+*/
+void encoder::_test_wc_136_0()
+{
+	assert(0 != _wtree.at(136, 0).wc);
 }
 
 

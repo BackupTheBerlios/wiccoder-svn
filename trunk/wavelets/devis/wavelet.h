@@ -109,9 +109,9 @@ public:
 //extern const Wavelet *(wavelets[]);
 //extern const char *(wavelet_name[]);
 
-/*extern FilterSet Haar, Daub4, Daub6, Daub8, Antonini, Villa, Adelson,
+extern FilterSet Haar, Daub4, Daub6, Daub8, Antonini, Villa1810, Adelson,
   Brislawn, Brislawn2, Villa1, Villa2, Villa3, Villa4, Villa5, Villa6, 
-  Odegard;*/
+  Odegard, Petuhov1, Petuhov2;
 /*---------------------------------------------------------------------------*/
 #endif
 /*---------------------------------------------------------------------------*/

@@ -26,13 +26,29 @@
 // imgs library headers
 #include <imgs/img_rgb.h>
 #include <imgs/bmp_file.h>
+#include <imgs/bmp_dump.h>
 
 // libwic headers
 #include <wic/libwic/encoder.h>
 #include <wic/wicfilters/wavelets.h>
+#include <wic/libwicdbg/dbg_surface.h>
 
 // wictool headers
 #include "wictool.h"
+
+
+///////////////////////////////////////////////////////////////////////////////
+// defines
+
+//!	\brief Если определён, будет произведено смещение коэффициентов LL
+//!	саббенда после фильтра Antonini из библиотеки devis
+#define FIX_DEVIS_ANTONONI_OFFSET
+// #undef FIX_DEVIS_ANTONONI_OFFSET
+
+//!	\brief Если определён, коэффициенты после фильтрации будут округлены до
+//!	ближайшего целого
+#define ROUND_FILTERED_COEFS
+#undef ROUND_FILTERED_COEFS
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -44,7 +60,7 @@ const char WIC_SIGNATURE[3]	= {'W', 'I', 'C'};
 
 /*!
 */
-const char WIC_VERSION		= '0';
+const char WIC_VERSION		= '1';
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -805,6 +821,37 @@ int get_wavelet_filter(const int argc, const char *const *const args,
 	return arg_i;
 }
 
+
+/*!	\param[in] name Имя фильтра
+	\return Указатель на объект фильтра или 0, если фильтра с таким
+	именем не найдено.
+*/
+FilterSet *get_devis_filter(const std::string &name)
+{
+	if (0 == name.compare("Haar")) return &Haar;
+	if (0 == name.compare("Daub4")) return &Daub4;
+	if (0 == name.compare("Daub6")) return &Daub6;
+	if (0 == name.compare("Daub8")) return &Daub8;
+	if (0 == name.compare("Antonini")) return &Antonini;
+	if (0 == name.compare("Villa1810")) return &Villa1810;
+	if (0 == name.compare("Adelson")) return &Adelson;
+	if (0 == name.compare("Brislawn")) return &Brislawn;
+	if (0 == name.compare("Brislawn2")) return &Brislawn2;
+	if (0 == name.compare("Villa1")) return &Villa1;
+	if (0 == name.compare("Villa2")) return &Villa2;
+	if (0 == name.compare("Villa3")) return &Villa3;
+	if (0 == name.compare("Villa4")) return &Villa4;
+	if (0 == name.compare("Villa5")) return &Villa5;
+	if (0 == name.compare("Villa6")) return &Villa6;
+	if (0 == name.compare("Odegard")) return &Odegard;
+	if (0 == name.compare("Petuhov1")) return &Petuhov1;
+	if (0 == name.compare("Petuhov2")) return &Petuhov2;
+	if (0 == name.compare("Odegard")) return &Odegard;
+
+	return 0;
+}
+
+
 /*!	\param[in] w Width of image
 	\param[in] h Height of image
 	\param[in] steps Number of steps in wavelet transform
@@ -849,6 +896,9 @@ spectre_t forward_transform(const std::string &filter,
 							const bmp_channel_bits &bits,
 							std::ostream *const err)
 {
+	// проверка утверждений
+	assert(sizeof(float) == sizeof(wic::w_t));
+
 	// определяем поток для вывода ошибок
 	std::ostream &out = (0 == err)? std::cerr: (*err);
 
@@ -885,24 +935,98 @@ spectre_t forward_transform(const std::string &filter,
 		return spectre;
 	}
 
-	// выделение памяти под результат преобразования
-	spectre.sz		= bits.sz;
-	spectre.data	= new wic::w_t[spectre.sz];
+	// выделение памяти под временный массив для входных данных
+	wic::w_t *const input = new wic::w_t[bits.sz];
+
+	// заполнение временного массива с входнымы данными
+	for (unsigned int i = 0; bits.sz > i; ++i)
+	{
+		input[i] = wic::w_t(bits.data[i]);
+	}
+
+	// флаг необходимости удалить временный массив с входными данными
+	bool delete_input = true;
+
+	// указатель на вейвлет фильтр из библиотеки девиса
+	FilterSet *filter_set = 0;
+
+	// флаг сигнализирующий о произошедшей ошибки
+	bool was_error	= false;
 
 	// выполнение преобразования
 	if (0 == filter.compare("cdf97"))
 	{
-		for (unsigned int i = 0; spectre.sz > i; ++i)
-		{
-			spectre.data[i] = wic::w_t(bits.data[i]);
-		}
+		// выполнение преобразования
+		wt2d_cdf97_fwd(input, spectre.h, spectre.w, steps);
 
-		wt2d_cdf97_fwd(spectre.data, spectre.h, spectre.w, steps);
+		// отмена удаления временного массива
+		delete_input = false;
+
+		// установка полей результата
+		spectre.sz		= bits.sz;
+		spectre.data	= input;
+	}
+	else if (0 != (filter_set = get_devis_filter(filter)))
+	{
+		// выделение памяти под результат преобразования
+		spectre.sz		= bits.sz;
+		spectre.data	= new wic::w_t[spectre.sz];
+
+		// создание объекта преобразования
+		Wavelet *const wavelet = new Wavelet(filter_set);
+
+		// выполнение преобразования
+		wavelet->transform2d(input, spectre.data,
+							 spectre.w, spectre.h, steps);
+
+		// удаление объекта преобразования
+		delete wavelet;
 	}
 	else
 	{
+		// ошибка, фильтра с таким именем не найдено
 		out << "Error: unknown filter \"" << filter << "\"" << std::endl;
+
+		was_error = true;
 	}
+
+	// удаление временного массива с входными данными
+	if (delete_input)
+	{
+		delete[] input;
+	}
+
+	// сброс результата если произошла ошибка
+	if (was_error)
+	{
+		delete[] spectre.data;
+		spectre.data	= 0;
+		spectre.sz		= 0;
+		spectre.h		= 0;
+		spectre.w		= 0;
+	}
+
+	#ifdef FIX_DEVIS_ANTONONI_OFFSET
+	if (!was_error && 0 == filter.compare("Antonini"))
+	{
+		for (unsigned int y = 0; (spectre.h >> steps) > y; ++y)
+			for (unsigned int x = 0; (spectre.w >> steps) > x; ++x)
+			{
+				spectre.data[x + y*spectre.w] -= 4096.0f;
+			}
+	}
+	#endif
+
+	// round it
+	#ifdef ROUND_FILTERED_COEFS
+	if (!was_error) for (unsigned int y = 0; spectre.h > y; ++y)
+	{
+		for (unsigned int x = 0; spectre.w > x; ++x)
+		{
+			spectre.data[x + y*spectre.w] = floor(0.5+spectre.data[x + y*spectre.w]);
+		}
+	}
+	#endif
 
 	// возврат результата
 	return spectre;
@@ -923,6 +1047,9 @@ bmp_channel_bits inverse_transform(const wic::wtree &spectre,
 								   const char &channel,
 								   std::ostream *const err)
 {
+	// проверка утверждений
+	assert(sizeof(float) == sizeof(wic::w_t));
+
 	// определяем поток для вывода ошибок
 	std::ostream &out = (0 == err)? std::cerr: (*err);
 
@@ -937,60 +1064,109 @@ bmp_channel_bits inverse_transform(const wic::wtree &spectre,
 	// количество коэффициентов в спектре
 	const unsigned int coefs_count = spectre.width() * spectre.height();
 
-	// выполнение обратного преобразования
+	// указатель на вейвлет фильтр из библиотеки девиса
+	FilterSet *filter_set = 0;
+
+	// выделение памяти под спектр
+	wic::w_t *coefs = new wic::w_t[coefs_count];
+
+	// сохранение вейвлет коэффициентов
+	spectre.save<wic::wnode::member_w>(coefs);
+
+	// fixing offset
+	#ifdef FIX_DEVIS_ANTONONI_OFFSET
+	if (0 == filter.compare("Antonini"))
+	{
+		const int steps = spectre.sb().lvls();
+		for (int y = 0; (spectre.height() >> steps) > y; ++y)
+			for (int x = 0; (spectre.width() >> steps) > x; ++x)
+			{
+				coefs[x + y*spectre.width()] += 4096.0f;
+			}
+	}
+	#endif
+
+	// выполнение обратного преобразования -------------------------------------
 	if (0 == filter.compare("cdf97"))
 	{
-		// выделение памяти под спектр
-		float *const coefs = new float[coefs_count];
-
-		// сохранение вейвлет коэффициентов
-		spectre.save<wic::wnode::member_w>(coefs);
-
 		// выполнение обратного вейвлет преобразования
 		wt2d_cdf97_inv(coefs, spectre.height(), spectre.width(),
 					   spectre.sb().lvls());
+	}
+	else if (0 != (filter_set = get_devis_filter(filter)))
+	{
+		// выделение памяти под результат преобразования
+		wic::w_t *const output = new wic::w_t[coefs_count];
 
-		// создание цветового канала
-		bits.w			= spectre.width();
-		if ('x' == channel)
-		{
-			if (0 != spectre.height() % 3)
-			{
-				out << "Error: " << spectre.height() << " is invalid specter "
-					<< "height for \"x\" channel" << std::endl;
-				delete[] coefs;
-				return bits;
-			}
+		// создание объекта преобразования
+		Wavelet *const wavelet = new Wavelet(filter_set);
 
-			bits.h		= spectre.height() / 3;
-		}
-		else
-		{
-			bits.h		= spectre.height();
-		}
+		// выполнение преобразования
+		wavelet->invert2d(coefs, output,
+						  spectre.width(), spectre.height(),
+						  spectre.sb().lvls());
 
-		bits.channel	= channel;
-		bits.sz			= coefs_count;
-		bits.data		= new unsigned char[coefs_count];
+		// удаление объекта преобразования
+		delete wavelet;
 
-		// преобразование и нормализация пикселей изображения
-		for (unsigned int i = 0; coefs_count > i; ++i)
-		{
-			if (0.0f >= coefs[i])
-				bits.data[i] = 0;
-			else if (255.0f <= coefs[i])
-				bits.data[i] = 255;
-			else
-				bits.data[i] = (unsigned char)coefs[i];
-		}
-
-		// освобождение занимаемой памяти
+		// освобождение старого массива
 		delete[] coefs;
+
+		// подмена его новым с результатом преобразования
+		coefs = output;
 	}
 	else
 	{
 		out << "Error: unknown filter \"" << filter << "\"" << std::endl;
+
+		// удаление временного массива
+		delete[] coefs;
+
+		// возврат результата (ошибки)
+		return bits;
 	}
+
+	// создание цветового канала -----------------------------------------------
+
+	// ширину цветового канала можно определить сразу
+	bits.w			= spectre.width();
+
+	// высота расчитывается исходня из типа цветового канала
+	if ('x' == channel)
+	{
+		if (0 != spectre.height() % 3)
+		{
+			out << "Error: " << spectre.height() << " is invalid specter "
+				<< "height for \"x\" channel" << std::endl;
+				delete[] coefs;
+				return bits;
+		}
+
+		bits.h		= spectre.height() / 3;
+	}
+	else
+	{
+		bits.h		= spectre.height();
+	}
+
+	// инициализация других полей цветового канала и выделение под него памяти
+	bits.channel	= channel;
+	bits.sz			= coefs_count;
+	bits.data		= new unsigned char[coefs_count];
+
+	// преобразование и нормализация пикселей изображения
+	for (unsigned int i = 0; coefs_count > i; ++i)
+	{
+		if (0.0f >= coefs[i])
+			bits.data[i] = 0;
+		else if (255.0f <= coefs[i])
+			bits.data[i] = 255;
+		else
+			bits.data[i] = (unsigned char)(floor(coefs[i] + 0.5));
+	}
+
+	// освобождение памяти занимаемой коэффициентами
+	delete[] coefs;
 
 	// возврат результата
 	return bits;
@@ -1047,6 +1223,7 @@ void free_spectre(spectre_t &spectre)
 void wic_optimize_tree_callback(const wic::p_t &root,
 								void *const param)
 {
+	/*
 	if (0 == param) return;
 	wic::encoder *const encoder = (wic::encoder *)param;
 
@@ -1054,13 +1231,14 @@ void wic_optimize_tree_callback(const wic::p_t &root,
 
 	if (0 == root.getx() && 0 == root.gety()) i = 0;
 
-	if (16 == ++i)
+	if (32 == ++i)
 	{
 		#ifndef LOAD_ARCODER_MODELS
 		encoder->coder().save_models(wic::acoder::encoder_models,
 									 "models.bin");
 		#endif
 	}
+	*/
 }
 
 
@@ -1529,6 +1707,43 @@ void crazy_ones(std::ostream &out)
 /*!	\param[in,out] Поток в который будет выведена информация о
 	утилите
 */
+void do_wic_test(std::ostream &out)
+{
+	// Wavelet transform difference --------------------------------------------
+	do
+	{
+		const std::string img_path	= "../res/images/barbara.bmp";
+
+		const unsigned int steps	= 5;
+		const std::string filter1	= "Antonini";
+		const std::string filter2	= "cdf97";
+
+		bmp_channel_bits img_bits = get_bmp_channel_bits(img_path, 'r');
+
+		if (!is_channel_bits_good(img_bits)) break;
+
+		spectre_t spectre1 = forward_transform(filter1, steps, img_bits);
+		spectre_t spectre2 = forward_transform(filter2, steps, img_bits);
+
+		if (!is_spectre_good(spectre1)) break;
+		if (!is_spectre_good(spectre2)) break;
+
+		wicdbg::dbg_surface::diff_dump(spectre1.data, spectre2.data,
+						"dumps/" + filter1 + "_vs_" + filter2 + "_diff.bmp",
+						img_bits.w, img_bits.h, true);
+		wicdbg::dbg_surface::diff_dump(spectre1.data, spectre2.data,
+						"dumps/" + filter1 + "_vs_" + filter2 + "_diff.txt",
+						img_bits.w, img_bits.h, false);
+	}
+	while(false);
+
+
+}
+
+
+/*!	\param[in,out] Поток в который будет выведена информация о
+	утилите
+*/
 void about(std::ostream &out)
 {
 	out << std::endl;
@@ -1620,6 +1835,14 @@ int main(int argc, char **args)
 		if (0 == mode.compare("-!") || 0 == mode.compare("--crazy"))
 		{
 			crazy_ones(std::cout);
+		}
+		else if (0 == mode.compare("-t") || 0 == mode.compare("--test"))
+		{
+			do_wic_test(std::cout);
+		}
+		else if (0 == mode.compare("-#") || 0 == mode.compare("--exit"))
+		{
+			return 0;
 		}
 		else if (0 == mode.compare("-v") || 0 == mode.compare("--verbose"))
 		{

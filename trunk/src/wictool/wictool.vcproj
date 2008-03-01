@@ -12,8 +12,8 @@
 	<Configurations>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory="../../obj/cwrap_d"
-			IntermediateDirectory="../../obj/cwrap_d"
+			OutputDirectory="../../obj/wictool_d"
+			IntermediateDirectory="../../obj/wictool_d"
 			ConfigurationType="1"
 			CharacterSet="2">
 			<Tool
@@ -64,8 +64,8 @@
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
-			OutputDirectory="../../obj/cwrap"
-			IntermediateDirectory="../../obj/cwrap"
+			OutputDirectory="../../obj/wictool"
+			IntermediateDirectory="../../obj/wictool"
 			ConfigurationType="1"
 			CharacterSet="2"
 			WholeProgramOptimization="TRUE">

@@ -14,8 +14,6 @@
 #include <string>
 #include <fstream>
 
-#include <windows.h>
-
 #include "img.h"
 
 

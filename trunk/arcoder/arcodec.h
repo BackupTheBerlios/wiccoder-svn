@@ -160,8 +160,30 @@ public:
    }
    bool load(const char *const modelfile);
    void load(std::istream& ins);
+
+   //! \brief Загружает модели арифметического кодера довольно простым
+   //! и тупым способом. Применяется для отладки.
+   void load_dummy(std::istream& ins, const int count,
+				   const int *const offsets);
+
+   //! \brief Загружает модели арифметического кодера довольно простым
+   //! и тупым способом. Применяется для отладки.
+   bool load_dummy(const char *const modelfile, const int count,
+				   const int *const offsets);
+
    bool save(const char *const modelfile) const;
    void save(std::ostream& outs) const;
+
+   //! \brief Сохраняет модели арифметического кодера довольно простым
+   //! и тупым способом. Применяется для отладки.
+   void save_dummy(std::ostream& outs, const int count,
+				   const int *const offsets);
+
+   //! \brief Сохраняет модели арифметического кодера довольно простым
+   //! и тупым способом. Применяется для отладки.
+   bool save_dummy(const char *const modelfile, const int count,
+				   const int *const offsets);
+
    float entropy_eval(long ch) const;
    float entropy_update(long ch) {
 		float res = entropy_eval(ch);

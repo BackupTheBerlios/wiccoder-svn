@@ -25,6 +25,7 @@
 #include "test_acoder.h"
 #include "test_subbands.h"
 #include "test_dpcm.h"
+#include "test_dbg_surface.h"
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -64,6 +65,8 @@ int main(int argc, char **args) {
 	tests_list.push_back(test_lvl_from_point);
 	tests_list.push_back(test_from_point);
 	tests_list.push_back(test_dpcm);
+	// tests_list.push_back(test_acoder_dummy_saves);	// not valid now
+	tests_list.push_back(test_dbg_surface);
 
 	// for each item in list
 	for (tests_list_t::const_iterator i = tests_list.begin();
