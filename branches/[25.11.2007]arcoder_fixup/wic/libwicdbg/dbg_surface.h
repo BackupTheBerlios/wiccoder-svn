@@ -15,6 +15,7 @@
 
 // standard C++ library headers
 #include <assert.h>
+#include <math.h>
 #include <string>
 #include <fstream>
 #include <iomanip>
@@ -196,6 +197,49 @@ public:
 						 << a << ", b = " << b << std::endl;
 			}
 		}
+	}
+
+	//@}
+
+	//!	\name Статические методы
+	//@{
+
+	template <class T>
+	static bool diff_dump(const T *const src1, const T *const src2,
+						  const std::string &path,
+						  const wic::sz_t w, const wic::sz_t h,
+						  const bool as_bmp = false)
+	{
+		// Указатели на источники должны быть не нулевыми
+		assert(0 != src1 && 0 != src2);
+
+		// Количество элементов в каждом источнике
+		const wic::sz_t sz = w * h;
+
+		// Выделение памяти под разность
+		T *const diff = (T *)malloc(sz * sizeof(T));
+
+		if (0 == diff) return false;
+
+		// Подсчёт разницы
+		for (int i = 0; sz > i; ++i)
+		{
+			diff[i] = (src1[i] - src2[i]);
+		}
+
+		// сохранение в выбранном формате
+		if (as_bmp)
+		{
+			imgs::bmp_dump<T, wic::sz_t>::dump(diff, w, h, path);
+		}
+		else
+		{
+			imgs::bmp_dump<T, wic::sz_t>::txt_dump(diff, w, h, path, 10);
+		}
+
+		free(diff);
+
+		return true;
 	}
 
 	//@}

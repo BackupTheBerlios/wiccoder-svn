@@ -48,6 +48,8 @@ acoder::acoder(const sz_t buffer_sz):
 
 	#ifdef LIBWIC_DEBUG
 	_dbg_out_stream.open("dumps/[acoder]models.out");
+	_dbg_vals_stream.open("dumps/[acoder]values.out",
+						  std::ios_base::app | std::ios_base::out);
 	#endif
 }
 
@@ -136,6 +138,11 @@ void acoder::encode_start()
 		model._encoded_symbols = 0;
 		model._encoded_freqs.assign(model._symbols, 0);
 	}
+
+	if (_dbg_vals_stream.good())
+	{
+		_dbg_vals_stream << "Start Encoding:" << std::endl;
+	}
 	#endif
 }
 
@@ -156,6 +163,11 @@ void acoder::encode_stop()
 
 	#ifdef LIBWIC_DEBUG
 	if (_dbg_out_stream.good()) dbg_encoder_info(_dbg_out_stream);
+
+	if (_dbg_vals_stream.good())
+	{
+		_dbg_vals_stream << "Stop Encoding." << std::endl << std::endl;
+	}
 	#endif
 }
 
@@ -207,6 +219,14 @@ void acoder::put_value(const value_type &value, const sz_t model_no,
 
 	// обновление модели арифметического кодера
 	_aencoder->update_model(enc_val);
+
+	#ifdef LIBWIC_DEBUG
+	if (_dbg_vals_stream.good())
+	{
+		_dbg_vals_stream << "put: " << value << " as " << enc_val
+						 << " in #" << model_no << std::endl;
+	}
+	#endif
 }
 
 
@@ -232,6 +252,11 @@ void acoder::decode_start()
 		model._decoded_symbols = 0;
 		model._decoded_freqs.assign(model._symbols, 0);
 	}
+
+	if (_dbg_vals_stream.good())
+	{
+		_dbg_vals_stream << "Start Decoding:" << std::endl;
+	}
 	#endif
 }
 
@@ -249,6 +274,11 @@ void acoder::decode_stop()
 
 	#ifdef LIBWIC_DEBUG
 	if (_dbg_out_stream.good()) dbg_decoder_info(_dbg_out_stream);
+
+	if (_dbg_vals_stream.good())
+	{
+		_dbg_vals_stream << "Stop Decoding." << std::endl << std::endl;
+	}
 	#endif
 }
 
@@ -282,6 +312,15 @@ acoder::value_type acoder::get_value(const sz_t model_no)
 	// символа
 	if (dec_val < model._rmin) model._rmin = dec_val;
 	if (dec_val > model._rmax) model._rmax = dec_val;
+
+	#ifdef LIBWIC_DEBUG
+	if (_dbg_vals_stream.good())
+	{
+		_dbg_vals_stream << "get: " << dec_val << " as "
+						 << (dec_val + model._delta)
+						 << " from #" << model_no << std::endl;
+	}
+	#endif
 
 	return dec_val;
 }
@@ -501,6 +540,93 @@ void acoder::_init_models(arcoder_base *const coder_base)
 	coder_base->ResetStatistics();
 
 	// инициализация моделей
+	const model_t &model0 = _models[0];
+
+	coder_base->model(0);
+
+	for (int j = 0; model0._symbols > j; ++j)
+	{
+		coder_base->update_model(j);
+	}
+
+	const model_t &model1 = _models[1];
+
+	coder_base->model(1);
+
+	for (int j = 0; model1._symbols > j; ++j)
+	{
+		coder_base->update_model(j);
+	}
+
+	const int d1 = model1._symbols / (2*5);
+
+	for (int j = 0; 4*d1 > j; ++j)
+	{
+		coder_base->update_model(model1._delta);
+	}
+
+	for (int j = 1; d1 > j; ++j)
+	{
+		for (int k = 0; 2*(d1 - j) > k; ++k)
+		{
+			coder_base->update_model(model1._delta + j);
+			coder_base->update_model(model1._delta - j);
+		}
+	}
+
+	// model 2 -----------------------------------------------------------------
+	const model_t &model2 = _models[2];
+
+	coder_base->model(2);
+
+	for (int j = 0; model2._symbols > j; ++j)
+	{
+		coder_base->update_model(j);
+	}
+
+	const int d2 = model2._symbols / (2*4);
+
+	for (int j = 0; 25*d2 > j; ++j)
+	{
+		coder_base->update_model(model2._delta);
+	}
+
+	for (int j = 1; d2 > j; ++j)
+	{
+		for (int k = 0; 25*(d2 - j) > k; ++k)
+		{
+			coder_base->update_model(model2._delta + j);
+			coder_base->update_model(model2._delta - j);
+		}
+	}
+
+	// model 3 -----------------------------------------------------------------
+	const model_t &model3 = _models[3];
+
+	coder_base->model(3);
+
+	for (int j = 0; model3._symbols > j; ++j)
+	{
+		coder_base->update_model(j);
+	}
+
+	const int d3 = model3._symbols / (2*6);
+
+	for (int j = 0; 200*d3 > j; ++j)
+	{
+		coder_base->update_model(model3._delta);
+	}
+
+	for (int j = 1; d3 > j; ++j)
+	{
+		for (int k = 0; 200*(d3 - j) > k; ++k)
+		{
+			coder_base->update_model(model3._delta + j);
+			coder_base->update_model(model3._delta - j);
+		}
+	}
+
+	/*
 	for (sz_t i = 0; 4 > i; i++)
 	{
 		const model_t &model = _models[i];
@@ -519,6 +645,7 @@ void acoder::_init_models(arcoder_base *const coder_base)
 
 	coder_base->model(6);
 	const model_t &model6 = _models[6];
+	*/
 
 	/*
 	coder_base->update_model(7);

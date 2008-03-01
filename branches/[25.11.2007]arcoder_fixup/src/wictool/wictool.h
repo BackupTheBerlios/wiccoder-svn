@@ -297,6 +297,9 @@ int read_wic_header(std::istream &input,
 //!	\brief Here's to the crazy ones.
 void crazy_ones(std::ostream &out);
 
+//!	\brief Performs several tests
+void do_wic_test(std::ostream &out);
+
 //!	\brief Выводит информацию о утилите
 void about(std::ostream &out);
 

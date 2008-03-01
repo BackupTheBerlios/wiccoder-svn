@@ -35,7 +35,8 @@ encoder::encoder(const sz_t width, const sz_t height, const sz_t lvls):
 	_optimize_tree_callback(0), _optimize_tree_callback_param(0),
 	_optimize_callback(0), _optimize_callback_param(0)
 	#ifdef LIBWIC_USE_DBG_SURFACE
-	, _dbg_opt_surface(width, height), _dbg_enc_surface(width, height)
+	, _dbg_opt_surface(width, height), _dbg_enc_surface(width, height),
+	_dbg_dec_surface(width, height)
 	#endif
 {
 	// проверка утверждений
@@ -257,6 +258,7 @@ encoder::encode_fixed_lambda(
 	if (result.optimization.real_encoded)
 	{
 		tunes.models = result.optimization.models;
+		result.bpp = result.optimization.bpp;
 	}
 	else
 	{
@@ -286,7 +288,7 @@ encoder::encode_fixed_lambda(
 	значения аргументов:
 	- <i>q_min = 1</i>
 	- <i>q_max = 64</i>
-	- <i>q_eps = 0.1</i>
+	- <i>q_eps = 0.01</i>
 	- <i>j_eps = 0.0</i>
 	- <i>max_iterations = 0</i>
 	- <i>precise_bpp = true</i>
@@ -300,7 +302,7 @@ encoder::enc_result_t
 encoder::encode_fixed_lambda(const w_t *const w, const lambda_t &lambda,
 							 tunes_t &tunes)
 {
-	static const q_t q_eps	= q_t(0.1);
+	static const q_t q_eps	= q_t(0.01);
 	static const j_t j_eps	= j_t(0);
 
 	static const q_t q_min	= q_t(1);
@@ -403,6 +405,7 @@ encoder::encode_fixed_q(const w_t *const w, const q_t &q,
 	if (result.optimization.real_encoded)
 	{
 		tunes.models = result.optimization.models;
+		result.bpp = result.optimization.bpp;
 	}
 	else
 	{
@@ -526,6 +529,7 @@ encoder::encode_fixed_bpp(
 	if (result.optimization.real_encoded)
 	{
 		tunes.models = result.optimization.models;
+		result.bpp = result.optimization.bpp;
 	}
 	else
 	{
@@ -555,7 +559,7 @@ encoder::encode_fixed_bpp(
 	- <i>bpp_eps = 0.001</i>
 	- <i>q_min = 1</i>
 	- <i>q_max = 64</i>
-	- <i>q_eps = 0.1</i>
+	- <i>q_eps = 0.01</i>
 	- <i>lambda_eps = 0</i>
 	- <i>precise_bpp = true</i>
 
@@ -569,7 +573,7 @@ encoder::encode_fixed_bpp(const w_t *const w, const h_t &bpp,
 
 	static const q_t q_min				= q_t(1);
 	static const q_t q_max				= q_t(64);
-	static const q_t q_eps				= q_t(0.1);
+	static const q_t q_eps				= q_t(0.01);
 
 	static const lambda_t lambda_eps	= 0.00001;
 
@@ -1680,6 +1684,14 @@ void encoder::_encode_wtree_level(const sz_t lvl,
 			if (decode_mode)
 			{
 				node_g.wc = _decode_spec(model);
+
+				#ifdef LIBWIC_USE_DBG_SURFACE
+				// запись информации о кодируемом коэффициенте в отладочную
+				// поверхность
+				wicdbg::dbg_pixel &dbg_pixel = _dbg_dec_surface.get(p_g);
+				dbg_pixel.wc		= node_g.wc;
+				dbg_pixel.wc_model	= model;
+				#endif
 			}
 			else
 			{
@@ -1731,6 +1743,14 @@ void encoder::_encode_wtree_level(const sz_t lvl,
 				// порождение ветвей в соответствии с полученным признаком
 				// подрезания
 				_wtree.uncut_leafs(p_j, node_j.n);
+
+				#ifdef LIBWIC_USE_DBG_SURFACE
+				// запись информации о групповом признаке подрезания в
+				// отладочную поверхность
+				wicdbg::dbg_pixel &dbg_pixel = _dbg_dec_surface.get(p_j);
+				dbg_pixel.n			= node_j.n;
+				dbg_pixel.n_model	= model;
+				#endif
 			}
 			else
 			{
@@ -1762,6 +1782,10 @@ void encoder::_encode_wtree(const bool decode_mode)
 	{
 		_dbg_enc_surface.clear();
 	}
+	else
+	{
+		_dbg_dec_surface.clear();
+	}
 	#endif
 
 	// (де)кодирование корневых элементов
@@ -1783,10 +1807,25 @@ void encoder::_encode_wtree(const bool decode_mode)
 	{
 		_dbg_enc_surface.save<wicdbg::dbg_pixel::member_wc>
 			("dumps/[encoder]dbg_enc_suface.wc.bmp", true);
+		_dbg_enc_surface.save<wicdbg::dbg_pixel::member_wc>
+			("dumps/[encoder]dbg_enc_suface.wc.txt", false);
 		_dbg_enc_surface.save<wicdbg::dbg_pixel::member_wc_model>
 			("dumps/[encoder]dbg_enc_suface.wc_model.bmp", true);
+		_dbg_enc_surface.save<wicdbg::dbg_pixel::member_n>
+			("dumps/[encoder]dbg_enc_suface.n.bmp", true);
 		_dbg_opt_surface.diff<wicdbg::dbg_pixel::member_wc_model>
 			(_dbg_enc_surface, "dumps/[encoder]dbg_suface.wc_model.diff");
+	}
+	else
+	{
+		_dbg_dec_surface.save<wicdbg::dbg_pixel::member_wc>
+			("dumps/[decoder]dbg_dec_suface.wc.bmp", true);
+		_dbg_dec_surface.save<wicdbg::dbg_pixel::member_wc>
+			("dumps/[decoder]dbg_dec_suface.wc.txt", false);
+		_dbg_dec_surface.save<wicdbg::dbg_pixel::member_wc_model>
+			("dumps/[decoder]dbg_dec_suface.wc_model.bmp", true);
+		_dbg_dec_surface.save<wicdbg::dbg_pixel::member_n>
+			("dumps/[decoder]dbg_dec_suface.n.bmp", true);
 	}
 	#endif
 }
@@ -2027,6 +2066,8 @@ encoder::_optimize_wtree(const lambda_t &lambda,
 		("dumps/[encoder]dbg_opt_suface.wc.bmp", true);
 	_dbg_opt_surface.save<wicdbg::dbg_pixel::member_wc_model>
 		("dumps/[encoder]dbg_opt_suface.wc_model.bmp", true);
+	_dbg_opt_surface.save<wicdbg::dbg_pixel::member_n>
+		("dumps/[encoder]dbg_opt_suface.n.bmp", true);
 	#endif
 
 	// подсчёт bpp, если производилось реальное кодирование
@@ -2617,6 +2658,18 @@ encoder::_search_q_lambda_for_bpp_iter(
 	const lambda_t lambda_min = lambda_t(0.05f * q*q);
 	const lambda_t lambda_max = lambda_t(0.20f * q*q);
 
+	// вывод отладочной информации
+	#ifdef LIBWIC_DEBUG
+	if (_dbg_out_stream.good())
+	{
+		_dbg_out_stream << "[SQLI]: ";
+		_dbg_out_stream << "q: " << std::setw(8) << q;
+		_dbg_out_stream << " lambda_min: " << std::setw(8) << lambda_min;
+		_dbg_out_stream << " lambda_max: " << std::setw(8) << lambda_max;
+		_dbg_out_stream << std::endl;
+	}
+	#endif
+
 	// поиск параметра lambda
 	const optimize_result_t result =
 				_search_lambda_at_bpp(bpp, bpp_eps,
@@ -2634,6 +2687,21 @@ encoder::_search_q_lambda_for_bpp_iter(
 		deviation = (bpp - result.bpp);	// q необходимо уменьшить (+1)
 	else
 		deviation = 0;					// q удовлетворительное
+
+	// вывод отладочной информации
+	#ifdef LIBWIC_DEBUG
+	if (_dbg_out_stream.good())
+	{
+		_dbg_out_stream << "[SQLI]: ";
+		_dbg_out_stream << "q: " << std::setw(8) << result.q;
+		_dbg_out_stream << " lambda: " << std::setw(8) << result.lambda;
+		_dbg_out_stream << " j: " << std::setw(8) << result.j;
+		_dbg_out_stream << " bpp: " << std::setw(8) << result.bpp;
+		_dbg_out_stream << " d: " << std::setw(8) << d;
+		_dbg_out_stream << " deviation: " << std::setw(8) << deviation;
+		_dbg_out_stream << std::endl;
+	}
+	#endif
 
 	// возврат результата
 	return result;
@@ -2729,7 +2797,7 @@ encoder::_search_q_lambda_for_bpp(
 	optimize_result_t result	= result_c;
 
 	// сужение диапазона поиска методом золотого сечения
-	while (q_eps < abs(q_b - q_c))
+	while (q_eps < abs(q_a - q_d))
     {
         if (deviation > 0 || (0 == deviation && dw_b <= dw_c))
         {

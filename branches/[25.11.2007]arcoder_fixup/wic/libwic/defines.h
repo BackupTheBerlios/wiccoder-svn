@@ -31,6 +31,7 @@
 	замедляет работу кодека.
 */
 #define LIBWIC_USE_DBG_SURFACE
+// #undef LIBWIC_USE_DBG_SURFACE
 
 #endif
 
