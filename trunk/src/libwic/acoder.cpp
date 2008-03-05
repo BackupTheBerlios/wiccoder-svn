@@ -48,6 +48,9 @@ acoder::acoder(const sz_t buffer_sz):
 
 	#ifdef LIBWIC_DEBUG
 	_dbg_out_stream.open("dumps/[acoder]models.out");
+	#endif
+
+	#ifdef LIBWIC_ACODER_LOG_VALUES
 	_dbg_vals_stream.open("dumps/[acoder]values.out",
 						  std::ios_base::app | std::ios_base::out);
 	#endif
@@ -116,6 +119,17 @@ const acoder::value_type &acoder::rmax(const sz_t &model_no) const
 }
 
 
+/*!	\param[in] model_no Номер модели
+	\return Математическое ожидание модулия кодируемой (декодируемой) величины
+*/
+const double &acoder::abs_average(const sz_t &model_no) const
+{
+	assert(0 <= model_no && model_no < sz_t(_models.size()));
+
+	return _models[model_no]._abs_average;
+}
+
+
 /*!
 */
 void acoder::encode_start()
@@ -138,7 +152,9 @@ void acoder::encode_start()
 		model._encoded_symbols = 0;
 		model._encoded_freqs.assign(model._symbols, 0);
 	}
+	#endif
 
+	#ifdef LIBWIC_ACODER_LOG_VALUES
 	if (_dbg_vals_stream.good())
 	{
 		_dbg_vals_stream << "Start Encoding:" << std::endl;
@@ -163,7 +179,9 @@ void acoder::encode_stop()
 
 	#ifdef LIBWIC_DEBUG
 	if (_dbg_out_stream.good()) dbg_encoder_info(_dbg_out_stream);
+	#endif
 
+	#ifdef LIBWIC_ACODER_LOG_VALUES
 	if (_dbg_vals_stream.good())
 	{
 		_dbg_vals_stream << "Stop Encoding." << std::endl << std::endl;
@@ -210,6 +228,11 @@ void acoder::put_value(const value_type &value, const sz_t model_no,
 	if (value < model._rmin) model._rmin = value;
 	if (value > model._rmax) model._rmax = value;
 
+	// обновление среднего арифметического значения кодируемых символов
+	++model._n;
+	model._abs_average = (model._abs_average * (model._n - 1) + abs(value)) /
+							model._n;
+
 	// выбор модели и кодирование (учитывая смещение)
 	_aencoder->model(model_no);
 
@@ -220,7 +243,7 @@ void acoder::put_value(const value_type &value, const sz_t model_no,
 	// обновление модели арифметического кодера
 	_aencoder->update_model(enc_val);
 
-	#ifdef LIBWIC_DEBUG
+	#ifdef LIBWIC_ACODER_LOG_VALUES
 	if (_dbg_vals_stream.good())
 	{
 		_dbg_vals_stream << "put: " << value << " as " << enc_val
@@ -252,7 +275,9 @@ void acoder::decode_start()
 		model._decoded_symbols = 0;
 		model._decoded_freqs.assign(model._symbols, 0);
 	}
+	#endif
 
+	#ifdef LIBWIC_ACODER_LOG_VALUES
 	if (_dbg_vals_stream.good())
 	{
 		_dbg_vals_stream << "Start Decoding:" << std::endl;
@@ -274,7 +299,9 @@ void acoder::decode_stop()
 
 	#ifdef LIBWIC_DEBUG
 	if (_dbg_out_stream.good()) dbg_decoder_info(_dbg_out_stream);
+	#endif
 
+	#ifdef LIBWIC_ACODER_LOG_VALUES
 	if (_dbg_vals_stream.good())
 	{
 		_dbg_vals_stream << "Stop Decoding." << std::endl << std::endl;
@@ -313,7 +340,12 @@ acoder::value_type acoder::get_value(const sz_t model_no)
 	if (dec_val < model._rmin) model._rmin = dec_val;
 	if (dec_val > model._rmax) model._rmax = dec_val;
 
-	#ifdef LIBWIC_DEBUG
+	// обновление среднего арифметического значения кодируемых символов
+	++model._n;
+	model._abs_average = (model._abs_average * (model._n - 1) + abs(dec_val)) /
+							model._n;
+
+	#ifdef LIBWIC_ACODER_LOG_VALUES
 	if (_dbg_vals_stream.good())
 	{
 		_dbg_vals_stream << "get: " << dec_val << " as "
@@ -362,6 +394,8 @@ void acoder::dbg_encoder_info(std::ostream &out)
 
 		out << " |" << std::setw(7) << encoded_symbols  << " symbols";
 		#endif
+
+		out << " | M = " << std::setw(7) << model._abs_average;
 
 		out << std::endl;
 
@@ -425,6 +459,8 @@ void acoder::dbg_decoder_info(std::ostream &out)
 
 		out << " |" << std::setw(7) << decoded_symbols  << " symbols";
 		#endif
+
+		out << " | M = " << std::setw(7) << model._abs_average;
 
 		out << std::endl;
 
@@ -514,12 +550,14 @@ void acoder::_refresh_models(models_t &models)
 {
 	for (models_t::iterator i = models.begin(); models.end() != i; ++i)
 	{
-		model_t &model	= (*i);
-		model._delta	= - model.min;
-		model._symbols	= _symbols_count(model);
+		model_t &model		= (*i);
+		model._delta		= - model.min;
+		model._symbols		= _symbols_count(model);
 
-		model._rmin		= model.max;
-		model._rmax		= model.min;
+		model._rmin			= model.max;
+		model._rmax			= model.min;
+		model._n			= 0;
+		model._abs_average	= 0;
 	}
 }
 
@@ -540,6 +578,39 @@ void acoder::_init_models(arcoder_base *const coder_base)
 	coder_base->ResetStatistics();
 
 	// инициализация моделей
+	coder_base->model(0);
+
+	for (int j = 0; _models[0]._symbols > j; ++j)
+	{
+		coder_base->update_model(j);
+	}
+
+	for (unsigned int i = 1; 6/*_models.size()*/ > i; ++i)
+	{
+		const model_t &model = _models[i];
+
+		int k0 = std::max(-model.abs_avg-1, model.min);
+		int k1 = std::min(+model.abs_avg+1, model.max);
+
+		//printf("%i - [%i, %i], delta: %i, avg: %i; {%i, %i}\n",
+		// 	   i, model.min, model.max, model._delta, model.abs_avg,
+		//	   k0, k1);
+
+		coder_base->model(i);
+
+		for (int j = k0; k1 > j; ++j)
+		{
+			coder_base->update_model(j + model._delta);
+		}
+
+		/*
+		for (int r = 0; 10 > r; ++r)
+		{
+			coder_base->update_model(model._delta);
+		}
+		*/
+	}
+	/*
 	const model_t &model0 = _models[0];
 
 	coder_base->model(0);
@@ -625,6 +696,7 @@ void acoder::_init_models(arcoder_base *const coder_base)
 			coder_base->update_model(model3._delta - j);
 		}
 	}
+	*/
 
 	/*
 	for (sz_t i = 0; 4 > i; i++)
@@ -642,12 +714,12 @@ void acoder::_init_models(arcoder_base *const coder_base)
 	coder_base->model(4);
 	const model_t &model4 = _models[4];
 	coder_base->update_model(model4._delta);
-
-	coder_base->model(6);
-	const model_t &model6 = _models[6];
 	*/
 
 	/*
+	coder_base->model(6);
+	const model_t &model6 = _models[6];
+
 	coder_base->update_model(7);
 	coder_base->update_model(7);
 	coder_base->update_model(7);

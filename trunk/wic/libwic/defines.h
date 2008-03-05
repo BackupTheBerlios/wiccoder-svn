@@ -33,8 +33,13 @@
 #define LIBWIC_USE_DBG_SURFACE
 // #undef LIBWIC_USE_DBG_SURFACE
 
+//!	\brief Служит для включения логирования аркодером кодируемых и
+//!	декодируемых значений
+#define LIBWIC_ACODER_LOG_VALUES
+// #undef LIBWIC_ACODER_LOG_VALUES
+
 #endif
 
-
+#define LIBWIC_DEBUG
 
 #endif

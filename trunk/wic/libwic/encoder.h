@@ -153,6 +153,7 @@ public:
 	{
 		short mins[ACODER_TOTAL_MODELS_COUNT];
 		short maxs[ACODER_TOTAL_MODELS_COUNT];
+		unsigned short abs_avgs[ACODER_TOTAL_MODELS_COUNT];
 	};
 
 	//!	\brief Унифицированное описание моделей арифметического кодера
@@ -493,6 +494,10 @@ protected:
 		// создание моделей для кодирования
 		acoder::models_t models;
 		acoder::model_t model;
+
+		// Данный способ создания моделей арифметического кодера не
+		// задаёт математическое ожидание модуля кодируемой величины
+		model.abs_avg = 0;
 
 		// модели для коэффициентов
 		// поиск минимального и максимального значений коэффициентов

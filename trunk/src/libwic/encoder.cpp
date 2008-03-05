@@ -701,6 +701,10 @@ acoder::models_t encoder::_mk_acoder_models(const models_desc1_t &desc) const
 	acoder::models_t models;
 	acoder::model_t model;
 
+	// Данный способ создания моделей арифметического кодера не
+	// задаёт математическое ожидание модуля кодируемой величины
+	model.abs_avg = 0;
+
 	// модел #0 ----------------------------------------------------------------
 	model.min = desc.mdl_0_min;
 	model.max = desc.mdl_0_max;
@@ -743,8 +747,9 @@ acoder::models_t encoder::_mk_acoder_models(const models_desc2_t &desc) const
 	for (sz_t i = 0; ACODER_TOTAL_MODELS_COUNT > i; ++i)
 	{
 		acoder::model_t model;
-		model.min = desc.mins[i];
-		model.max = desc.maxs[i];
+		model.min		= desc.mins[i];
+		model.max		= desc.maxs[i];
+		model.abs_avg	= desc.abs_avgs[i];
 
 		models.push_back(model);
 	}
@@ -875,8 +880,9 @@ encoder::models_desc2_t encoder::_mk_acoder_post_models(const acoder &ac) const
 
 	for (sz_t i = 0; sz_t(ac.models().size()) > i; ++i)
 	{
-		desc.mins[i] = ac.rmin(i);
-		desc.maxs[i] = ac.rmax(i);
+		desc.mins[i]		= ac.rmin(i);
+		desc.maxs[i]		= ac.rmax(i);
+		desc.abs_avgs[i]	= (unsigned short)(ac.abs_average(i));
 
 		// проверка на пустую модель (в которых rmin > rmax)
 		// данные действия необходимы, если в модель не попало ни одного
@@ -895,7 +901,8 @@ encoder::models_desc2_t encoder::_mk_acoder_post_models(const acoder &ac) const
 	установленны этой функцией
 
 	Для генерации описания моделей используется функция
-	_mk_acoder_smart_models()
+	_mk_acoder_smart_models(), соответственно, сгенерированные модели
+	имеют тип MODELS_DESC_V1.
 */
 encoder::models_desc_t encoder::_setup_acoder_models()
 {
