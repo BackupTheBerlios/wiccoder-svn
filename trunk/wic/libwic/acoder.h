@@ -348,7 +348,7 @@ public:
 protected:
 	// protected methods -------------------------------------------------------
 
-	//!	\name Создание моделей
+	//!	\name Создание и инициализация моделей
 	//@{
 
 	//!	\brief Получает количество символов в алфавите по минимальному и
@@ -364,6 +364,10 @@ protected:
 
 	//!	\brief Обновляет внутренние модели, заполняя необходимые поля
 	static void _refresh_models(models_t &models);
+
+	//!	\brief Инициализирует модель нормальным распределением
+	void _init_normal_distribution(arcoder_base *const coder_base,
+								   const model_t &model, const float &sigma);
 
 	//@}
 

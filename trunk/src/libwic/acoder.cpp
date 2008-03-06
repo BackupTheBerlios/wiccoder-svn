@@ -11,7 +11,8 @@
 // headers
 
 // standard C++ library headers
-// none
+#define _USE_MATH_DEFINES
+#include <math.h>
 
 // libwic headers
 #include <wic/libwic/acoder.h>
@@ -562,6 +563,33 @@ void acoder::_refresh_models(models_t &models)
 }
 
 
+/*!	\param[in] model Информация о инициализируемой модели
+
+	Производит инициализацию текущей модели арифметического кодера
+	нормальным распределением.
+*/
+void acoder::_init_normal_distribution(arcoder_base *const coder_base,
+									   const model_t &model, const float &sigma)
+{
+	assert(0 != coder_base);
+	assert(0 < sigma);
+
+	const float C		= 3000.0;
+
+	const float sigmaScrt2Pi	= float(sigma * sqrt(2*M_PI));
+	const float sigma2x2		= float(2* sigma * sigma);
+
+	for (value_type x = model.min; model.max >= x; ++x)
+	{
+		float p	= C*exp(-x*x / sigma2x2) / sigmaScrt2Pi;
+
+		const value_type s = x + model._delta;
+
+		while (0 < p--) coder_base->update_model(s);
+	}
+}
+
+
 /*!	\param[in] coder_base Базовый класс для арифметических енкодера и
 	декодера
 */
@@ -580,6 +608,8 @@ void acoder::_init_models(arcoder_base *const coder_base)
 	// инициализация моделей
 	coder_base->model(0);
 
+	static const float sigmas[6] = {0.0, 11.0, 4.0, 1.0, 1.0, 1.0};
+
 	for (int j = 0; _models[0]._symbols > j; ++j)
 	{
 		coder_base->update_model(j);
@@ -587,21 +617,29 @@ void acoder::_init_models(arcoder_base *const coder_base)
 
 	for (unsigned int i = 1; 6/*_models.size()*/ > i; ++i)
 	{
-		const model_t &model = _models[i];
-
-		int k0 = std::max(-model.abs_avg-1, model.min);
-		int k1 = std::min(+model.abs_avg+1, model.max);
-
-		//printf("%i - [%i, %i], delta: %i, avg: %i; {%i, %i}\n",
-		// 	   i, model.min, model.max, model._delta, model.abs_avg,
-		//	   k0, k1);
-
 		coder_base->model(i);
 
+		const model_t &model = _models[i];
+
+		/*
+		int k0 = std::max(value_type(-model.abs_avg), model.min);
+		int k1 = std::min(value_type(+model.abs_avg), model.max);
+
+		printf("%i - [%i, %i], delta: %i, avg: %i; {%i, %i} / %f\n",
+		 	   i, model.min, model.max, model._delta, model.abs_avg,
+			   k0, k1, float(sigmas[i]));
+		*/
+
+		const float sigma = (0 < model.abs_avg)? float(model.abs_avg): sigmas[i];
+
+		_init_normal_distribution(coder_base, model, sigma);
+
+		/*
 		for (int j = k0; k1 > j; ++j)
 		{
 			coder_base->update_model(j + model._delta);
 		}
+		*/
 
 		/*
 		for (int r = 0; 10 > r; ++r)

@@ -40,6 +40,6 @@
 
 #endif
 
-#define LIBWIC_DEBUG
+
 
 #endif
