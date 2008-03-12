@@ -366,8 +366,9 @@ protected:
 	static void _refresh_models(models_t &models);
 
 	//!	\brief Инициализирует модель нормальным распределением
-	void _init_normal_distribution(arcoder_base *const coder_base,
-								   const model_t &model, const float &sigma);
+	void _init_normal_distribution(const float &factor, const float &sigma,
+								   arcoder_base *const coder_base,
+								   const sz_t &i, const bool purge = false);
 
 	//@}
 

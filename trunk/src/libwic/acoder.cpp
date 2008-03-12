@@ -563,30 +563,83 @@ void acoder::_refresh_models(models_t &models)
 }
 
 
-/*!	\param[in] model Информация о инициализируемой модели
+/*!	\param[in] factor Масштабный коэффициент, на который будет умножена
+	получаемая вероятность
+	\param[in] sigma Среднеквадратичное отклонение (параметр нормального
+	распределения)
+	\param[in,out] coder_base Указатель на объект используемого
+	арифметического кодера
+	\param[in] i Номер используемой модели
+	\param[in] purge Если <i>true</i> инициализация модели производится не
+	будет
 
 	Производит инициализацию текущей модели арифметического кодера
 	нормальным распределением.
 */
-void acoder::_init_normal_distribution(arcoder_base *const coder_base,
-									   const model_t &model, const float &sigma)
+void acoder::_init_normal_distribution(const float &factor, const float &sigma,
+									   arcoder_base *const coder_base,
+									   const sz_t &i, const bool purge)
 {
+	// Проверим входные параметры
 	assert(0 != coder_base);
 	assert(0 < sigma);
+	assert(0 != factor);
 
-	const float C		= 3000.0;
+	// Установка текущей модели
+	coder_base->model(i);
 
+	// Подсчёт часто используемых значений
 	const float sigmaScrt2Pi	= float(sigma * sqrt(2*M_PI));
 	const float sigma2x2		= float(2* sigma * sigma);
 
+	// Ссылка на описание используемой модели
+	const model_t &model = _models[i];
+
+	#ifdef LIBWIC_DEBUG
+	std::vector<unsigned int> freqs(model._symbols);
+	#endif
+
+	// Вычисление вероятности для каждого символа в модели
 	for (value_type x = model.min; model.max >= x; ++x)
 	{
-		float p	= C*exp(-x*x / sigma2x2) / sigmaScrt2Pi;
+		// Вероятность умноженая на масштабный коэффициент
+		const float p = factor*exp(-x*x / sigma2x2) / sigmaScrt2Pi;
 
-		const value_type s = x + model._delta;
+		// Символ из модели аркодера (не отритцательный)
+		const value_type smb = x + model._delta;
 
-		while (0 < p--) coder_base->update_model(s);
+		// Проверка не отритцательности симвлоа
+		assert(0 <= smb);
+
+		// Целочисленное значение полученной вероятности
+		const unsigned int ip = (unsigned int)ceil(p);
+
+		#ifdef LIBWIC_DEBUG
+		freqs[smb] = ip;
+		#endif
+
+		if (purge) continue;
+
+		// Инициализация модели аркодера
+		for (unsigned int k = ip; 0 < k; --k) coder_base->update_model(smb);
 	}
+
+	if (!purge) return;
+
+	#ifdef LIBWIC_DEBUG
+	_dbg_out_stream << "#" << std::setw(2) << i;
+
+	_dbg_out_stream << "[" << std::setw(5) << model._symbols << "]";
+
+	_dbg_out_stream << " | abs_avg = " << std::setw(7) << model._abs_average;
+	_dbg_out_stream << " | sigma = " << std::setw(7) << sigma;
+
+	_dbg_out_stream << std::endl;
+
+	_dbg_out_stream << "[_init_normal_distribution]" << std::endl;
+	_dbg_freqs_out(_dbg_out_stream, freqs, model, i, coder_base);
+	_dbg_out_stream << "[/_init_normal_distribution]" << std::endl;
+	#endif
 }
 
 
@@ -606,48 +659,76 @@ void acoder::_init_models(arcoder_base *const coder_base)
 	coder_base->ResetStatistics();
 
 	// инициализация моделей
+
 	coder_base->model(0);
 
-	static const float sigmas[6] = {0.0, 11.0, 4.0, 1.0, 1.0, 1.0};
+	// static const float scale			= 1000;
+	// static const float sigmas[6]		= {0.0, 15.0, 5.2, 2.1, 1.0, 1.0};
+	// static const float factors[6]	= {1.0, 1.5, 1.3, 2.1, 1.0, 1.0};
+	// static const float factors[6]	= {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+
+	// image			filter		bpp		q			lambda		psnr
+	//
+	// lenaD.bmp		Antonini	0.25	-			-			34.43
+	// barbaraD.bmp		Antonini	0.25	-			-			28.39
+	// goldhillD.bmp	Antonini	0.25	-			-			30.82
+	// lenaD.bmp		Antonini	0.5		-			-			37.54
+	// barbaraD.bmp		Antonini	0.5		-			-			30.86
+	// goldhillD.bmp	Antonini	0.5		-			-			33.45
+	// lenaD.bmp		Antonini	1.0		-			-			40.92
+	// barbaraD.bmp		Antonini	1.0		-			-			37.10
+	// goldhillD.bmp	Antonini	1.0		-			-			36.80
+	//
+	// lenaD.bmp		cdf97		0.25	-			-			34.45
+	// barbaraD.bmp		cdf97		0.25	-			-			28.39
+	// goldhillD.bmp	cdf97		0.25	-			-			30.81
+	// lenaD.bmp		cdf97		0.5		-			-			37.53
+	// barbaraD.bmp		cdf97		0.5		-			-			32.06
+	// goldhillD.bmp	cdf97		0.5		-			-			33.45
+	// lenaD.bmp		cdf97		1.0		-			-			40.92
+	// barbaraD.bmp		cdf97		1.0		-			-			37.10
+	// goldhillD.bmp	cdf97		1.0		-			-			36.80
+	//
+	// lenaD.bmp		Petuhov1	0.25	-			-			34.58
+	// barbaraD.bmp		Petuhov1	0.25	-			-			27.42
+	// goldhillD.bmp	Petuhov1	0.25	-			-			30.85
+	// lenaD.bmp		Petuhov1	0.5		-			-			37.68
+	// barbaraD.bmp		Petuhov1	0.5		-			-			32.41
+	// goldhillD.bmp	Petuhov1	0.5		-			-			33.41
+	// lenaD.bmp		Petuhov1	1.0		-			-			41.01
+	// barbaraD.bmp		Petuhov1	1.0		-			-			37.20
+	// goldhillD.bmp	Petuhov1	1.0		-			-			36.82
+	//
+	// lenaD.bmp		Petuhov1	0.25	25.0161		116.36		34.59
+	// lenaD.bmp		Petuhov1	0.5		13.7009		24.784		37.69
+	//
+	// static const float scale		= 800.0f;
+	// static const float sigmas[6]	= {0.0f, 8.1f, 3.9f, 1.8f, 0.8f, 0.5f};
+	// static const float factors[6]	= {1.0f, 0.9f, 1.7f, 2.3f, 1.0f, 1.1f};
+
+	// lenaD.bmp, 0.5 bpp:
+	static const float scale		= 725.0f;
+	static const float sigmas[6]	= {0.0f, 8.2f, 4.1f, 1.9f, 0.8f, 0.4f};
+	static const float factors[6]	= {1.0f, 1.2f, 1.7f, 2.3f, 1.0f, 1.1f};
 
 	for (int j = 0; _models[0]._symbols > j; ++j)
 	{
 		coder_base->update_model(j);
 	}
 
-	for (unsigned int i = 1; 6/*_models.size()*/ > i; ++i)
+	for (unsigned int i = 1; 6 > i; ++i)
 	{
-		coder_base->model(i);
-
 		const model_t &model = _models[i];
-
-		/*
-		int k0 = std::max(value_type(-model.abs_avg), model.min);
-		int k1 = std::min(value_type(+model.abs_avg), model.max);
-
-		printf("%i - [%i, %i], delta: %i, avg: %i; {%i, %i} / %f\n",
-		 	   i, model.min, model.max, model._delta, model.abs_avg,
-			   k0, k1, float(sigmas[i]));
-		*/
 
 		const float sigma = (0 < model.abs_avg)? float(model.abs_avg): sigmas[i];
 
-		_init_normal_distribution(coder_base, model, sigma);
+		_init_normal_distribution(scale, factors[i]*sigma,
+								  coder_base, i);
 
-		/*
-		for (int j = k0; k1 > j; ++j)
-		{
-			coder_base->update_model(j + model._delta);
-		}
-		*/
-
-		/*
-		for (int r = 0; 10 > r; ++r)
-		{
-			coder_base->update_model(model._delta);
-		}
-		*/
+		// _init_normal_distribution(scale, factors[i]*sigmas[i],
+		//						  coder_base, i, true);
 	}
+
 	/*
 	const model_t &model0 = _models[0];
 
@@ -931,7 +1012,11 @@ void acoder::_dbg_freqs_out(std::ostream &out,
 		out << std::setw(7) << freq;
 
 		// числовое значение энтропии
-		out << "; e=" << std::setprecision(5) << coder_base->entropy_eval(i);
+		if (0 != coder_base)
+		{
+			out << "; e=" << std::setprecision(5)
+				<< coder_base->entropy_eval(i);
+		}
 
 		out << std::endl;
 	}
