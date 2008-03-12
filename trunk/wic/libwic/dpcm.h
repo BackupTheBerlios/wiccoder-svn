@@ -54,11 +54,6 @@ public:
 	*/
 	typedef value_t value_type;
 
-	// public constants --------------------------------------------------------
-
-	//!	\brief Размер по умолчанию для хранимой истории енкодера / декодера
-	static const int DEFAULT_HISTORY_SIZE	= 1;
-
 	// public members ----------------------------------------------------------
 
 	//!	\name Конструкторы и деструкторы
@@ -90,12 +85,11 @@ public:
 	//@{
 
 	//!	\brief Начинает кодирование
-	/*!	\param[in] history_sz Размер хранимой истории, которая будет
-		использована для вычисления прогнозов
+	/*!	Ничего не делает. Существует для формализации момента начала
+		кодирования.
 	*/
-	void encode_start(const int history_sz = DEFAULT_HISTORY_SIZE)
+	void encode_start()
 	{
-		_reset_history(_enc_history, history_sz);
 	}
 
 	//!	\brief Завершает кодирование
@@ -106,16 +100,14 @@ public:
 	{
 	}
 
-	//!	\brief Кодирует значение с учётом прогноза
+	//!	\brief Кодирует значение с учётом внешнего прогноза
 	/*!	\param[in] value Кодируемое значение
+		\param[in] predicted Прогнозное значение
 		\return Закодированное значение
 	*/
-	value_type encode(const value_type &value)
+	value_type encode(const value_type &value, const value_type &predicted)
 	{
-		const value_type predicted	= _predict(_enc_history);
-		const value_type encoded	= (value - predicted);
-
-		_history_put(value, _enc_history);
+		const value_type encoded = (value - predicted);
 
 		#ifdef LIBWIC_DEBUG
 		_dbg_out_stream << "[encoder] " << std::setw(5) << value;
@@ -127,26 +119,15 @@ public:
 		return encoded;
 	}
 
-	//!	\brief Кодирует значение с учётом внешнего прогноза
-	/*!	\param[in] value Кодируемое значение
-		\param[in] predicted Прогнозное значение
-		\return Закодированное значение
-	*/
-	value_type encode(const value_type &value, const value_type &predicted)
-	{
-		return (value - predicted);
-	}
-
 	//!	\name Функции декодирования
 	//@{
 
 	//!	\brief Начинает декодирование
-	/*!	\param[in] history_sz Размер хранимой истории, которая будет
-		использована для вычисления прогнозов
+	/*!	Ничего не делает. Существует для формализации момента начала
+		декодирования.
 	*/
-	void decode_start(const int history_sz = DEFAULT_HISTORY_SIZE)
+	void decode_start()
 	{
-		_reset_history(_dec_history, history_sz);
 	}
 
 	//!	\brief Завершает декодирование
@@ -185,99 +166,22 @@ public:
 	*/
 	value_type decode(const value_type &value, const value_type &predicted)
 	{
-		return (predicted + value);
+		const value_type decoded = (predicted + value);
+
+		#ifdef LIBWIC_DEBUG
+		_dbg_out_stream << "[decoder] " << std::setw(5) << decoded;
+		_dbg_out_stream << " [" << std::setw(5) << predicted << "]"; 
+		_dbg_out_stream << " <<<< " << std::setw(5) << value;
+		_dbg_out_stream << std::endl;
+		#endif
+
+		return decoded;
 	}
 
 	//@}
 
-protected:
-	// protected types ---------------------------------------------------------
-
-	//!	\brief Тип для представления предыдущих закодированных или
-	//!	декодированных значений
-	typedef std::vector<value_type> _history_vals_t;
-
-	//!	\brief История ДИКМ кодера
-	struct _history_t {
-		//!	\brief Массив предыдущих значений
-		_history_vals_t vals;
-		//!	\brief Позиция после последнего помещённого в историю значения
-		int pos;
-		//!	\brief Количество правильных значений перед позицией <i>pos</i>
-		int count;
-	};
-
-	// protected constants -----------------------------------------------------
-
-	// protected methods -------------------------------------------------------
-
-	//!	\brief Производит сброс истории в начальное положение
-	/*!	\param[in] history Сбрасываемая история
-		\param[in] history_sz Размер истории значений
-	*/
-	void _reset_history(_history_t &history, const int history_sz)
-	{
-		history.vals.resize(history_sz);
-		history.pos		= 0;
-		history.count	= 0;
-	}
-
-	//!	\brief Подсчёт прогноза
-	/*!	\param[in] history История, которая будет использована для построения
-		прогноза
-		\return Вычисленное значение прогноза
-	*/
-	value_type _predict(const _history_t &history)
-	{
-		// возвратить 0, если история пуста
-		if (0 == history.count) return 0;
-
-		// числитель прогноза
-		value_type numerator	= 0;
-
-		// знаменатель прогноза
-		int denominator			= 0;
-
-		// некоторое смещение
-		const int offset = int(history.vals.size() + history.pos - 1);
-
-		// цикл по значениям в истории
-		for (int factor = history.count; 0 < factor; --factor)
-		{
-			const int j = int(offset % history.vals.size());
-
-			numerator	+= (factor * history.vals[j]);
-
-			denominator	+= factor;
-		}
-
-		return (numerator / denominator);
-	}
-
-	//! \brief Помещает значение в историю
-	/*!	\param[in] val Значение, помещаемое в историю
-		\param[in] history Модифицируемая история
-	*/
-	void _history_put(const value_type &val, _history_t &history)
-	{
-		// увеличить количество значений если ещё есть место
-		if (history.count < int(history.vals.size())) ++history.count;
-
-		// поместить значение в историю
-		history.vals[history.pos] = val;
-
-		// произвести смещение позиции
-		if (++history.pos == history.vals.size()) history.pos = 0;
-	}
-
 private:
 	// private members ---------------------------------------------------------
-
-	//!	\brief История закодированных значений
-	_history_t _enc_history;
-
-	//!	\brief История декодированных значений
-	_history_t _dec_history;
 
 	#ifdef LIBWIC_DEBUG
 	//!	\brief Стандартный файловый поток для вывода информации в
