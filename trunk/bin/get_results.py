@@ -57,9 +57,6 @@ def encode_image(src_image, wic_file, channel="r", *args, **vals):
 		m = re.compile(re_float_field("size")).search(line)
 		if m: result["size"] = float(m.group("size"))
 
-		m = re.compile(re_float_field("size")).search(line)
-		if m: result["size"] = float(m.group("size"))
-
 		m = re.compile(re_float_field("q")).search(line)
 		if m: result["q"] = float(m.group("q"))
 
@@ -99,12 +96,15 @@ def main():
 		os.makedirs(working_dir)
 	except:
 		pass
-	
+
+	avg_psnr	= 0
+	n_psnrs		= 0
+
 	for filter in filters:
 		# Print table head
 		print filter + ":"
 		print "-"*79
-		fw = 16
+		fw = 18
 		table_head = "|" + "bpp".center(fw)
 		for image in images:
 			table_head += "|" + image.center(fw)
@@ -120,9 +120,19 @@ def main():
 				r = encode_image(src_image, wic_file, filter=filter, method="fixed_bpp", bpp=bpp)
 				decode_image(wic_file, dest_image)
 				psnr = calc_psnr(src_image, dest_image)
-				table_line += "|" + str(psnr).center(fw)
+				table_line += "|" + (str(psnr) + " / " + str(round(r["bpp"], 2))).center(fw)
+
+				# Don't want psnr's with bad bpp
+				if 0.01 < abs(r["bpp"] - bpp): continue
+
+				# Calculate average psnr
+				n_psnrs += 1
+				avg_psnr = (avg_psnr * (n_psnrs - 1) + psnr) / n_psnrs
+
 			print table_line
 		print "-"*79
+		print
+		print "Average psnr:", avg_psnr, "db"
 		print
 
 main()
