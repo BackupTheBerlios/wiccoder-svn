@@ -324,7 +324,7 @@ public:
 	template <const wnode::wnode_members member>
 	typename wnode::type_selector<member>::result get_safe(
 			const sz_t x, const sz_t y,
-			const typename wnode::type_selector<member>::result &def = 0)
+			const typename wnode::type_selector<member>::result &def = 0) const
 	{
 		if (0 > x || x >= _width) return def;
 		if (0 > y || y >= _height) return def;
@@ -348,7 +348,7 @@ public:
 	typename wnode::type_selector<member>::result get_safe(
 			const sz_t x, const sz_t y,
 			const subbands::subband_t &sb,
-			const typename wnode::type_selector<member>::result &def = 0)
+			const typename wnode::type_selector<member>::result &def = 0) const
 	{
 		if (sb.x_min > x || x > sb.x_max) return def;
 		if (sb.y_min > y || y > sb.y_max) return def;
@@ -390,6 +390,46 @@ public:
 		{
 			const wnode &node = at(set->get());
 			const value_t &value = node.get<member>();
+
+			if (value < min) min = value;
+			else if (value > max) max = value;
+		}
+
+		return true;
+	}
+
+	//!	\brief Находит минимальное и максимальное прогнозируемое значения в
+	//!	саббенде при кодировани с использованием ДИКМ
+	/*!	\param[in] sb Саббенд в котором будет производится поиск
+		\param[out] min Переменная которая примет найденное минимальное
+		значение
+		\param[out] max Переменная которая примет найденное максимальное
+		значение
+		\return <i>true</i> если полученное множество прогнозных значений не
+		пустое и переменные <i>min</i> и <i>max</i> получили некоторые
+		значения, иначе <i>false</i>
+	*/
+	template <const wnode::wnode_members member>
+	bool dpcm_minmax(const subbands::subband_t &sb,
+					 typename wnode::type_selector<member>::result &min,
+					 typename wnode::type_selector<member>::result &max) const
+	{
+		// используемый тип
+		typedef wnode::type_selector<member>::result value_t;
+
+		// итератор по саббенду
+		coefs_iterator set = iterator_over_subband(sb);
+
+		// проверка на пустое множество
+		if (set->end()) return false;
+
+		// инициализация переменных
+		min = max = dpcm_predict<member>(set->get(), sb);
+
+		// поиск минимального и максимального значений
+		for (set->next(); !set->end(); set->next())
+		{
+			const value_t &value = dpcm_predict<member>(set->get(), sb);
 
 			if (value < min) min = value;
 			else if (value > max) max = value;
@@ -645,6 +685,49 @@ public:
 				 const subbands::subband_t &sb)
 	{
 		return calc_sj<member>(x, y, sb, _going_left(x, y));
+	}
+
+	//!	\brief Подсчитывает прогнозное значение для коэффициентов
+	//!	спектра, используемое при кодировании с использованием ДИКМ
+	/*!	\param[in] p Координаты прогнозируемого элемента
+		\param[in] sb Саббенд в котором располагается прогнозируемый
+		элемент
+		\return Прогнозное значение элемента
+
+		Функция предполагает, что обход производится змейкой, начиная с
+		левого верхнего эемента.
+	*/
+	template <const wnode::wnode_members member>
+	typename wnode::type_selector<member>::result dpcm_predict(
+						const p_t &p, const subbands::subband_t &sb) const
+	{
+		// Тип, используемый при вычислениях
+		typedef wnode::type_selector<member>::result member_t;
+
+		// Для первого элемента из саббенда всегда возвращаем 0
+		if (p.x == sb.x_min && p.y == sb.y_min) return 0;
+
+		/*
+		if (sb.y_min == p.y) return at(p.x - 1, sb.y_min).get<member>();
+
+		if (sb.x_min == p.x) return at(sb.x_min, p.y - 1).get<member>();
+
+		if (sb.x_max == p.x && sb.y_max == p.y)
+			return at(sb.x_max - 1, sb.y_max).get<member>();
+
+		const member_t a = get<member>(p.x - 1, p.y - 1, sb);
+		const member_t b = get<member>(p.x,     p.y - 1, sb);
+		const member_t c = get<member>(p.x + 1, p.y - 1, sb);
+		const member_t d = get<member>(p.x - 1, p.y,     sb);
+
+		return (b + d - (a + c) / 2);
+		*/
+		const member_t a = get_safe<member>(p.x - 1, p.y - 1, sb);
+		const member_t b = get_safe<member>(p.x,     p.y - 1, sb);
+		const member_t c = get_safe<member>(p.x + 1, p.y - 1, sb);
+		const member_t d = get_safe<member>(p.x - 1, p.y,     sb);
+
+		return (b + d - (a + c) / 2);
 	}
 
 	//@}
