@@ -23,6 +23,7 @@
 #include <wic/libwic/wnode.h>
 #include <wic/libwic/subbands.h>
 #include <wic/libwic/iterators.h>
+#include <wic/libwic/dpcm.h>
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -424,15 +425,19 @@ public:
 		if (set->end()) return false;
 
 		// инициализация переменных
-		min = max = dpcm_predict<member>(set->get(), sb);
+		const p_t &p = set->get();
+		min = max = dpcm::encode(at(p).get<member>(),
+								 dpcm_predict<member>(p, sb));
 
 		// поиск минимального и максимального значений
 		for (set->next(); !set->end(); set->next())
 		{
-			const value_t &value = dpcm_predict<member>(set->get(), sb);
+			const p_t &p = set->get();
+			const value_t dv = dpcm::encode(at(p).get<member>(),
+											dpcm_predict<member>(p, sb));
 
-			if (value < min) min = value;
-			else if (value > max) max = value;
+			if (dv < min) min = dv;
+			else if (dv > max) max = dv;
 		}
 
 		return true;
@@ -707,25 +712,35 @@ public:
 		// Для первого элемента из саббенда всегда возвращаем 0
 		if (p.x == sb.x_min && p.y == sb.y_min) return 0;
 
-		/*
-		if (sb.y_min == p.y) return at(p.x - 1, sb.y_min).get<member>();
+		// Определение направления прохода по номеру строки
+		const sz_t dx = (0 == (p.y % 2))? +1: -1;
 
-		if (sb.x_min == p.x) return at(sb.x_min, p.y - 1).get<member>();
+		// Для всей верхней строки прогнозом является значение предыдущего
+		// элемента в той же строке
+		if (sb.y_min == p.y) return at(p.x - dx, sb.y_min).get<member>();
 
-		if (sb.x_max == p.x && sb.y_max == p.y)
-			return at(sb.x_max - 1, sb.y_max).get<member>();
+		// Для самых крайних левых и правых элементов прогнозом является
+		// значение предыдущего элемента в той же строке, а если таковой
+		// лежит вне саббенда, тогда прогнозом является значение верхнего
+		// элемента
+		if (sb.x_min == p.x || sb.x_max == p.x)
+		{
+			return get_safe<member>(p.x - dx, p.y, sb,
+									at(p.x, p.y - 1).get<member>());
+		}
 
-		const member_t a = get<member>(p.x - 1, p.y - 1, sb);
-		const member_t b = get<member>(p.x,     p.y - 1, sb);
-		const member_t c = get<member>(p.x + 1, p.y - 1, sb);
-		const member_t d = get<member>(p.x - 1, p.y,     sb);
-
-		return (b + d - (a + c) / 2);
-		*/
-		const member_t a = get_safe<member>(p.x - 1, p.y - 1, sb);
-		const member_t b = get_safe<member>(p.x,     p.y - 1, sb);
-		const member_t c = get_safe<member>(p.x + 1, p.y - 1, sb);
-		const member_t d = get_safe<member>(p.x - 1, p.y,     sb);
+		// Для всех остальных элементов прогноза (x) вычисляется по формуле:
+		// (b + d - (a + c) / 2), где элементы a, b, c, d имеют следующее
+		// расположение относительно элемента x при 0 < dx:
+		// a  b  c
+		// d  x
+		// и при 0 > dx:
+		// c  b  a
+		//    x  d
+		const member_t a = at(p.x - dx, p.y - 1).get<member>();
+		const member_t b = at(p.x,      p.y - 1).get<member>();
+		const member_t c = at(p.x + dx, p.y - 1).get<member>();
+		const member_t d = at(p.x - dx, p.y    ).get<member>();
 
 		return (b + d - (a + c) / 2);
 	}

@@ -119,6 +119,9 @@
 				RelativePath=".\codec.cpp">
 			</File>
 			<File
+				RelativePath=".\dpcm.cpp">
+			</File>
+			<File
 				RelativePath=".\encoder.cpp">
 			</File>
 			<File

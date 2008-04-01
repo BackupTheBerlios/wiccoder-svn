@@ -73,6 +73,27 @@
 #define	OPTIMIZATION_USE_VIRTUAL_ENCODING
 #undef	OPTIMIZATION_USE_VIRTUAL_ENCODING
 
+//!	\brief Коэффициент для вычисления нижней границы поиска параметра
+//!	<i>lambda_t</i>
+/*!	Нижняя граница поиска параметра <i>lambda_t</i> будет
+	<i>(LAMBDA_SEARCH_K_LOW * q*q)</i>, где <i>q</i> текущий квантователь.
+*/
+#define LAMBDA_SEARCH_K_LOW			(0.05f)
+
+//!	\brief Коэффициент для вычисления верхней границы поиска параметра
+//!	<i>lambda_t</i>
+/*!	Верхняя граница поиска параметра <i>lambda_t</i> будет
+	<i>(LAMBDA_SEARCH_K_HIGHT * q*q)</i>, где <i>q</i> текущий квантователь.
+*/
+#define LAMBDA_SEARCH_K_HIGHT		(0.25f)
+
+//!	\brief Если данный макрос определён, для кодирования коэффициентов из
+//!	LL саббенда будет использован ДИКМ
+/*!	\sa wic::dpcm
+*/
+#define USE_DPCM_FOR_LL_SUBBAND
+#undef	USE_DPCM_FOR_LL_SUBBAND
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // wic namespace

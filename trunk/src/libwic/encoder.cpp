@@ -435,8 +435,8 @@ encoder::encode_fixed_q(const w_t *const w, const q_t &q,
 	Эта упрощённая версия функции encode_fixed_q() использует следующие
 	значения аргументов:
 	- <i>bpp_eps = 0.001</i>
-	- <i>lambda_min = 0.05*q*q</i>
-	- <i>lambda_max = 0.20*q*q</i>
+	- <i>lambda_min = LAMBDA_SEARCH_K_LOW*q*q</i>
+	- <i>lambda_max = LAMBDA_SEARCH_K_HIGHT*q*q</i>
 	- <i>lambda_eps = 0.0</i>
 	- <i>max_iterations = 0</i>
 	- <i>precise_bpp = true</i>
@@ -452,8 +452,8 @@ encoder::encode_fixed_q(const w_t *const w, const q_t &q,
 {
 	static const h_t bpp_eps			= 0.001;
 
-	static const lambda_t lambda_min	= 0.05*q*q;
-	static const lambda_t lambda_max	= 0.20*q*q;
+	static const lambda_t lambda_min	= lambda_t(LAMBDA_SEARCH_K_LOW * q*q);
+	static const lambda_t lambda_max	= lambda_t(LAMBDA_SEARCH_K_HIGHT * q*q);
 	static const lambda_t lambda_eps	= 0;
 
 	static const sz_t max_iterations	= 0;
@@ -811,11 +811,16 @@ encoder::models_desc1_t encoder::_mk_acoder_smart_models() const
 	// модел #0 ----------------------------------------------------------------
 	{
 		const subbands::subband_t &sb_LL = _wtree.sb().get_LL();
-		wtree::coefs_iterator i = _wtree.iterator_over_subband(sb_LL);
 
 		wk_t lvl0_min = 0;
 		wk_t lvl0_max = 0;
+
+		#ifdef USE_DPCM_FOR_LL_SUBBAND
+		_wtree.dpcm_minmax<wnode::member_wq>(sb_LL, lvl0_min, lvl0_max);
+		#else
+		wtree::coefs_iterator i = _wtree.iterator_over_subband(sb_LL);
 		_wtree.minmax<wnode::member_wq>(i, lvl0_min, lvl0_max);
+		#endif
 
 		desc.mdl_0_min = short(lvl0_min);
 		desc.mdl_0_max = short(lvl0_max);
@@ -1412,7 +1417,13 @@ void encoder::_encode_tree_root(const p_t &root,
 	const sz_t spec_model	= _ind_spec(0, subbands::LVL_0);
 
 	// закодировать коэффициент с нулевого уровня
+	#ifdef USE_DPCM_FOR_LL_SUBBAND
+	const subbands::subband_t &sb_LL = _wtree.sb().get_LL();
+	const wk_t wc_p = _wtree.dpcm_predict<wnode::member_wc>(root, sb_LL);
+	_encode_spec(spec_model, dpcm::encode(root_node.wc, wc_p), virtual_encode);
+	#else
 	_encode_spec(spec_model, root_node.wc, virtual_encode);
+	#endif
 
 	// определение модели для кодирования признака подрезания
 	const sz_t map_model	= _ind_map(0, subbands::LVL_0);
@@ -1576,10 +1587,19 @@ void encoder::_encode_wtree_root(const bool decode_mode)
 		// сам элемент из LL саббенда
 		wnode &node = _wtree.at(p_i);
 
+		#ifdef USE_DPCM_FOR_LL_SUBBAND
+		// Подсчёт прогнозного значения для коэффициента
+		const wk_t wc_p = _wtree.dpcm_predict<wnode::member_wc>(p_i, sb_LL);
+		#endif
+
 		if (decode_mode)
 		{
 			// декодирование коэффициента и признака подрезания
+			#ifdef USE_DPCM_FOR_LL_SUBBAND
+			node.wc = dpcm::decode(_decode_spec(spec_LL_model), wc_p);
+			#else
 			node.wc = _decode_spec(spec_LL_model);
+			#endif
 			node.n = _decode_map(map_LL_model);
 
 			// порождение ветвей в соответствии с полученным признаком
@@ -1589,7 +1609,11 @@ void encoder::_encode_wtree_root(const bool decode_mode)
 		else
 		{
 			// кодирование коэффициента и признака подрезания
+			#ifdef USE_DPCM_FOR_LL_SUBBAND
+			_encode_spec(spec_LL_model, dpcm::encode(node.wc, wc_p));
+			#else
 			_encode_spec(spec_LL_model, node.wc);
+			#endif
 			_encode_map(map_LL_model, node.n);
 
 			#ifdef LIBWIC_USE_DBG_SURFACE
@@ -2639,7 +2663,7 @@ encoder::_search_lambda_at_bpp(
 	\return Результат произведённого поиска
 
 	Параметр <i>lambda</i> будет искаться в диапазоне
-	<i>[0.05*q*q, 0.20*q*q]</i>.
+	<i>[LAMBDA_SEARCH_K_LOW*q*q, LAMBDA_SEARCH_K_HIGHT*q*q]</i>.
 
 	\note Для корректной работы, функции необходимо, чтобы значения полей
 	wnode::w были корректны (содержали в себе коэффициенты исходного спектра).
@@ -2662,8 +2686,8 @@ encoder::_search_q_lambda_for_bpp_iter(
 	models = _setup_acoder_models();
 
 	// выбор диапазона поиска параметра lambda
-	const lambda_t lambda_min = lambda_t(0.05f * q*q);
-	const lambda_t lambda_max = lambda_t(0.20f * q*q);
+	const lambda_t lambda_min = lambda_t(LAMBDA_SEARCH_K_LOW * q*q);
+	const lambda_t lambda_max = lambda_t(LAMBDA_SEARCH_K_HIGHT * q*q);
 
 	// вывод отладочной информации
 	#ifdef LIBWIC_DEBUG
@@ -2806,8 +2830,35 @@ encoder::_search_q_lambda_for_bpp(
 	// сужение диапазона поиска методом золотого сечения
 	while (q_eps < abs(q_a - q_d))
     {
+		// вывод отладочной информации
+		#ifdef LIBWIC_DEBUG
+		if (_dbg_out_stream.good())
+		{
+			_dbg_out_stream << "> ";
+			_dbg_out_stream << " q_a=" << std::setw(8) << q_a;
+			_dbg_out_stream << " q_b=" << std::setw(8) << q_b;
+			_dbg_out_stream << " q_c=" << std::setw(8) << q_c;
+			_dbg_out_stream << " q_d=" << std::setw(8) << q_d;
+			_dbg_out_stream << " dev=" << std::setw(8) << deviation;
+			_dbg_out_stream << " dw_b=" << std::setw(8) << dw_b;
+			_dbg_out_stream << " dw_c=" << std::setw(8) << dw_c;
+			_dbg_out_stream << std::flush;
+
+		}
+		#endif
+
+		// if (0 == deviation) break;
+
         if (deviation > 0 || (0 == deviation && dw_b <= dw_c))
         {
+			// вывод отладочной информации
+			#ifdef LIBWIC_DEBUG
+			if (_dbg_out_stream.good())
+			{
+				_dbg_out_stream << " way[a] (a * b c d)" << std::endl;
+			}
+			#endif
+
             q_d = q_c;
             q_c = q_b;
             dw_c = dw_b;
@@ -2824,6 +2875,14 @@ encoder::_search_q_lambda_for_bpp(
         }
         else
         {
+			// вывод отладочной информации
+			#ifdef LIBWIC_DEBUG
+			if (_dbg_out_stream.good())
+			{
+				_dbg_out_stream << " way[b] (a b c * d)" << std::endl;
+			}
+			#endif
+
             q_a = q_b;
             q_b = q_c;
             dw_b = dw_c;
