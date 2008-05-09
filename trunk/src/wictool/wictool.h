@@ -106,6 +106,7 @@ struct spectre_t
 };
 
 //!	\brief Заголовок wic файла
+#pragma pack(push, 1)
 struct wic_header_t
 {
 	//!	\brief Must be "WICX", where X - wiccoder version
@@ -126,6 +127,7 @@ struct wic_header_t
 	//!	\brief Имя использованного вейвлет преобразования
 	// char filter[];
 };
+#pragma pack(pop)
 
 
 ///////////////////////////////////////////////////////////////////////////////

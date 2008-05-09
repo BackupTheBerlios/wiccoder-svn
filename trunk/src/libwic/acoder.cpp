@@ -14,6 +14,10 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 
+#ifdef LIBWIC_ACODER_PRINT_STATISTIC
+#include <iostream>
+#endif
+
 // libwic headers
 #include <wic/libwic/acoder.h>
 
@@ -31,6 +35,7 @@ namespace wic {
 */
 acoder::acoder(const sz_t buffer_sz):
 	_buffer_sz(buffer_sz), _buffer(0),
+	_init_mode(ACODER_INIT_MODELS_MODE),
 	_out_stream(0), _aencoder(0),
 	_in_stream(0), _adecoder(0)
 {
@@ -186,6 +191,25 @@ void acoder::encode_stop()
 	if (_dbg_vals_stream.good())
 	{
 		_dbg_vals_stream << "Stop Encoding." << std::endl << std::endl;
+	}
+	#endif
+
+	#ifdef LIBWIC_ACODER_PRINT_STATISTIC
+	for (sz_t i = 0; sz_t(_models.size()) > i; ++i)
+	{
+		const model_t &model = _models[i];
+
+		std::cout << std::endl
+			  << "acoder::encd::model::" << i << "::" << model._symbols
+			  << "::" << model._delta << std::endl;
+
+		const std::vector<unsigned int> &freqs = model._encoded_freqs;
+
+		for (sz_t j = 0; sz_t(freqs.size()) > j; ++j)
+		{
+			std::cout << "acoder::encd::value::" << i << "::" << j
+					  << "::" << freqs[j] << std::endl;
+		}
 	}
 	#endif
 }
@@ -599,6 +623,12 @@ void acoder::_init_normal_distribution(const float &factor, const float &sigma,
 	std::vector<unsigned int> freqs(model._symbols);
 	#endif
 
+	#ifdef LIBWIC_ACODER_PRINT_STATISTIC
+	std::cout << std::endl
+			  << "acoder::init::model::" << i << "::" << model._symbols
+			  << "::" << model._delta << std::endl;
+	#endif
+
 	// Вычисление вероятности для каждого символа в модели
 	for (value_type x = model.min; model.max >= x; ++x)
 	{
@@ -612,10 +642,15 @@ void acoder::_init_normal_distribution(const float &factor, const float &sigma,
 		assert(0 <= smb);
 
 		// Целочисленное значение полученной вероятности
-		const unsigned int ip = (unsigned int)ceil(p);
+		const unsigned int ip = (unsigned int)floor(p + 0.5);
 
 		#ifdef LIBWIC_DEBUG
 		freqs[smb] = ip;
+		#endif
+
+		#ifdef LIBWIC_ACODER_PRINT_STATISTIC
+		std::cout << "acoder::init::value::" << i << "::" << smb
+				  << "::" << ip << std::endl;
 		#endif
 
 		if (purge) continue;
@@ -643,6 +678,88 @@ void acoder::_init_normal_distribution(const float &factor, const float &sigma,
 }
 
 
+
+/**
+*
+*/
+void acoder::_init_laplace_distribution(const float &factor,
+										const float &lambda,
+										arcoder_base *const coder_base,
+										const sz_t &i, const bool purge)
+{
+	// Проверим входные параметры
+	assert(0 != coder_base);
+	assert(0 != lambda);
+	assert(0 != factor);
+
+	// Установка текущей модели
+	coder_base->model(i);
+
+	// Подсчёт часто используемых значений
+	const float lambda_2	= float(lambda / 2);
+
+	// Ссылка на описание используемой модели
+	const model_t &model = _models[i];
+
+	#ifdef LIBWIC_DEBUG
+	std::vector<unsigned int> freqs(model._symbols);
+	#endif
+
+	#ifdef LIBWIC_ACODER_PRINT_STATISTIC
+	std::cout << std::endl
+			  << "acoder::init::model::" << i << "::" << model._symbols
+			  << "::" << model._delta << std::endl;
+	#endif
+
+	// Вычисление вероятности для каждого символа в модели
+	for (value_type x = model.min; model.max >= x; ++x)
+	{
+		// Вероятность умноженая на масштабный коэффициент
+		const float p = factor*lambda_2*exp(-lambda*abs(x));
+
+		// Символ из модели аркодера (не отритцательный)
+		const value_type smb = x + model._delta;
+
+		// Проверка не отритцательности симвлоа
+		assert(0 <= smb);
+
+		// Целочисленное значение полученной вероятности
+		const unsigned int ip = (unsigned int)floor(p + 0.5);
+
+		#ifdef LIBWIC_DEBUG
+		freqs[smb] = ip;
+		#endif
+
+		#ifdef LIBWIC_ACODER_PRINT_STATISTIC
+		std::cout << "acoder::init::value::" << i << "::" << smb
+				  << "::" << ip << std::endl;
+		#endif
+
+		if (purge) continue;
+
+		// Инициализация модели аркодера
+		for (unsigned int k = ip; 0 < k; --k) coder_base->update_model(smb);
+	}
+
+	if (!purge) return;
+
+	#ifdef LIBWIC_DEBUG
+	_dbg_out_stream << "#" << std::setw(2) << i;
+
+	_dbg_out_stream << "[" << std::setw(5) << model._symbols << "]";
+
+	_dbg_out_stream << " | abs_avg = " << std::setw(7) << model._abs_average;
+	_dbg_out_stream << " | lambda = " << std::setw(7) << lambda;
+
+	_dbg_out_stream << std::endl;
+
+	_dbg_out_stream << "[_init_normal_distribution]" << std::endl;
+	_dbg_freqs_out(_dbg_out_stream, freqs, model, i, coder_base);
+	_dbg_out_stream << "[/_init_normal_distribution]" << std::endl;
+	#endif
+}
+
+
 /*!	\param[in] coder_base Базовый класс для арифметических енкодера и
 	декодера
 */
@@ -658,234 +775,132 @@ void acoder::_init_models(arcoder_base *const coder_base)
 	// сброс статистик
 	coder_base->ResetStatistics();
 
-	// инициализация моделей
+	// инициализация моделей ---------------------------------------------------
 
+	// для init_mode_none инициализацию проводить не требуется вообще
+	if (init_mode_none == _init_mode) return;
+
+	// для всех остальных способов нулевая модель инициализируется равномерно
 	coder_base->model(0);
-
-	// static const float scale			= 1000;
-	// static const float sigmas[6]		= {0.0, 15.0, 5.2, 2.1, 1.0, 1.0};
-	// static const float factors[6]	= {1.0, 1.5, 1.3, 2.1, 1.0, 1.0};
-	// static const float factors[6]	= {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
-
-	// image			filter		bpp		q			lambda		psnr
-	//
-	// lenaD.bmp		Antonini	0.25	-			-			34.43
-	// barbaraD.bmp		Antonini	0.25	-			-			28.39
-	// goldhillD.bmp	Antonini	0.25	-			-			30.82
-	// lenaD.bmp		Antonini	0.5		-			-			37.54
-	// barbaraD.bmp		Antonini	0.5		-			-			30.86
-	// goldhillD.bmp	Antonini	0.5		-			-			33.45
-	// lenaD.bmp		Antonini	1.0		-			-			40.92
-	// barbaraD.bmp		Antonini	1.0		-			-			37.10
-	// goldhillD.bmp	Antonini	1.0		-			-			36.80
-	//
-	// lenaD.bmp		cdf97		0.25	-			-			34.45
-	// barbaraD.bmp		cdf97		0.25	-			-			28.39
-	// goldhillD.bmp	cdf97		0.25	-			-			30.81
-	// lenaD.bmp		cdf97		0.5		-			-			37.53
-	// barbaraD.bmp		cdf97		0.5		-			-			32.06
-	// goldhillD.bmp	cdf97		0.5		-			-			33.45
-	// lenaD.bmp		cdf97		1.0		-			-			40.92
-	// barbaraD.bmp		cdf97		1.0		-			-			37.10
-	// goldhillD.bmp	cdf97		1.0		-			-			36.80
-	//
-	// lenaD.bmp		Petuhov1	0.25	-			-			34.58
-	// barbaraD.bmp		Petuhov1	0.25	-			-			27.42
-	// goldhillD.bmp	Petuhov1	0.25	-			-			30.85
-	// lenaD.bmp		Petuhov1	0.5		-			-			37.68
-	// barbaraD.bmp		Petuhov1	0.5		-			-			32.41
-	// goldhillD.bmp	Petuhov1	0.5		-			-			33.41
-	// lenaD.bmp		Petuhov1	1.0		-			-			41.01
-	// barbaraD.bmp		Petuhov1	1.0		-			-			37.20
-	// goldhillD.bmp	Petuhov1	1.0		-			-			36.82
-	//
-	// lenaD.bmp		Petuhov1	0.25	25.0161		116.36		34.59
-	// lenaD.bmp		Petuhov1	0.5		13.7009		24.784		37.69
-	//
-	// static const float scale		= 800.0f;
-	// static const float sigmas[6]	= {0.0f, 8.1f, 3.9f, 1.8f, 0.8f, 0.5f};
-	// static const float factors[6]	= {1.0f, 0.9f, 1.7f, 2.3f, 1.0f, 1.1f};
-
-	// lenaD.bmp, 0.5 bpp:
-	static const float scale		= 725.0f;
-	static const float sigmas[6]	= {0.0f, 8.2f, 4.1f, 1.9f, 0.8f, 0.4f};
-	static const float factors[6]	= {1.0f, 1.2f, 1.7f, 2.3f, 1.0f, 1.1f};
 
 	for (int j = 0; _models[0]._symbols > j; ++j)
 	{
 		coder_base->update_model(j);
 	}
 
-	for (unsigned int i = 1; 6 > i; ++i)
+	if (init_mode_geek == _init_mode)
 	{
-		const model_t &model = _models[i];
+		// init_mode_geek ------------------------------------------------------
 
-		const float sigma = (0 < model.abs_avg)? float(model.abs_avg): sigmas[i];
+		// model 1
+		coder_base->model(1);
+		const model_t &model1 = _models[1];
 
-		_init_normal_distribution(scale, factors[i]*sigma,
-								  coder_base, i);
+		for (int j = 0; model1._symbols > j; ++j) coder_base->update_model(j);
 
-		// _init_normal_distribution(scale, factors[i]*sigmas[i],
-		//						  coder_base, i, true);
+		const int d1 = model1._symbols / (2*5);
+		for (int j = 0; 4*d1 > j; ++j) coder_base->update_model(model1._delta);
+
+		for (int j = 1; d1 > j; ++j)
+			for (int k = 0; 2*(d1 - j) > k; ++k)
+			{
+				coder_base->update_model(model1._delta + j);
+				coder_base->update_model(model1._delta - j);
+			}
+
+		// model 2
+		coder_base->model(2);
+		const model_t &model2 = _models[2];
+
+		for (int j = 0; model2._symbols > j; ++j) coder_base->update_model(j);
+
+		const int d2 = model2._symbols / (2*4);
+		for (int j = 0; 25*d2 > j; ++j) coder_base->update_model(model2._delta);
+
+		for (int j = 1; d2 > j; ++j)
+			for (int k = 0; 25*(d2 - j) > k; ++k)
+			{
+				coder_base->update_model(model2._delta + j);
+				coder_base->update_model(model2._delta - j);
+			}
+
+		// model 3
+		coder_base->model(3);
+		const model_t &model3 = _models[3];
+
+		for (int j = 0; model3._symbols > j; ++j) coder_base->update_model(j);
+
+		const int d3 = model3._symbols / (2*6);
+		for (int j = 0; 200*d3 > j; ++j) coder_base->update_model(model3._delta);
+
+		for (int j = 1; d3 > j; ++j)
+			for (int k = 0; 200*(d3 - j) > k; ++k)
+			{
+				coder_base->update_model(model3._delta + j);
+				coder_base->update_model(model3._delta - j);
+			}
 	}
+	else if (init_mode_uniform == _init_mode)
+	{
+		// init_mode_uniform ---------------------------------------------------
+		assert(!"Not supported yet");
+	}
+	else if (init_mode_normal == _init_mode)
+	{
+		// init_mode_normal ----------------------------------------------------
+		static const float scale		= 725.0f;
+		static const float sigmas[6]	= {0.0f, 8.2f, 4.1f, 1.9f, 0.8f, 0.4f};
+		static const float factors[6]	= {1.0f, 1.2f, 1.7f, 2.3f, 1.0f, 1.1f};
+
+		for (unsigned int i = 1; 6 > i; ++i)
+		{
+			const model_t &model = _models[i];
+
+			const float sigma = (0 < model.abs_avg)? float(model.abs_avg)
+												   : sigmas[i];
+
+			_init_normal_distribution(scale, factors[i]*sigma,
+									  coder_base, i);
+		}
+	}
+	else if (init_mode_laplace == _init_mode)
+	{
+		// init_mode_laplace ---------------------------------------------------
+		static const float scales[6]	= {0.0f, 250.0f,  455.0f, 891.0f, 1400.0f, 1500.0f};
+		static const float factors[6]	= {0.0f, 1.0f,    1.0f,   1.0f,   1.0f,    1.0f};
+		static const float lambdas[6]	= {0.0f, 0.05f,   0.2f,   0.6f,   1.0f,    1.5f};
+
+		for (unsigned int i = 1; 6 > i; ++i)
+		{
+			const model_t &model = _models[i];
+
+			const float lambda = (0 < model.abs_avg)
+									? 1.0f / float(abs(model.abs_avg) + 1)
+									: lambdas[i];
+
+			_init_laplace_distribution(scales[i], factors[i]*lambda,
+									   coder_base, i);
+		}
+	}
+
+	// map models --------------------------------------------------------------
 
 	/*
-	const model_t &model0 = _models[0];
-
-	coder_base->model(0);
-
-	for (int j = 0; model0._symbols > j; ++j)
+	if (init_mode_geek == _init_mode)
 	{
-		coder_base->update_model(j);
+		coder_base->model(6);
+		for (int i = 0; 8 > i; ++i) coder_base->update_model(7);
+		for (int i = 0; 8 > i; ++i) coder_base->update_model(0);
+
+		coder_base->model(8);
+		for (int i = 0; 8 > i; ++i) coder_base->update_model(0);
+	
+		coder_base->model(9);
+		for (int i = 0; 8 > i; ++i) coder_base->update_model(0x0f);
+
+		coder_base->model(10);
+		for (int i = 0; 8 > i; ++i) coder_base->update_model(0x0f);
 	}
-
-	const model_t &model1 = _models[1];
-
-	coder_base->model(1);
-
-	for (int j = 0; model1._symbols > j; ++j)
-	{
-		coder_base->update_model(j);
-	}
-
-	const int d1 = model1._symbols / (2*5);
-
-	for (int j = 0; 4*d1 > j; ++j)
-	{
-		coder_base->update_model(model1._delta);
-	}
-
-	for (int j = 1; d1 > j; ++j)
-	{
-		for (int k = 0; 2*(d1 - j) > k; ++k)
-		{
-			coder_base->update_model(model1._delta + j);
-			coder_base->update_model(model1._delta - j);
-		}
-	}
-
-	// model 2 -----------------------------------------------------------------
-	const model_t &model2 = _models[2];
-
-	coder_base->model(2);
-
-	for (int j = 0; model2._symbols > j; ++j)
-	{
-		coder_base->update_model(j);
-	}
-
-	const int d2 = model2._symbols / (2*4);
-
-	for (int j = 0; 25*d2 > j; ++j)
-	{
-		coder_base->update_model(model2._delta);
-	}
-
-	for (int j = 1; d2 > j; ++j)
-	{
-		for (int k = 0; 25*(d2 - j) > k; ++k)
-		{
-			coder_base->update_model(model2._delta + j);
-			coder_base->update_model(model2._delta - j);
-		}
-	}
-
-	// model 3 -----------------------------------------------------------------
-	const model_t &model3 = _models[3];
-
-	coder_base->model(3);
-
-	for (int j = 0; model3._symbols > j; ++j)
-	{
-		coder_base->update_model(j);
-	}
-
-	const int d3 = model3._symbols / (2*6);
-
-	for (int j = 0; 200*d3 > j; ++j)
-	{
-		coder_base->update_model(model3._delta);
-	}
-
-	for (int j = 1; d3 > j; ++j)
-	{
-		for (int k = 0; 200*(d3 - j) > k; ++k)
-		{
-			coder_base->update_model(model3._delta + j);
-			coder_base->update_model(model3._delta - j);
-		}
-	}
-	*/
-
-	/*
-	for (sz_t i = 0; 4 > i; i++)
-	{
-		const model_t &model = _models[i];
-
-		coder_base->model(i);
-
-		for (int j = 0; model._symbols > j; ++j)
-		{
-			coder_base->update_model(j);
-		}
-	}
-
-	coder_base->model(4);
-	const model_t &model4 = _models[4];
-	coder_base->update_model(model4._delta);
-	*/
-
-	/*
-	coder_base->model(6);
-	const model_t &model6 = _models[6];
-
-	coder_base->update_model(7);
-	coder_base->update_model(7);
-	coder_base->update_model(7);
-	coder_base->update_model(7);
-	coder_base->update_model(7);
-	coder_base->update_model(7);
-	coder_base->update_model(7);
-
-	coder_base->model(7);
-	coder_base->update_model(0);
-	coder_base->update_model(0);
-	coder_base->update_model(0);
-	coder_base->update_model(0);
-	coder_base->update_model(0);
-	coder_base->update_model(0);
-	coder_base->update_model(0);
-	coder_base->update_model(0);
-
-	coder_base->model(8);
-	coder_base->update_model(0);
-	coder_base->update_model(0);
-	coder_base->update_model(0);
-	coder_base->update_model(0);
-	coder_base->update_model(0);
-	coder_base->update_model(0);
-	coder_base->update_model(0);
-	coder_base->update_model(0);
-
-	coder_base->model(9);
-	coder_base->update_model(0xf);
-	coder_base->update_model(0xf);
-	coder_base->update_model(0xf);
-	coder_base->update_model(0xf);
-	coder_base->update_model(0xf);
-	coder_base->update_model(0xf);
-	coder_base->update_model(0xf);
-	coder_base->update_model(0xf);
-
-	coder_base->model(10);
-	coder_base->update_model(0xf);
-	coder_base->update_model(0xf);
-	coder_base->update_model(0xf);
-	coder_base->update_model(0xf);
-	coder_base->update_model(0xf);
-	coder_base->update_model(0xf);
-	coder_base->update_model(0xf);
-	coder_base->update_model(0xf);
 	*/
 }
 

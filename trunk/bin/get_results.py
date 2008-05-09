@@ -3,92 +3,21 @@ import os
 import re
 import string
 
-# Constants
-wic_tool_path	= "wictool.exe"
+# Wic imports
+from pywic import *
 
+# Constants
 images_dir		= "../res/images/"
 working_dir		= "./tmp/"
 
 images			= ["lenaD.bmp", "barbaraD.bmp", "goldhillD.bmp"]
-filters			= ["Antonini", "cdf97", "Petuhov1"]
+#images			= ["goldhillD.bmp"]
+# filters			= ["Antonini", "cdf97", "Petuhov1"]
+filters			= ["Antonini", "Petuhov1"]
+#filters			= ["Petuhov1"]
 bpps			= [0.25, 0.5, 1.0]
+#bpps			= [1.0]
 
-# Creates regular expression string to match float field
-def re_float_field(name):
-	return "([ \t]*" + name + ":[ \t]*)(?P<" + name + ">[-+]?[0-9]*\.?[0-9]+)"
-	
-# Composes encode options string -----------------------------------------------
-def mk_encode_opts(*args, **vals):
-	opts = " -v -e"
-	if "filter" in vals:opts += " -f " + str(vals["filter"])
-	if "method" in vals: opts += " -m " + str(vals["method"])
-	if "q" in vals: opts += " -q " + str(vals["q"])
-	if "l" in vals: opts += " -l " + str(vals["l"])
-	if "steps" in vals: opts += " -s " + str(vals["steps"])
-	if "bpp" in vals: opts += " -b " + str(vals["bpp"])
-
-	return opts
-
-# Decodes wic_file into dest_file ----------------------------------------------
-def decode_image(wic_file, dest_image):
-	cmd_line = wic_tool_path  + " -v -d " + wic_file + " " + dest_image;
-	f = os.popen(cmd_line, "r")
-
-	if not f: return -1
-
-	return 0
-
-# Encodes src_image into wic_file
-def encode_image(src_image, wic_file, channel="r", *args, **vals):
-	src_str = " " + src_image + ":" + channel;
-	wic_str = " " + wic_file;
-	cmd_line = wic_tool_path + mk_encode_opts(**vals) + src_str + wic_str;
-
-	f = os.popen(cmd_line, "r")
-
-	if not f: return None
-
-	result = {}
-
-	for line in f:
-		m = re.compile(re_float_field("bpp")).search(line)
-		if m: result["bpp"] = float(m.group("bpp"))
-
-		m = re.compile(re_float_field("size")).search(line)
-		if m: result["size"] = float(m.group("size"))
-
-		m = re.compile(re_float_field("q")).search(line)
-		if m: result["q"] = float(m.group("q"))
-
-		m = re.compile(re_float_field("lambda")).search(line)
-		if m: result["l"] = float(m.group("lambda"))
-
-	return result
-	
-
-# Calculates psnr using wictool ------------------------------------------------
-def calc_psnr(image1, image2, channel="r"):
-	# Compose command line
-	img1_str	= " " + image1 + ":" + channel
-	img2_str	= " " + image2 + ":" + channel
-	cmd_line = wic_tool_path  + " -p" + img1_str + img2_str
-
-	# Run wictool to calc psnr
-	f = os.popen(cmd_line, "r")
-
-	# Error
-	if not f: return -1
-
-	# Search for psnr in wictool output
-	for line in f:
-		m = re.compile("([ \t]*psnr:[ \t]*)(?P<psnr>[-+]?[0-9]*\.?[0-9]+)").search(line)
-		if m: return float(m.group("psnr"))
-
-	# Error
-	return -1
-
-# 
-#def 
 
 # Main function
 def main():
@@ -120,6 +49,22 @@ def main():
 				r = encode_image(src_image, wic_file, filter=filter, method="fixed_bpp", bpp=bpp)
 				decode_image(wic_file, dest_image)
 				psnr = calc_psnr(src_image, dest_image)
+
+				plot_acoder_stats = False;
+
+				# Plot acoder stats
+				if plot_acoder_stats:
+					stats_caption 	= image + "; " + filter + "; bpp: " + str(bpp) + " (q=" + str(r["q"]) + ", l=" + str(r["l"]) + ")"
+					wic_stats_file 	= string.join([working_dir + image, filter, str(bpp), "stats", "wic"], ".")
+					dest_stats_image= string.join([working_dir + image, filter, str(bpp), "stats", "bmp"], ".")
+					stats_save_path = string.join([working_dir + image, filter, str(bpp), "stats", "png"], ".")
+
+					stats_r = encode_image(src_image, wic_stats_file, filter=filter, method="manual", q=r["q"], l=r["l"], wic_tool_path=wic_tool_path_r)
+					decode_image(wic_stats_file, dest_stats_image, wic_tool_path=wic_tool_path_r)
+					plot_acoder_stats(stats_r["acs_init"], stats_r["acs_encd"], caption=stats_caption,
+									  save_path=stats_save_path, models_range=range(1, 6))
+
+				# table_line += "|" + (str(psnr) + "/" + str(round(r["bpp"], 2)) + "/" + str(stats_psnr)).center(fw)
 				table_line += "|" + (str(psnr) + " / " + str(round(r["bpp"], 2))).center(fw)
 
 				# Don't want psnr's with bad bpp

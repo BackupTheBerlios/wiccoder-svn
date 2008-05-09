@@ -104,6 +104,55 @@
 			<Tool
 				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
+		<Configuration
+			Name="WicDebug|Win32"
+			OutputDirectory="$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
+			ConfigurationType="4"
+			CharacterSet="2"
+			WholeProgramOptimization="TRUE">
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="3"
+				GlobalOptimizations="TRUE"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="TRUE"
+				FavorSizeOrSpeed="1"
+				OmitFramePointers="TRUE"
+				OptimizeForProcessor="3"
+				OptimizeForWindowsApplication="TRUE"
+				AdditionalIncludeDirectories="../../"
+				PreprocessorDefinitions="WIN32;NDEBUG;_LIB;LIBWIC_ACODER_PRINT_STATISTIC"
+				RuntimeLibrary="0"
+				BufferSecurityCheck="FALSE"
+				UsePrecompiledHeader="0"
+				WarningLevel="3"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"/>
+			<Tool
+				Name="VCCustomBuildTool"/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="../../lib/libwicdbg_r.lib"/>
+			<Tool
+				Name="VCMIDLTool"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
 	</Configurations>
 	<References>
 	</References>

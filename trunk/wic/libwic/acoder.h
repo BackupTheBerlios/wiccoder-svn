@@ -36,6 +36,13 @@
 ////////////////////////////////////////////////////////////////////////////////
 // defines
 
+//!	\brief Способ инициализации моделей по умолчанию
+/*!
+	\sa acoder::init_mode_e
+*/
+#define ACODER_INIT_MODELS_MODE		init_mode_normal
+
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // wic namespace
@@ -196,6 +203,25 @@ public:
 		decoder_models	= 0x02
 	};
 
+	///	@brief The way acoder models will be initialized
+	enum init_mode_e
+	{
+		///	@brief Acoder models will not be initialized at all
+		init_mode_none,
+
+		///	@brief Models will be initialized using some special values
+		init_mode_geek,
+
+		///	@brief Models will be initialized using uniform distribution
+		init_mode_uniform,
+
+		///	@brief Models will be initialized using normal distribution
+		init_mode_normal,
+
+		///	@brief Models will be initialized using laplace distribution
+		init_mode_laplace
+	};
+
 	// public methods ----------------------------------------------------------
 
 	//!	\name Конструкторы и деструкторы
@@ -229,6 +255,12 @@ public:
 
 	//!	\name Работа с моделями
 	//@{
+
+	//!	\brief Устанавливает новый способ инициализации моделей
+	void init_mode(const init_mode_e m) { _init_mode = m; }
+
+	//!	\brief Возвращает текущий способ инициализации моделей
+	init_mode_e init_mode() const { return _init_mode; }
 
 	//!	\brief Устанавливает модели, используемые арифметическим кодером
 	void use(const models_t &models);
@@ -370,6 +402,11 @@ protected:
 								   arcoder_base *const coder_base,
 								   const sz_t &i, const bool purge = false);
 
+	//!	\brief Инициализирует модель распределением Пауссона
+	void _init_laplace_distribution(const float &factor, const float &lambda,
+								    arcoder_base *const coder_base,
+								    const sz_t &i, const bool purge = false);
+
 	//@}
 
 	//!	\name Создание и удаление кодеров
@@ -420,6 +457,9 @@ private:
 
 	//!	\brief Модели используемые арифметическим кодером
 	models_t _models;
+
+	//!	\brief Метод инициализации моделей арифметического кодера
+	init_mode_e _init_mode;
 
 	//!	\brief Битовый поток для енкодера
 	BITOutMemStream *_out_stream;

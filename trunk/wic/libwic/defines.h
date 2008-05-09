@@ -31,13 +31,24 @@
 	замедляет работу кодека.
 */
 #define LIBWIC_USE_DBG_SURFACE
-// #undef LIBWIC_USE_DBG_SURFACE
 
 //!	\brief Служит для включения логирования аркодером кодируемых и
 //!	декодируемых значений
 #define LIBWIC_ACODER_LOG_VALUES
-// #undef LIBWIC_ACODER_LOG_VALUES
 
+//!	\brief Служит для включения вывода статистики моделей арифметического
+//!	кодера в стандартный поток вывода
+#define LIBWIC_ACODER_PRINT_STATISTIC
+
+
+
+#endif	// defined _DEBUG || defined DEBUG
+
+
+////////////////////////////////////////////////////////////////////////////////
+/// dependencies
+#ifdef LIBWIC_ACODER_PRINT_STATISTIC
+#define LIBWIC_DEBUG
 #endif
 
 
