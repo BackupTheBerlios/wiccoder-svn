@@ -745,6 +745,23 @@ public:
 		return (b + d - (a + c) / 2);
 	}
 
+	//!	\brief Вычисляет модель для кодирования знака коэффициента
+	/*!	\param[in] p Координаты элемента для которого будет получена модель
+		для кодирования знака
+		\param[in] sb Саббенд, в котором лежит элемент
+		\param[in] offset Смещение которое будет прибавлено к результату
+		\return Номер модели для кодирования знака элемента
+	*/
+	template <const wnode::wnode_members member>
+	typename int sign_model(const p_t &p, const subbands::subband_t &sb,
+							const sz_t &offset = 0) const
+	{
+		const int shh = wnode::signp(get_safe<member>(p.x - 1, p.y - 1, sb));
+		const int shl = wnode::signp(get_safe<member>(p.x - 1, p.y,     sb));
+		const int slh = wnode::signp(get_safe<member>(p.x,     p.y - 1, sb));
+		return ((shh + 3*shl + 9*slh) + 27 * sb.i + offset);
+	}
+
 	//@}
 
 	//!	\name Функции для работы с групповыми признаками подрезания

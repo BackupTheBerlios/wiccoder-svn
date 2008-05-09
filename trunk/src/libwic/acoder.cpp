@@ -13,10 +13,7 @@
 // standard C++ library headers
 #define _USE_MATH_DEFINES
 #include <math.h>
-
-#ifdef LIBWIC_ACODER_PRINT_STATISTIC
 #include <iostream>
-#endif
 
 // libwic headers
 #include <wic/libwic/acoder.h>
