@@ -15,6 +15,7 @@
 // headers
 
 // standard C++ library headers
+#include <assert.h>
 #include <math.h>
 
 // libwic headers
@@ -93,7 +94,7 @@ struct wnode {
 		- если (<i>v</i> == 0) возвращает 0
 	*/
 	template <class T>
-	inline static int sign(const T &v) {
+	inline static sz_t sign(const T &v) {
 		return (0 < v)? 1: ((0 > v)? -1: 0);
 	}
 
@@ -108,7 +109,7 @@ struct wnode {
 		а не -1.
 	*/
 	template <class T>
-	inline static int signp(const T &v) {
+	inline static sz_t signp(const T &v) {
 		return (0 < v)? 1: ((0 > v)? 2: 0);
 	}
 
@@ -118,7 +119,7 @@ struct wnode {
 		\return Если <i>s</i> равно -1, возвращает 2. Если <i>s</i>
 		равно 2, возвращает -1. Иначе возвращает <i>s</i>.
 	*/
-	inline static int signx(const int s) {
+	inline static sz_t signx(const int s) {
 		switch (s) {
 			case -1:	return 2;
 			case 2:		return -1;
@@ -126,17 +127,36 @@ struct wnode {
 		}
 	}
 
+	//!	\brief Преобразует число без знака в число зо знаком
+	/*!	\param[in] v Число
+		\param[in] s Знак в формате функций sign() или signp()
+	*/
+	template <class T>
+	inline static T to_signed(const T &v, const sz_t s)
+	{
+		assert(0 <= v);
+		assert(0 != s || 0 == v);
+		assert(-1 <= s && s <= 2);
+
+		switch (s)
+		{
+			case 0:		return 0;
+			case 1:		return v;
+			default:	return -v;
+		}
+	}
+
 	//!	\brief Минимальное значение возвращаемое функцией sign()
-	inline static int sign_min() { return -1; }
+	inline static sz_t sign_min() { return -1; }
 
 	//!	\brief Максимальное значение возвращаемое функцией sign()
-	inline static int sign_max() { return 1; }
+	inline static sz_t sign_max() { return 1; }
 
 	//!	\brief Минимальное значение возвращаемое функцией signp()
-	inline static int signp_min() { return 0; }
+	inline static sz_t signp_min() { return 0; }
 
 	//!	\brief Максимальное значение возвращаемое функцией signp()
-	inline static int signp_max() { return 2; }
+	inline static sz_t signp_max() { return 2; }
 
 	//! \brief Производит деквантование
 	/*!	\param[in] wk Проквантованное значение вейвлет коэффициента

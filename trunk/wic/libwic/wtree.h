@@ -753,17 +753,17 @@ public:
 		\return Прогноз "номера" знака коэффициента
 	*/
 	template <const wnode::wnode_members member>
-	typename int sign_num(const p_t &p, const subbands::subband_t &sb,
-							const sz_t &offset = 0) const
+	typename sz_t sign_num(const p_t &p, const subbands::subband_t &sb,
+						   const sz_t &offset = 0) const
 	{
-		static const int ck0 = 1;
-		static const int ck1 = wnode::signp_max() + 1;
-		static const int ck2 = ck1 * ck1;
-		static const int ck3 = ck1 * ck1 * ck1;
+		static const sz_t ck0 = 1;
+		static const sz_t ck1 = wnode::signp_max() + 1;
+		static const sz_t ck2 = ck1 * ck1;
+		static const sz_t ck3 = ck1 * ck1 * ck1;
 
-		const int shh = wnode::signp(get_safe<member>(p.x - 1, p.y - 1, sb));
-		const int shl = wnode::signp(get_safe<member>(p.x - 1, p.y,     sb));
-		const int slh = wnode::signp(get_safe<member>(p.x,     p.y - 1, sb));
+		const sz_t shh = wnode::signp(get_safe<member>(p.x - 1, p.y - 1, sb));
+		const sz_t shl = wnode::signp(get_safe<member>(p.x - 1, p.y,     sb));
+		const sz_t slh = wnode::signp(get_safe<member>(p.x,     p.y - 1, sb));
 		return (ck0*shh + ck1*shl + ck2*slh + ck3*sb.i + offset);
 	}
 
