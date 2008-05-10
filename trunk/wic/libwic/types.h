@@ -15,7 +15,7 @@
 // include
 
 
-////////////////////////////////////////////////////////////2222////////////////////
+////////////////////////////////////////////////////////////////////////////////
 // wic namespace
 namespace wic {
 
@@ -128,6 +128,26 @@ struct p_t {
 	//! \brief y координата
 	size_type y;
 };
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// functions
+
+//!	\brief Возвращает количество элементов в массиве
+/*!	\param[in] a Массив
+	\return Количество элементов в массиве
+
+	Example:
+	\code
+	int ar[25];
+	std::cout << "items count: " << wic::items_count(ar) << std::endl;
+	\endcode
+*/
+template <class T>
+size_t items_count(const T &a) {
+	return (sizeof(a) / sizeof(a[0]));
+}
 
 
 
