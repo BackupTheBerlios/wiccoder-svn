@@ -118,13 +118,25 @@ struct wnode {
 		\return Если <i>s</i> равно -1, возвращает 2. Если <i>s</i>
 		равно 2, возвращает -1. Иначе возвращает <i>s</i>.
 	*/
-	int signx(const int s) {
+	inline static int signx(const int s) {
 		switch (s) {
 			case -1:	return 2;
 			case 2:		return -1;
 			default:	return 0;
 		}
 	}
+
+	//!	\brief Минимальное значение возвращаемое функцией sign()
+	inline static int sign_min() { return -1; }
+
+	//!	\brief Максимальное значение возвращаемое функцией sign()
+	inline static int sign_max() { return 1; }
+
+	//!	\brief Минимальное значение возвращаемое функцией signp()
+	inline static int signp_min() { return 0; }
+
+	//!	\brief Максимальное значение возвращаемое функцией signp()
+	inline static int signp_max() { return 2; }
 
 	//! \brief Производит деквантование
 	/*!	\param[in] wk Проквантованное значение вейвлет коэффициента
