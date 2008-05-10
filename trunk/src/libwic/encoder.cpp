@@ -659,8 +659,11 @@ lambda_t encoder::quality_to_lambda(const double &quality)
 	\note Стоит заметить, что для нулевого и первого уровней функция
 	возвращает определённые значения, независимо от параметра <i>s</i>.
 */
-sz_t encoder::_ind_spec(const pi_t &s, const sz_t lvl) {
-	if (subbands::LVL_0 == lvl) return 0;
+sz_t encoder::_ind_spec(const pi_t &s, const sz_t lvl)
+{
+	assert(0 == ACODER_SPEC_LL_MODELS);
+
+	if (subbands::LVL_0 == lvl) return ACODER_SPEC_LL_MODELS;
 	if (subbands::LVL_1 == lvl) return 1;
 
 	if (26.0  <= s) return 1;
@@ -1031,7 +1034,44 @@ h_t encoder::_h_map(const sz_t m, const n_t &n) {
 void encoder::_encode_spec(const sz_t m, const wk_t &wk,
 						   const bool virtual_encode)
 {
+	// Кодирование модуля коэффициента
 	_acoder.put(wk, m, virtual_encode);
+}
+
+
+/*!	\param[in] wk Значение коэффициента для кодирования
+	\param[in] spec_m Номер модели для кодирования модуля коэффициента
+	\param[in] sign_m Номер модели для кодирования знака коэффициента
+	\param[in] virtual_encode Если <i>true</i> то будет производиться
+	виртуальное кодирование (только перенастройка моделей, без помещения
+	кодируемого символа в выходной поток).
+*/
+void encoder::_encode_spec_se(const wk_t &wk, const sz_t spec_m,
+							  const sz_t sign_m, const bool virtual_encode)
+{
+	// Специальный случай для LL саббенда - кодируем как есть
+	if (ACODER_SPEC_LL_MODELS == spec_m)
+	{
+		_acoder.put(wk, spec_m, virtual_encode);
+
+		return;
+	}
+
+	// Определение знака коэффициента
+	const sz_t sign_v = wnode::signp(wk);
+
+	// Кодирование знака коэффициента
+	_acoder.put(sign_v, sign_m, virtual_encode);
+
+	// Знак равен 0 если сам коэффициент 0. В таком случае кодирование
+	// коэффициента не требуется
+	if (0 == sign_v) return;
+
+	// Модуль коэффициента который будет закодирован
+	const wk_t spec_v = abs(wk);
+
+	// Кодирование модуля коэффициента
+	_acoder.put(spec_v, spec_m, virtual_encode);
 }
 
 
@@ -1054,6 +1094,25 @@ void encoder::_encode_map(const sz_t m, const n_t &n,
 wk_t encoder::_decode_spec(const sz_t m)
 {
 	return _acoder.get<wk_t>(m);
+}
+
+wk_t encoder::_decode_spec_se(const sz_t spec_m, const sz_t sign_m)
+{
+	// Специальный случай для LL саббенда - кодируем как есть
+	if (ACODER_SPEC_LL_MODELS == spec_m) return _acoder.get<wk_t>(spec_m);
+
+	// Декодирование знака коэффициента
+	const sz_t sign_v = _acoder.get<sz_t>(sign_m);
+
+	// Если знак равен 0, значит и сам коэффициент 0. В таком случае
+	// декодирование коэффициента не требуется
+	if (0 == sign_v) return 0;
+
+	// Декодирование модуля коэффициента
+	const wk_t spec_v = _acoder.get<wk_t>(spec_m);
+
+	// Добавление знака к модулю коэффициента
+	return wnode::to_signed(spec_v, sign_v);
 }
 
 

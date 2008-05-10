@@ -94,6 +94,13 @@
 #define USE_DPCM_FOR_LL_SUBBAND
 #undef	USE_DPCM_FOR_LL_SUBBAND
 
+//!	\brief Включает кодирование знаков коэффициентов в отдельные модели
+/*!	
+*/
+#define ENCODE_SIGN_IN_SEPARATE_MODELS
+#undef	ENCODE_SIGN_IN_SEPARATE_MODELS
+
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // wic namespace
@@ -114,6 +121,10 @@ public:
 	//!	\brief Минимальное допустимое количество уровней разложения
 	static const sz_t MINIMUM_LEVELS			= 3;
 
+	//!	\brief Номер модели, используемой для кодирования коэффициентов из
+	//!	LL саббенда
+	static const sz_t ACODER_SPEC_LL_MODELS		= 0;
+
 	//!	\brief Количество моделей, используемых арифметическим кодером для
 	//!	кодирования коэффициентов
 	static const sz_t ACODER_SPEC_MODELS_COUNT	= 6;
@@ -125,6 +136,9 @@ public:
 	//!	\brief Количество моделей, используемых арифметическим кодером для
 	//!	кодирования знаков коэффициентов
 	static const sz_t ACODER_SIGN_MODELS_COUNT	= 27*3;
+
+	static const sz_t ACODER_SIGN_MODELS_OFFSET	= ACODER_SPEC_MODELS_COUNT +
+												  ACODER_MAP_MODELS_COUNT;
 
 	//!	\brief Общее количество моделей, используемых арифметическим кодером
 	static const sz_t ACODER_TOTAL_MODELS_COUNT	= ACODER_SPEC_MODELS_COUNT +
@@ -629,6 +643,11 @@ protected:
 	void _encode_spec(const sz_t m, const wk_t &wk,
 					  const bool virtual_encode = false);
 
+	//!	\brief Кодирует коэффициент арифметическим енкодером, причём знак
+	//!	кодируется в специальных моделях
+	void _encode_spec_se(const wk_t &wk, const sz_t spec_m,
+						 const sz_t sign_m, const bool virtual_encode = false);
+
 	//!	\brief Кодирует групповой признак подрезания ветвей арифметическим
 	//!	енкодером
 	void _encode_map(const sz_t m, const n_t &n,
@@ -636,6 +655,10 @@ protected:
 
 	//!	\brief Декодирует коэффициент арифметическим декодером
 	wk_t _decode_spec(const sz_t m);
+
+	//!	\brief Декодирует коэффициент арифметическим декодером, причём знак
+	//!	декодируется из специальных моделей
+	wk_t _decode_spec_se(const sz_t spec_m, const sz_t sign_m);
 
 	//!	\brief Декодирует групповой признак подрезания ветвей арифметическим
 	//!	декодером
