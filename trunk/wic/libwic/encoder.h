@@ -122,9 +122,14 @@ public:
 	//!	кодирования групповых признаков подрезания
 	static const sz_t ACODER_MAP_MODELS_COUNT	= 5;
 
+	//!	\brief Количество моделей, используемых арифметическим кодером для
+	//!	кодирования знаков коэффициентов
+	static const sz_t ACODER_SIGN_MODELS_COUNT	= 27*3;
+
 	//!	\brief Общее количество моделей, используемых арифметическим кодером
 	static const sz_t ACODER_TOTAL_MODELS_COUNT	= ACODER_SPEC_MODELS_COUNT +
-												  ACODER_MAP_MODELS_COUNT;
+												  ACODER_MAP_MODELS_COUNT +
+												  ACODER_SIGN_MODELS_COUNT;
 
 	//!	\brief Константа идентифицирующая используемую структуру для хранения
 	//!	описаний моделей арифметического кодера (соответствует отсутствию
@@ -175,9 +180,12 @@ public:
 	#pragma pack(push, 1)
 	struct models_desc2_t
 	{
-		short mins[ACODER_TOTAL_MODELS_COUNT];
-		short maxs[ACODER_TOTAL_MODELS_COUNT];
-		unsigned short abs_avgs[ACODER_TOTAL_MODELS_COUNT];
+		static const sz_t desced = ACODER_SPEC_MODELS_COUNT +
+								   ACODER_MAP_MODELS_COUNT;
+
+		short mins[desced];
+		short maxs[desced];
+		unsigned short abs_avgs[desced];
 	};
 	#pragma pack(pop)
 
@@ -509,6 +517,22 @@ protected:
 		return _ind_map(pi_avg, children_sb.lvl + subbands::LVL_PREV);
 	}
 
+	//!	\brief Добавляет модели для кодирования знаков коэффициентов
+	/*!	\param[in,out] models Список моделей, в который будут добавлены
+		модели для кодирования знаков коэффициентов.
+	*/
+	void _ins_acoder_sign_models(acoder::models_t &models) const
+	{
+		// создание описания модели для кодирования знаков коэффициентов
+		acoder::model_t model;
+		model.abs_avg	= 0;
+		model.min		= wnode::signp_min();
+		model.max		= wnode::signp_max();
+
+		// добавление моделей в список
+		models.insert(models.end(), ACODER_SIGN_MODELS_COUNT, model);
+	}
+
 	//!	\brief Создаёт модели, используемые арифметическим кодером на
 	//!	основе максимального и минимального элементов в спектре
 	/*!	\return Модели для арифметического кодера
@@ -548,6 +572,9 @@ protected:
 
 		model.max = 0xF;
 		models.insert(models.end(), ACODER_MAP_MODELS_COUNT - 1, model);
+
+		// создание моделей для кодирования знаков коэффициентов
+		_ins_acoder_sign_models(models);
 
 		// проверка утверждений
 		assert(ACODER_TOTAL_MODELS_COUNT == models.size());

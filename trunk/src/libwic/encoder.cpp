@@ -729,6 +729,9 @@ acoder::models_t encoder::_mk_acoder_models(const models_desc1_t &desc) const
 	model.max = 0xF;
 	models.insert(models.end(), ACODER_MAP_MODELS_COUNT - 1, model);
 
+	// создание моделей для кодирования знаков коэффициентов -------------------
+	_ins_acoder_sign_models(models);
+
 	// проверка утверждений
 	assert(ACODER_TOTAL_MODELS_COUNT == models.size());
 
@@ -741,10 +744,16 @@ acoder::models_t encoder::_mk_acoder_models(const models_desc1_t &desc) const
 */
 acoder::models_t encoder::_mk_acoder_models(const models_desc2_t &desc) const
 {
+	// проверка утверждений
+	assert(items_count(desc.mins) == items_count(desc.maxs));
+	assert(items_count(desc.maxs) == items_count(desc.abs_avgs));
+	assert(items_count(desc.mins) == models_desc2_t::desced);
+
 	// создание моделей для кодирования
 	acoder::models_t models;
 
-	for (sz_t i = 0; ACODER_TOTAL_MODELS_COUNT > i; ++i)
+	// добавление моделей для кодирования коэффициентов и признаков подрезания
+	for (sz_t i = 0; models_desc2_t::desced > i; ++i)
 	{
 		acoder::model_t model;
 		model.min		= desc.mins[i];
@@ -753,6 +762,9 @@ acoder::models_t encoder::_mk_acoder_models(const models_desc2_t &desc) const
 
 		models.push_back(model);
 	}
+
+	// добавление моделей для кодирования знаков коэффициентов
+	_ins_acoder_sign_models(models);
 
 	// проверка утверждений
 	assert(ACODER_TOTAL_MODELS_COUNT == models.size());
@@ -881,9 +893,15 @@ encoder::models_desc2_t encoder::_mk_acoder_post_models(const acoder &ac) const
 	// проверка утверждений
 	assert(ACODER_TOTAL_MODELS_COUNT == ac.models().size());
 
-	encoder::models_desc2_t desc;
+	models_desc2_t desc;
 
-	for (sz_t i = 0; sz_t(ac.models().size()) > i; ++i)
+	// проверка утверждений
+	assert(items_count(desc.mins) == items_count(desc.maxs));
+	assert(items_count(desc.maxs) == items_count(desc.abs_avgs));
+	assert(models_desc2_t::desced == items_count(desc.mins));
+	assert(models_desc2_t::desced <= ac.models().size());
+
+	for (sz_t i = 0; models_desc2_t::desced > i; ++i)
 	{
 		desc.mins[i]		= ac.rmin(i);
 		desc.maxs[i]		= ac.rmax(i);
