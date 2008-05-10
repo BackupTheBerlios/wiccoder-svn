@@ -745,21 +745,26 @@ public:
 		return (b + d - (a + c) / 2);
 	}
 
-	//!	\brief Вычисляет модель для кодирования знака коэффициента
-	/*!	\param[in] p Координаты элемента для которого будет получена модель
-		для кодирования знака
+	//!	\brief Вычисляет прогноз "номера" знака коэффициента исходя из знаков
+	//!	соседних элементов
+	/*!	\param[in] p Координаты элемента для которого будет получен прогноз
 		\param[in] sb Саббенд, в котором лежит элемент
 		\param[in] offset Смещение которое будет прибавлено к результату
-		\return Номер модели для кодирования знака элемента
+		\return Прогноз "номера" знака коэффициента
 	*/
 	template <const wnode::wnode_members member>
-	typename int sign_model(const p_t &p, const subbands::subband_t &sb,
+	typename int sign_num(const p_t &p, const subbands::subband_t &sb,
 							const sz_t &offset = 0) const
 	{
+		static const int ck0 = 1;
+		static const int ck1 = wnode::signp_max() + 1;
+		static const int ck2 = ck1 * ck1;
+		static const int ck3 = ck1 * ck1 * ck1;
+
 		const int shh = wnode::signp(get_safe<member>(p.x - 1, p.y - 1, sb));
 		const int shl = wnode::signp(get_safe<member>(p.x - 1, p.y,     sb));
 		const int slh = wnode::signp(get_safe<member>(p.x,     p.y - 1, sb));
-		return ((shh + 3*shl + 9*slh) + 27 * sb.i + offset);
+		return (ck0*shh + ck1*shl + ck2*slh + ck3*sb.i + offset);
 	}
 
 	//@}
