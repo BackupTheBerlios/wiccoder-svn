@@ -920,14 +920,16 @@ encoder::models_desc2_t encoder::_mk_acoder_post_models(const acoder &ac) const
 }
 
 
-/*!	\return Описание моделей арифметического кодера, которые были
+/*!	\param[in] use_models Если <i>true</i> то полученная модель будет
+	установлена для использования в арифметический кодер
+	\return Описание моделей арифметического кодера, которые были
 	установленны этой функцией
 
 	Для генерации описания моделей используется функция
 	_mk_acoder_smart_models(), соответственно, сгенерированные модели
 	имеют тип MODELS_DESC_V1.
 */
-encoder::models_desc_t encoder::_setup_acoder_models()
+encoder::models_desc_t encoder::_setup_acoder_models(const use_models)
 {
 	// описание моделей для арифметического кодера
 	models_desc_t desc;
@@ -939,19 +941,21 @@ encoder::models_desc_t encoder::_setup_acoder_models()
 	desc.md.v1 = _mk_acoder_smart_models();
 
 	// загрузка моделей в арифметический кодер
-	_acoder.use(_mk_acoder_models(desc));
+	if (use_models) _acoder.use(_mk_acoder_models(desc));
 
 	return desc;
 }
 
 
-/*!	\return Описание моделей арифметического кодера, которые были
+/*!	\param[in] use_models Если <i>true</i> то полученная модель будет
+	установлена для использования в арифметический кодер
+	\return Описание моделей арифметического кодера, которые были
 	установленны этой функцией
 
 	Для генерации описания моделей используется функция
 	_mk_acoder_post_models()
 */
-encoder::models_desc_t encoder::_setup_acoder_post_models()
+encoder::models_desc_t encoder::_setup_acoder_post_models(const use_models)
 {
 	// описание моделей для арифметического кодера
 	models_desc_t desc;
@@ -966,7 +970,7 @@ encoder::models_desc_t encoder::_setup_acoder_post_models()
 	desc.md.v2 = _mk_acoder_post_models(_acoder);
 
 	// загрузка моделей в арифметический кодер
-	_acoder.use(_mk_acoder_models(desc));
+	if (use_models) _acoder.use(_mk_acoder_models(desc));
 
 	return desc;
 }
@@ -2240,7 +2244,7 @@ encoder::_optimize_wtree_q(const lambda_t &lambda, const q_t &q,
 	_wtree.quantize(q);
 
 	// загрузка моделей в арифметический кодер
-	const models_desc_t models = _setup_acoder_models();
+	const models_desc_t models = _setup_acoder_models(false);
 
 	// оптимизация топологии ветвей
 	optimize_result_t result = _optimize_wtree_m(lambda, models, false,
