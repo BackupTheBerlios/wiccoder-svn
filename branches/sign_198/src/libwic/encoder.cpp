@@ -1783,23 +1783,38 @@ void encoder::_encode_wtree_root(const bool decode_mode)
 		for (wtree::coefs_iterator i = _wtree.iterator_over_subband(sb);
 			 !i->end(); i->next())
 		{
-			// (де)кодирование очерендного коэффициента
+			// координаты (де)кодируемого элемента в спектре
+			const p_t &p = i->get();
+
+			// модель для (де)кодирования знака коэффициента
+			#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+				const sz_t sign_model = _ind_sign<wnode::member_wc>(p, sb);
+			#endif
+
+			// ссылка на (де)кодируемый коэффициент
+			wk_t &wc = _wtree.at(p).wc;
+
+			// (де)кодирование дочерендного коэффициента
 			if (decode_mode)
 			{
-				_wtree.at(i->get()).wc = _decode_spec(spec_1_model);
+				#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+					wc = _decode_spec_se(spec_1_model, sign_model);
+				#else
+					wc = _decode_spec(spec_1_model);
+				#endif
 			}
 			else
 			{
-				// ссылка на кодируемый коэффициент
-				const wk_t &wc = _wtree.at(i->get()).wc;
+				#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+					_encode_spec_se(wc, spec_1_model, sign_model);
+				#else
+					_encode_spec(spec_1_model, wc);
+				#endif
 
-				// кодирование коэффициента
-				_encode_spec(spec_1_model, wc);
-
-				#ifdef LIBWIC_USE_DBG_SURFACE
 				// запись информации о кодируемом коэффициенте в отладочную
 				// поверхность
-				wicdbg::dbg_pixel &dbg_pixel = _dbg_enc_surface.get(i->get());
+				#ifdef LIBWIC_USE_DBG_SURFACE
+				wicdbg::dbg_pixel &dbg_pixel = _dbg_enc_surface.get(p);
 				dbg_pixel.wc		= wc;
 				dbg_pixel.wc_model	= spec_1_model;
 				#endif
