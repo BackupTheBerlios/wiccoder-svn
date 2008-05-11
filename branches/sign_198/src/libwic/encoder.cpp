@@ -1049,6 +1049,11 @@ void encoder::_encode_spec(const sz_t m, const wk_t &wk,
 void encoder::_encode_spec_se(const wk_t &wk, const sz_t spec_m,
 							  const sz_t sign_m, const bool virtual_encode)
 {
+	// Проверка специального случая, чтобы удостовериться что нулевая модель
+	// для знака используется только в том случае, когда кодируется элемент
+	// из LL саббенда
+	assert(0 != sign_m || ACODER_SPEC_LL_MODELS == spec_m);
+
 	// Специальный случай для LL саббенда - кодируем как есть
 	if (ACODER_SPEC_LL_MODELS == spec_m)
 	{
@@ -1098,6 +1103,11 @@ wk_t encoder::_decode_spec(const sz_t m)
 
 wk_t encoder::_decode_spec_se(const sz_t spec_m, const sz_t sign_m)
 {
+	// Проверка специального случая, чтобы удостовериться что нулевая модель
+	// для знака используется только в том случае, когда декодируется элемент
+	// из LL саббенда
+	assert(0 != sign_m || ACODER_SPEC_LL_MODELS == spec_m);
+
 	// Специальный случай для LL саббенда - кодируем как есть
 	if (ACODER_SPEC_LL_MODELS == spec_m) return _acoder.get<wk_t>(spec_m);
 
@@ -1499,11 +1509,23 @@ void encoder::_encode_tree_root(const p_t &root,
 
 	// закодировать коэффициент с нулевого уровня
 	#ifdef USE_DPCM_FOR_LL_SUBBAND
-	const subbands::subband_t &sb_LL = _wtree.sb().get_LL();
-	const wk_t wc_p = _wtree.dpcm_predict<wnode::member_wc>(root, sb_LL);
-	_encode_spec(spec_model, dpcm::encode(root_node.wc, wc_p), virtual_encode);
+		const subbands::subband_t &sb_LL = _wtree.sb().get_LL();
+		const wk_t wc_p = _wtree.dpcm_predict<wnode::member_wc>(root, sb_LL);
+
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+			_encode_spec_se(dpcm::encode(root_node.wc, wc_p), spec_model, 0,
+							virtual_encode);
+		#else
+			_encode_spec(spec_model, dpcm::encode(root_node.wc, wc_p),
+						 virtual_encode);
+		#endif
 	#else
-	_encode_spec(spec_model, root_node.wc, virtual_encode);
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+			_encode_spec_se(root_node.wc, spec_model, 0, virtual_encode);
+		#else
+			_encode_spec(spec_model, root_node.wc, virtual_encode);
+		#endif
+
 	#endif
 
 	// определение модели для кодирования признака подрезания
@@ -1526,18 +1548,29 @@ void encoder::_encode_tree_root(const p_t &root,
 	for (wtree::coefs_iterator i = _wtree.iterator_over_LL_children(root);
 		 !i->end(); i->next())
 	{
+		// координаты элемента
+		const p_t &p = i->get();
+
 		// определение модели, используемой для кодирования коэффициента
 		const sz_t spec_model = _ind_spec(0, subbands::LVL_1);
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+		const sz_t sign_model = _ind_sign<wnode::member_wc>(p);
+		#endif
 
 		// ссылка на кодируемый коэффициент
-		const wk_t &wc		= _wtree.at(i->get()).wc;
+		const wk_t &wc		= _wtree.at(p).wc;
 
 		// закодировать коэффициенты с первого уровня
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+		_encode_spec_se(wc, spec_model, sign_model, virtual_encode);
+		#else
 		_encode_spec(spec_model, wc, virtual_encode);
+		#endif
+		
 
 		#ifdef LIBWIC_USE_DBG_SURFACE
 		// запись отладочной информации о закодированном коэффициенте
-		wicdbg::dbg_pixel &dbg_pixel = _dbg_opt_surface.get(i->get());
+		wicdbg::dbg_pixel &dbg_pixel = _dbg_opt_surface.get(p);
 		dbg_pixel.wc		= wc;
 		dbg_pixel.wc_model	= spec_model;
 		#endif
