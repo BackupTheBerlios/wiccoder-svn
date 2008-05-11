@@ -531,6 +531,30 @@ protected:
 		return _ind_map(pi_avg, children_sb.lvl + subbands::LVL_PREV);
 	}
 
+	//!	\brief Определяет индекс модели для кодирования знака коэффициента
+	/*!	\param[in] p Координаты коэффициента
+		\param[in] sb Саббенд, в котором лежит элемент
+		\return Индекс модели для кодирования знака коэффициента
+	*/
+	template <const wnode::wnode_members member>
+	inline sz_t _ind_sign(const p_t &p, const subbands::subband_t &sb)
+	{
+		return _wtree.sign_num<member>(p, sb, ACODER_SIGN_MODELS_OFFSET);
+	}
+
+	//!	\brief Определяет индекс модели для кодирования знака коэффициента
+	/*!	\param[in] p Координаты коэффициента
+		\return Индекс модели для кодирования знака коэффициента
+
+		Более медленная версия функции, которая не требует явного указания
+		саббенда в котором лежит коэффициент.
+	*/
+	template <const wnode::wnode_members member>
+	inline sz_t _ind_sign(const p_t &p)
+	{
+		return _ind_sign<member>(p, _wtree.sb().from_point(p));
+	}
+
 	//!	\brief Добавляет модели для кодирования знаков коэффициентов
 	/*!	\param[in,out] models Список моделей, в который будут добавлены
 		модели для кодирования знаков коэффициентов.
