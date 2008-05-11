@@ -1279,7 +1279,10 @@ wk_t encoder::_coef_fix(const p_t &p, const subbands::subband_t &sb,
 	#endif
 
 	// выбор модели и оригинального значения коэффициента
-	const sz_t	model	= _ind_spec<wnode::member_wc>(p, sb);
+	const sz_t	spec_model	= _ind_spec<wnode::member_wc>(p, sb);
+	#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+	const sz_t	sign_model	= _ind_sign<wnode::member_wc>(p, sb);
+	#endif
 	const wk_t	&wq		= _wtree.at(p).wq;
 
 	// Определение набора подбираемых значений
@@ -1294,12 +1297,24 @@ wk_t encoder::_coef_fix(const p_t &p, const subbands::subband_t &sb,
 
 	// начальные значения для поиска минимума RD функции
 	wk_t k_optim = w_vals[0];
-	j_t j_optim = _calc_rd_iteration(p, k_optim, lambda, model);
+	#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+		j_t j_optim = _calc_rd_iteration_se(p, sb, spec_model, sign_model,
+											k_optim, lambda);
+	#else
+		j_t j_optim = _calc_rd_iteration(p, k_optim, lambda, spec_model);
+	#endif
 
 	// поиск минимального значения RD функции
 	for (int i = 1; vals_count > i; ++i) {
 		const wk_t &k = w_vals[i];
-		const j_t j = _calc_rd_iteration(p, k, lambda, model);
+
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+			const j_t j = _calc_rd_iteration_se(p, sb, spec_model, sign_model,
+												k, lambda);
+		#else
+			const j_t j = _calc_rd_iteration(p, k, lambda, spec_model);
+		#endif
+
 		if (j < j_optim) {
 			j_optim = j;
 			k_optim = k;
