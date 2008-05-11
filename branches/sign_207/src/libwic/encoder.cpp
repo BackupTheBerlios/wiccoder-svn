@@ -1028,12 +1028,17 @@ h_t encoder::_h_spec(const sz_t m, const wk_t &wk) {
 */
 h_t encoder::_h_spec_se(const wk_t &wk, const sz_t spec_m, const sz_t sign_m)
 {
-	// Данная функция не должна вызываться для элементов из LL саббендов. Если
-	// такая необходимость появится, будет необходимо модифицировать её,
-	// учитывая, что коэффициенты из LL саббенда кодируются как есть в
-	// специальную модель (т.е. к ним не применяется отдельное кодирование
-	// знака)
-	assert(ACODER_SPEC_LL_MODEL != spec_m);
+	// Проверка специального случая, чтобы удостовериться что нулевая модель
+	// для знака используется только в том случае, когда кодируется элемент
+	// из LL саббенда
+	assert(0 != sign_m || ACODER_SPEC_LL_MODEL == spec_m);
+
+	// Специальный случай для LL саббенда. Его коэффициенты кодируются целиком
+	// в специальную модель
+	if (ACODER_SPEC_LL_MODEL == spec_m)
+	{
+		return _acoder.enc_entropy(wk, spec_m);
+	}
 
 	// Проверка того, что номер модели для кодирования модуля коэффициента
 	// правильный
@@ -1212,7 +1217,42 @@ j_t encoder::_calc_rd_iteration(const p_t &p, const wk_t &k,
 
 	const w_t dw = (wnode::dequantize(k, _wtree.q()) - node.w);
 
-	const double h = _h_spec(model, k);
+	const h_t h = _h_spec(model, k);
+
+	return (dw*dw + lambda * h);
+}
+
+
+/*!	\param[in] p Предполагаемые координаты элемента (коэффициента)
+	\param[in] sb Саббенд в котором располагается коэффициент
+	\param[in] spec_m Номер модели арифметического кодера для кодирования
+	модуля коэффициента
+	\param[in] sign_m Номер модели арифметического кодера для кодирования
+	знака коэффициента коэффициента
+	\param[in] k Откорректированное (или просто проквантованное) значение
+	коэффициента
+	\param[in] lambda Параметр <i>lambda</i>, отвечает за <i>Rate/Distortion</i>
+	баланс при вычислении <i>RD</i> функции. Чем это значение больше, тем
+	больший вклад в значение <i>RD</i> функции будут вносить битовые затраты
+	на кодирование коэффициента арифметическим кодером.
+	\return Значения <i>RD-функции Лагрнанжа</i>
+
+	\note Функция применима для элементов из любых саббендов.
+*/
+j_t encoder::_calc_rd_iteration_se(const p_t &p, const subbands::subband_t &sb,
+								   const sz_t spec_m, const sz_t sign_m,
+								   const wk_t &k, const lambda_t &lambda)
+{
+	// Для кодирования элементов из LL саббендов должна использоваться
+	// специальная модель
+	assert(spec_m != ACODER_SPEC_LL_MODEL || subbands::LVL_0 == sb.lvl);
+	assert(subbands::LVL_0 != sb.lvl || spec_m == ACODER_SPEC_LL_MODEL);
+
+	const wnode &node = _wtree.at(p);
+
+	const w_t dw = (wnode::dequantize(k, _wtree.q()) - node.w);
+
+	const h_t h = _h_spec_se(k, spec_m, sign_m);
 
 	return (dw*dw + lambda * h);
 }

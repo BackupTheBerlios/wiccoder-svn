@@ -713,6 +713,14 @@ protected:
 	j_t _calc_rd_iteration(const p_t &p, const wk_t &k,
 						   const lambda_t &lambda, const sz_t &model);
 
+	//!	\brief Подсчитывает значение <i>RD</i> функции <i>Лагранжа</i>
+	//! для значения коэффициента при кодировании его арифметическим кодером,
+	//!	если бы он находился на определённых координатах. Вариант для
+	//!	раздельного кодирования знака.
+	j_t _calc_rd_iteration_se(const p_t &p, const subbands::subband_t &sb,
+							  const sz_t spec_m, const sz_t sign_m,
+							  const wk_t &k, const lambda_t &lambda);
+
 	//! \brief Ищет оптимальное откорректированное значение для коэффициента
 	wk_t _coef_fix(const p_t &p, const subbands::subband_t &sb,
 				   const lambda_t &lambda);
