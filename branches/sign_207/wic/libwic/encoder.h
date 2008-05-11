@@ -98,7 +98,7 @@
 /*!	
 */
 #define ENCODE_SIGN_IN_SEPARATE_MODELS
-#undef	ENCODE_SIGN_IN_SEPARATE_MODELS
+//#undef	ENCODE_SIGN_IN_SEPARATE_MODELS
 
 
 
@@ -504,6 +504,10 @@ protected:
 	template <const wnode::wnode_members member>
 	sz_t _ind_spec(const p_t &p, const subbands::subband_t &sb)
 	{
+		// Проверка того, что координаты коэффициента лежат внутри указанного
+		// саббенда
+		assert(_wtree.sb().test(p, sb));
+
 		return _ind_spec(_wtree.calc_sj<member>(p.x, p.y, sb),
 						 sb.lvl);
 	}

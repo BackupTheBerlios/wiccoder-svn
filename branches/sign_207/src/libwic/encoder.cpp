@@ -1248,6 +1248,9 @@ j_t encoder::_calc_rd_iteration_se(const p_t &p, const subbands::subband_t &sb,
 	assert(spec_m != ACODER_SPEC_LL_MODEL || subbands::LVL_0 == sb.lvl);
 	assert(subbands::LVL_0 != sb.lvl || spec_m == ACODER_SPEC_LL_MODEL);
 
+	// Проверка на то, что коэффициент лежит в указанном саббенде
+	assert(_wtree.sb().test(p, sb));
+
 	const wnode &node = _wtree.at(p);
 
 	const w_t dw = (wnode::dequantize(k, _wtree.q()) - node.w);
@@ -1390,16 +1393,32 @@ void encoder::_coefs_fix_uni(const p_t &p, const subbands::subband_t &sb_j,
 j_t encoder::_calc_j1_value(const p_t &p, const subbands::subband_t &sb,
 							const lambda_t &lambda)
 {
-	// получение номера модели для кодирования коэффициентов
-	const sz_t model = _ind_spec<wnode::member_wc>(p, sb);
-
+	// Начальное значение RD функции Лагранжа
 	j_t j1 = 0;
 
 	for (wtree::coefs_iterator i = _wtree.iterator_over_children(p);
 		 !i->end(); i->next())
 	{
-		const wnode &node = _wtree.at(i->get());
-		j1 += _calc_rd_iteration(i->get(), node.wc, lambda, model);
+		// координаты обрабатываемого элемента
+		const p_t &q = i->get();
+
+		// ссылка на обрабатываемый элемент
+		const wnode &node = _wtree.at(q);
+
+		// номера моделей арифметического кодера для кодирования коэффициента
+		// (или его модуля) и его знака
+		const sz_t spec_model = _ind_spec<wnode::member_wc>(q, sb);
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+		const sz_t sign_model = _ind_sign<wnode::member_wc>(q, sb);
+		#endif
+
+		// Вычисление RD функции Лагранжа
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+			j1 += _calc_rd_iteration_se(q, sb, spec_model, sign_model,
+										node.wc, lambda);
+		#else
+			j1 += _calc_rd_iteration(q, node.wc, lambda, spec_model);
+		#endif
 	}
 
 	return j1;
@@ -1438,8 +1457,19 @@ j_t encoder::_calc_jx_value(const p_t &root, const j_t &j_map,
 		// получаем ссылку на саббенд в котором лежит рассматриваемый элемент
 		const subbands::subband_t &sb_i = sb.from_point(p, subbands::LVL_1);
 
-		j += _calc_rd_iteration(p, node.wc, lambda,
-								_ind_spec<wnode::member_wc>(p, sb_i));
+		// номера моделей арифметического кодера для кодирования коэффициента
+		// (или его модуля) и его знака
+		const sz_t spec_m = _ind_spec<wnode::member_wc>(p, sb_i);
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+		const sz_t sign_m = _ind_sign<wnode::member_wc>(p, sb_i);
+		#endif
+
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+			j += _calc_rd_iteration_se(p, sb_i, spec_m, sign_m,
+									   node.wc, lambda);
+		#else
+			j += _calc_rd_iteration(p, node.wc, lambda, spec_m);
+		#endif
 	}
 
 	wnode &node = _wtree.at(root);
