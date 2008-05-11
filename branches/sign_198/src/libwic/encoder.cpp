@@ -1065,6 +1065,9 @@ void encoder::_encode_spec_se(const wk_t &wk, const sz_t spec_m,
 	// Определение знака коэффициента
 	const sz_t sign_v = wnode::signp(wk);
 
+	// Ограничение на возможные значения знака коэффициента
+	assert(0 <= sign_v && sign_v <= 2);
+
 	// Кодирование знака коэффициента
 	_acoder.put(sign_v, sign_m, virtual_encode);
 
@@ -1113,6 +1116,9 @@ wk_t encoder::_decode_spec_se(const sz_t spec_m, const sz_t sign_m)
 
 	// Декодирование знака коэффициента
 	const sz_t sign_v = _acoder.get<sz_t>(sign_m);
+
+	// Ограничение на возможные значения знака коэффициента
+	assert(0 <= sign_v && sign_v <= 2);
 
 	// Если знак равен 0, значит и сам коэффициент 0. В таком случае
 	// декодирование коэффициента не требуется

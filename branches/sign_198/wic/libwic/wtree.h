@@ -756,14 +756,21 @@ public:
 	typename sz_t sign_num(const p_t &p, const subbands::subband_t &sb,
 						   const sz_t &offset = 0) const
 	{
+		// Коэффициенты многочлена
 		static const sz_t ck0 = 1;
 		static const sz_t ck1 = wnode::signp_max() + 1;
 		static const sz_t ck2 = ck1 * ck1;
 		static const sz_t ck3 = ck1 * ck1 * ck1;
 
-		const sz_t shh = wnode::signp(get_safe<member>(p.x - 1, p.y - 1, sb));
-		const sz_t shl = wnode::signp(get_safe<member>(p.x - 1, p.y,     sb));
+		// Определение направления прохода по номеру строки
+		const sz_t dx = (0 == (p.y % 2))? +1: -1;
+
+		// Определение знаков соседних коэффициентов
+		const sz_t shh = wnode::signp(get_safe<member>(p.x - dx, p.y - 1, sb));
+		const sz_t shl = wnode::signp(get_safe<member>(p.x - dx, p.y,     sb));
 		const sz_t slh = wnode::signp(get_safe<member>(p.x,     p.y - 1, sb));
+
+		// Вычисление формулы
 		return (ck0*shh + ck1*shl + ck2*slh + ck3*sb.i + offset);
 	}
 
