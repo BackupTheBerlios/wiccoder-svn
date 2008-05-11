@@ -661,9 +661,15 @@ lambda_t encoder::quality_to_lambda(const double &quality)
 */
 sz_t encoder::_ind_spec(const pi_t &s, const sz_t lvl)
 {
-	assert(0 == ACODER_SPEC_LL_MODELS);
+	// Эта функция предполагает, что модель с номером 0 используется для
+	// кодирования коэффициентов из LL саббенда
+	assert(0 == ACODER_SPEC_LL_MODEL);
 
-	if (subbands::LVL_0 == lvl) return ACODER_SPEC_LL_MODELS;
+	// Функция расчитывает, что всего существует 6 моделей для кодирования
+	// коэффициентов (или их модулей)
+	assert(6 == ACODER_SPEC_MODELS_COUNT);
+
+	if (subbands::LVL_0 == lvl) return ACODER_SPEC_LL_MODEL;
 	if (subbands::LVL_1 == lvl) return 1;
 
 	if (26.0  <= s) return 1;
@@ -1015,6 +1021,51 @@ h_t encoder::_h_spec(const sz_t m, const wk_t &wk) {
 }
 
 
+/*!	\param[in] wk Значение коэффициента для кодирования
+	\param[in] spec_m Номер модели для кодирования модуля коэффициента
+	\param[in] sign_m Номер модели для кодирования знака коэффициента
+	\return Битовые затраты, необходимые для кодирования коэффициента
+*/
+h_t encoder::_h_spec_se(const wk_t &wk, const sz_t spec_m, const sz_t sign_m)
+{
+	// Данная функция не должна вызываться для элементов из LL саббендов. Если
+	// такая необходимость появится, будет необходимо модифицировать её,
+	// учитывая, что коэффициенты из LL саббенда кодируются как есть в
+	// специальную модель (т.е. к ним не применяется отдельное кодирование
+	// знака)
+	assert(ACODER_SPEC_LL_MODEL != spec_m);
+
+	// Проверка того, что номер модели для кодирования модуля коэффициента
+	// правильный
+	assert(0 <= spec_m);
+	assert(ACODER_SPEC_MODELS_COUNT > spec_m);
+
+	// Проверка того, что номер модели для кодирования знака правильный
+	assert(ACODER_SIGN_MODELS_OFFSET <= sign_m);
+	assert(ACODER_SIGN_MODELS_OFFSET + ACODER_SIGN_MODELS_COUNT > sign_m);
+
+	// Знак коэффициента
+	const sz_t sign_v = wnode::signp(wk);
+
+	// Битовые затраты на кодирование знака коэффициента
+	const h_t sign_h = _acoder.enc_entropy(sign_v, sign_m);
+
+	// Для кодирования коэффициента равного 0, других битовых
+	// затрат не требуется
+	if (0 == sign_v) return sign_h;
+
+	// Модуль кодируемого коэффициента
+	const sz_t spec_v	= abs(wk);
+
+	// Битовые затраты на кодирование модуля коэффициента
+	const h_t spec_h	= _acoder.enc_entropy(spec_v, spec_m);
+
+	// Битовые затраты на кодирование коэффициента равны сумме битовых затрат
+	// на кодирование модуля и знака
+	return (spec_h + sign_h);
+}
+
+
 /*!	\param[in] m Номер модели для кодирования
 	\param[in] n Значение группового признака подрезания ветвей
 	\return Битовые затраты, необходимые для кодирования группового
@@ -1052,10 +1103,10 @@ void encoder::_encode_spec_se(const wk_t &wk, const sz_t spec_m,
 	// Проверка специального случая, чтобы удостовериться что нулевая модель
 	// для знака используется только в том случае, когда кодируется элемент
 	// из LL саббенда
-	assert(0 != sign_m || ACODER_SPEC_LL_MODELS == spec_m);
+	assert(0 != sign_m || ACODER_SPEC_LL_MODEL == spec_m);
 
 	// Специальный случай для LL саббенда - кодируем как есть
-	if (ACODER_SPEC_LL_MODELS == spec_m)
+	if (ACODER_SPEC_LL_MODEL == spec_m)
 	{
 		_acoder.put(wk, spec_m, virtual_encode);
 
@@ -1109,10 +1160,10 @@ wk_t encoder::_decode_spec_se(const sz_t spec_m, const sz_t sign_m)
 	// Проверка специального случая, чтобы удостовериться что нулевая модель
 	// для знака используется только в том случае, когда декодируется элемент
 	// из LL саббенда
-	assert(0 != sign_m || ACODER_SPEC_LL_MODELS == spec_m);
+	assert(0 != sign_m || ACODER_SPEC_LL_MODEL == spec_m);
 
 	// Специальный случай для LL саббенда - кодируем как есть
-	if (ACODER_SPEC_LL_MODELS == spec_m) return _acoder.get<wk_t>(spec_m);
+	if (ACODER_SPEC_LL_MODEL == spec_m) return _acoder.get<wk_t>(spec_m);
 
 	// Декодирование знака коэффициента
 	const sz_t sign_v = _acoder.get<sz_t>(sign_m);

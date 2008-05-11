@@ -646,8 +646,8 @@ public:
 		// смещение для верхних коэффициентов
 		static const dsz_t	top		= (-1);
 		// смещение для боковых коэффициентов
-			const dsz_t	side	= (going_left)? (+1): (-1);
-		
+		const dsz_t	side	= (going_left)? (+1): (-1);
+
 		#ifdef RECALC_SJ_FACTOR_ON_EDGES
 		pi_t sums = 0;
 		#endif
