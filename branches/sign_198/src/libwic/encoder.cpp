@@ -1608,9 +1608,18 @@ void encoder::_encode_tree_leafs(const p_t &root, const sz_t lvl,
 
 			if (node_g.invalid) continue;
 
-			const sz_t model = _ind_spec<wnode::member_wc>(p_g, sb_g);
+			// Модели арифметического кодера для кодирования коэффициента
+			// и его знака
+			const sz_t spec_model = _ind_spec<wnode::member_wc>(p_g, sb_g);
+			#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+			const sz_t sign_model = _ind_sign<wnode::member_wc>(p_g, sb_g);
+			#endif
 
-			_encode_spec(model, node_g.wc, virtual_encode);
+			#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+			_encode_spec_se(node_g.wc, spec_model, sign_model, virtual_encode);
+			#else
+			_encode_spec(spec_model, node_g.wc, virtual_encode);
+			#endif
 
 			#ifdef LIBWIC_USE_DBG_SURFACE
 			// Запись кодируемого коэффициента в отладочную поверхность
