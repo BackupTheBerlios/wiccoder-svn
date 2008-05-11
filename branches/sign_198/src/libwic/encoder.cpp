@@ -1696,8 +1696,11 @@ void encoder::_encode_wtree_root(const bool decode_mode)
 	const subbands::subband_t &sb_LL = _wtree.sb().get_LL();
 
 	// модели для кодирования в LL саббенде
-	const sz_t spec_LL_model = _ind_spec(0, sb_LL.lvl);
-	const sz_t map_LL_model = _ind_map(0, sb_LL.lvl);
+	const sz_t spec_LL_model		= _ind_spec(0, sb_LL.lvl);
+	const sz_t map_LL_model			= _ind_map(0, sb_LL.lvl);
+	#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+	static const sz_t sign_LL_model	= 0;
+	#endif
 
 	// (де)кодирование коэффициентов и групповых признаков подрезания
 	// из LL саббенда
@@ -1717,12 +1720,20 @@ void encoder::_encode_wtree_root(const bool decode_mode)
 
 		if (decode_mode)
 		{
-			// декодирование коэффициента и признака подрезания
-			#ifdef USE_DPCM_FOR_LL_SUBBAND
-			node.wc = dpcm::decode(_decode_spec(spec_LL_model), wc_p);
+			// декодирование коэффициента
+			#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+				node.wc = _decode_spec_se(spec_LL_model, sign_LL_model);
 			#else
-			node.wc = _decode_spec(spec_LL_model);
+				node.wc = _decode_spec(spec_LL_model);;
 			#endif
+
+			// Необходимо скорректировать декодированный коэффициент если для
+			// LL саббенда используется ДИКМ
+			#ifdef USE_DPCM_FOR_LL_SUBBAND
+			node.wc = dpcm::decode(node.wc, wc_p);
+			#endif
+
+			// декодирование признака подрезания ветвей
 			node.n = _decode_map(map_LL_model);
 
 			// порождение ветвей в соответствии с полученным признаком
@@ -1731,12 +1742,20 @@ void encoder::_encode_wtree_root(const bool decode_mode)
 		}
 		else
 		{
-			// кодирование коэффициента и признака подрезания
+			// кодирование коэффициента
 			#ifdef USE_DPCM_FOR_LL_SUBBAND
-			_encode_spec(spec_LL_model, dpcm::encode(node.wc, wc_p));
+				const wk_t spec_v	= dpcm::encode(node.wc, wc_p);
 			#else
-			_encode_spec(spec_LL_model, node.wc);
+				const wk_t &spec_v	= node.wc;
 			#endif
+
+			#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+				_encode_spec_se(spec_v, spec_LL_model, sign_LL_model);
+			#else
+				_encode_spec(spec_LL_model, spec_v);
+			#endif
+
+			// кодирование признака подрезания
 			_encode_map(map_LL_model, node.n);
 
 			#ifdef LIBWIC_USE_DBG_SURFACE

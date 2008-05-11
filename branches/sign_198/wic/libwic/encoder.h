@@ -539,6 +539,11 @@ protected:
 	template <const wnode::wnode_members member>
 	inline sz_t _ind_sign(const p_t &p, const subbands::subband_t &sb)
 	{
+		// Для LL саббенда отдельное кодирование знака не применяется,
+		// поэтому в таком случае возвращается наверный номер модели
+		// арифметического кодера для кодирования знака
+		if (subbands::LVL_0 == sb.lvl) return 0;
+
 		return _wtree.sign_num<member>(p, sb, ACODER_SIGN_MODELS_OFFSET);
 	}
 
