@@ -1,0 +1,1099 @@
+/*!	\file     wtree.h
+	\version  0.0.1
+	\author   mice, ICQ: 332-292-380, mailto:wonder.mice@gmail.com
+	\brief    Описание класса wic::wtree - спектра вейвлет разложения
+
+	\todo     Более подробно описать файл wtree.h
+*/
+
+#pragma once
+
+#ifndef WIC_LIBWIC_WTREE
+#define WIC_LIBWIC_WTREE
+
+////////////////////////////////////////////////////////////////////////////////
+// include
+
+// standard C++ library headers
+#include <new>							// for std::bad_alloc exception class
+#include <assert.h>
+
+// libwic headers
+#include <wic/libwic/types.h>
+#include <wic/libwic/wnode.h>
+#include <wic/libwic/subbands.h>
+#include <wic/libwic/iterators.h>
+#include <wic/libwic/dpcm.h>
+
+
+////////////////////////////////////////////////////////////////////////////////
+// defines
+
+//!	\brief Если макрос определён, то веса граничных элементов  при подсчёте
+//!	прогноза <i>P<sub>i</sub></i> будут пересчитанны в соответствии с
+//!	количеством элементов вошедших в прогноз
+/*!	\note Было замечано, что при выключение этого макроса результаты
+	ухудшаются.
+*/
+#define	RECALC_PI_FACTOR_ON_EDGES
+// #undef	RECALC_PI_FACTOR_ON_EDGES
+
+//!	\brief Если макрос определён, то веса граничных элементов  при подсчёте
+//!	прогноза <i>S<sub>j</sub></i> будут пересчитанны в соответствии с
+//!	количеством элементов вошедших в прогноз
+/*!	\note Было замечано, что при выключение этого макроса результаты
+	ухудшаются.
+*/
+#define	RECALC_SJ_FACTOR_ON_EDGES
+// #undef	RECALC_SJ_FACTOR_ON_EDGES
+
+
+////////////////////////////////////////////////////////////////////////////////
+// wic namespace
+namespace wic {
+
+
+////////////////////////////////////////////////////////////////////////////////
+// types
+
+
+////////////////////////////////////////////////////////////////////////////////
+// wtree class declaration
+
+//! \brief Группа деревьев вейвлет коэффициентов
+/*! Объекты этого класса хранят информацию, отражающую значения вейвлет
+	коэффициентов в деревьях и их топологию. Для каждого дерева класс
+	предоставляет следующие возможности:
+	- хранение оригинальных значений вейвлет коэффициентов
+	- хранение проктвантованных значений вейвлет коэффициентов
+	- два значения функции лагранжа (при условии удаления вевти и
+	  при условии её сохранения)
+	- групповой признак подрезания ветвей
+	- признак подрезания для одиночного коэффициента
+
+	Объекты класса сами управляют обоими признаками подрезания. Квантование
+	также осуществляется посредством метода класса. Значение RD-функции
+	Лагранжа оставляется под усмотрение пользователя класса.
+
+	Класс также хранит информацию о саббендах разложения.
+
+	\note Несмотря на название, класс представляет собой все деревья
+	вейвлет спектра, а не одно конкретное дерево (гроздь)
+
+	\sa wnode, subbands
+*/
+class wtree {
+public:
+	// public types ------------------------------------------------------------
+
+	//! \brief Псевдоним для обёртки для итераторов, использующих тип wic::p_t
+	typedef some_iterator<p_t> coefs_iterator;
+
+	//! \brief Псевдоним для кумулятивного итератора, использующего тип
+	//!	wic::p_t
+	typedef cumulative_iterator<p_t> coefs_cumulative_iterator;
+
+	//!	\brief Псевдоним для обёртки для итераторов, использующих тип wic::n_t
+	typedef some_iterator<n_t> n_iterator;
+
+	// public constants --------------------------------------------------------
+
+	//!	\brief Значение квантователя по умолчанию
+	static const q_t DEFAULT_Q;
+
+	// public methods ----------------------------------------------------------
+
+	//!	\name Конструкторы и деструкторы
+	//@{
+
+	//!	\brief Конструкртор
+	wtree(const sz_t width, const sz_t height, const sz_t lvls);
+
+	//!	\brief Деструктор
+	~wtree();
+
+	//@}
+
+	//! \name Общая информация о дереве
+	//@{
+
+	//!	\brief Возвращает ширину спектра (в элементах)
+	sz_t width() const { return _width; }
+
+	//!	\brief Возвращает высоту спектра (в элементах)
+	sz_t height() const { return _height; }
+
+	//!	\brief Возвращает количество уровней разложения
+	sz_t lvls() const { return _lvls; }
+
+	//! \brief Возвращает количество коэффициентов во всём дереве
+	/*!	\return Количество коэффициентов во всём дереве
+	*/
+	const sz_t &nodes_count() const { return _nodes_count; }
+
+	//! \brief Возвращает количество байт занимаемых спектром
+	/*!	\return Количество байт, которое было выделенно для хранения всей
+		информации о деревьях (не считая информацию о саббендах)
+	*/
+	sz_t nodes_size() const { return (_nodes_count * sizeof(wnode)); }
+
+	//! \brief Возвращает использованный квантователь
+	/*!	\return Квантователь, который был использован для квантования
+		дерева c помощью wtree::quantize или деквантования с помощью
+		wtree::dequantize
+	*/
+	const q_t &q() const { return _q; }
+
+	//@}
+
+	//!	\name Работа с целым спектром
+
+	//@{
+
+	//! \brief Загружает поля элементов спектра
+	/*!	\param[in] from Блок памяти из которого будут загружены поля
+		элементов
+
+		Эту функцию следует использовать с осторожностью, так как она
+		может нарушить целостность спектра.
+
+		Параметр шаблона <i>member</i> выбирает используемое поле элементов.
+		Параметр шаблона <i>value_t</i> даёт возможность загружать поля
+		из массивов значений отличных типов от типа поля. Значения будут
+		автоматически преобразованы к нужному типу.
+	*/
+	template <const wnode::wnode_members member, class value_t>
+	void load_field(const value_t *const from)
+	{
+		assert(0 != from);
+
+		typedef typename wnode::type_selector<member>::result wnm_t;
+
+		for (sz_t i = 0; nodes_count() > i; ++i)
+		{
+			_nodes[i].get<member>() = static_cast<wnm_t>(from[i]);
+		}
+	}
+
+	//! \brief Загружает спектр из памяти с квантованием
+	/*!	\param[in] from Вейвлет спектр, значения коэффициентов которого,
+		будут скопированы
+		\param[in] q Квантователь
+
+		Функция также автоматически выполняет квантование с <i>q = 1</i>
+		(вызывает wtree::quantize()).
+	*/
+	template <class value_t>
+	void load(const value_t *const from, const q_t q = DEFAULT_Q)
+	{
+		load_field<wnode::member_w>(from);
+
+		quantize(q);
+	}
+
+	//!	\brief Быстрая загрузка спектра с квантованием
+	/*!	\param[in] from Вейвлет спектр, значения коэффициентов которого,
+		будут скопированы
+		\param[in] q Квантователь
+
+		Функция производит быструю загрузку спектра без инициализации,
+		как это делает функция wtree::load(). Значения всех полей кроме
+		wnode::w (помещаются загруженные коэффициенты) и wnode::wq
+		(помещаются проквантованные коэффициенты) не изменяются. Функция
+		написана для более удобной организации циклов подбора параметров
+		кодирования (вкупе с функцией filling_refresh()).
+
+		Приемущество данной функции заключается в том, что она производит
+		загрузку коэффициентов и квантование в один проход, а не в два,
+		как это делает функция load().
+	*/
+	template <class value_t>
+	void cheap_load(const value_t *const from, const q_t q = DEFAULT_Q)
+	{
+		assert(0 != from);
+		assert(1 <= q);
+
+		_q = q;
+
+		for (sz_t i = 0; nodes_count() > i; ++i) {
+			wnode &node = _nodes[i];
+			node.w	= static_cast<w_t>(from[i]);
+			node.wq	= wnode::quantize(node.w, q);
+		}
+	}
+
+	//!	\brief Сохраняет значения полей в память
+	/*!	\param[out] to Блок памяти, в который будут сохранены значения поля
+		элементов
+	*/
+	template <const wnode::wnode_members member, class value_t>
+	void save(value_t *const to) const
+	{
+		for (sz_t i = nodes_count() - 1; 0 <= i; --i)
+		{
+			to[i] = static_cast<value_t>(_nodes[i].get<member>());
+		}
+	}
+
+	//! \brief Производит квантование всего спектра
+	void quantize(const q_t q = DEFAULT_Q);
+
+	//! \brief Производит деквантование всего спектра
+	/*!	\param[in] q Квантователь
+	*/
+	template <const wnode::wnode_members member>
+	void dequantize(const q_t q = DEFAULT_Q)
+	{
+		_deqantize<member>(q);
+	}
+
+	//! \brief Обновляет дерево, приравнивая значения поля wnode::wc
+	//!	к wnode::wq, обнуляет значения функции <i>Лагранжа</i>, помечает
+	//!	все ветви как подрезанные, а элементы как корректные
+	void filling_refresh();
+
+	//! \brief Обновляет дерево, обнуляя значения полей wnode::w, wnode::wq
+	//!	и wnode::wc, отмечает все ветви как подрезанные, а элементы как
+	//!	не корректные.
+	void wipeout();
+
+	//@}
+
+	//!	\name Доступ к информации о саббендах
+	//{@
+
+	//! \brief Возвращает информацию о саббендах
+	/*!	\return Ссылка на объект wiс::subbands
+		\sa subbands
+	*/
+	subbands &sb()
+	{
+		assert(0 != _subbands);
+
+		return (*_subbands);
+	}
+
+	//! \brief Возвращает информацию о саббендах
+	/*!	\return Константная ссылка на объект wiс::subbands
+		\sa subbands
+	*/
+	const subbands &sb() const
+	{
+		assert(0 != _subbands);
+
+		return (*_subbands);
+	}
+
+	//@}
+
+	//! \name Доступ к элементам дерева
+	//@{
+
+	//! \brief Получение элемента спектра по координатам
+	const wnode &at(const sz_t x, const sz_t y) const;
+	
+	//! \brief Получение элемента спектра по координатам
+	wnode &at(const sz_t x, const sz_t y);
+
+	//! \brief Получение элемента спектра по координатам
+	const wnode &at(const p_t &p) const { return at(p.x, p.y); }
+	
+	//! \brief Получение элемента спектра по координатам
+	wnode &at(const p_t &p) { return at(p.x, p.y); }
+
+	//! \brief Получение координат элемента в спектре
+	p_t get_pos(const wnode &node) const;
+
+	//!	\brief Возвращает координаты родительского элемента
+	//!	(версия для не <i>LL</i> саббенда)
+	p_t prnt(const p_t &c);
+
+	//!	\brief Возвращает координаты родительского элемента
+	//! (универсальная версия для всех саббендов)
+	p_t prnt_uni(const p_t &c);
+
+	//! \brief Позволяет получить значение элемента, проверяя его
+	//!	существование. Если элемента с такими координатами не существует,
+	//! будет возвращено значение по умолчанию.
+	/*!	\param[in] x Координата <i>x</i> элемента
+		\param[in] y Координата <i>y</i> элемента
+		\param[in] def Значение по умолчанию, которое вернётся, если
+		элемента с такими координатами не существует
+		\return Значение элемента или значение по умолчанию, если
+		таковой не существует.
+	*/
+	template <const wnode::wnode_members member>
+	typename wnode::type_selector<member>::result get_safe(
+			const sz_t x, const sz_t y,
+			const typename wnode::type_selector<member>::result &def = 0) const
+	{
+		if (0 > x || x >= _width) return def;
+		if (0 > y || y >= _height) return def;
+
+		return  _nodes[x + _width * y].get<member>();
+	}
+
+	//! \brief Позволяет получить значение элемента, проверяя его
+	//!	нахождение в выбранном саббенде. Если элемент с такими
+	//!	координатами находится за пределами саббенда, будет возвращено
+	//!	значение по умолчанию.
+	/*!	\param[in] x Координата \c x элемента
+		\param[in] y Координата \c y элемента
+		\param[in] sb Саббенд в котором должен находится элемент.
+		\param[in] def Значение по умолчанию, которое вернётся, если
+		элемента с такими координатами не существует
+		\return Значение элемента или значение по умолчанию, если
+		таковой находится за пределами выбранного саббенда
+	*/
+	template <const wnode::wnode_members member>
+	typename wnode::type_selector<member>::result get_safe(
+			const sz_t x, const sz_t y,
+			const subbands::subband_t &sb,
+			const typename wnode::type_selector<member>::result &def = 0) const
+	{
+		if (sb.x_min > x || x > sb.x_max) return def;
+		if (sb.y_min > y || y > sb.y_max) return def;
+
+		return  _nodes[x + _width * y].get<member>();
+	}
+
+	//@}
+
+	//!	\name Статистическая информация
+	//@{
+
+	//!	\brief Находит минимальное и максимальное значения в спектре
+	/*!	\param[in,out] set Итератор, задающий множество для поиска
+		максимального и минимального элементов
+		\param[out] min Переменная которая примет найденное минимальное
+		значение
+		\param[out] max Переменная которая примет найденное максимальное
+		значение
+		\return <i>true</i> если множество не пустое и переменные <i>min</i>
+		и <i>max</i> получили некоторые значения, иначе <i>false</i>
+	*/
+	template <const wnode::wnode_members member>
+	bool minmax(coefs_iterator &set,
+				typename wnode::type_selector<member>::result &min,
+				typename wnode::type_selector<member>::result &max) const
+	{
+		// используемый тип
+		typedef wnode::type_selector<member>::result value_t;
+
+		// проверка на пустое множество
+		if (set->end()) return false;
+
+		// инициализация переменных
+		min = max = at(set->get()).get<member>();
+
+		// поиск минимального и максимального значений
+		for (set->next(); !set->end(); set->next())
+		{
+			const wnode &node = at(set->get());
+			const value_t &value = node.get<member>();
+
+			if (value < min) min = value;
+			else if (value > max) max = value;
+		}
+
+		return true;
+	}
+
+	//!	\brief Находит минимальное и максимальное прогнозируемое значения в
+	//!	саббенде при кодировани с использованием ДИКМ
+	/*!	\param[in] sb Саббенд в котором будет производится поиск
+		\param[out] min Переменная которая примет найденное минимальное
+		значение
+		\param[out] max Переменная которая примет найденное максимальное
+		значение
+		\return <i>true</i> если полученное множество прогнозных значений не
+		пустое и переменные <i>min</i> и <i>max</i> получили некоторые
+		значения, иначе <i>false</i>
+	*/
+	template <const wnode::wnode_members member>
+	bool dpcm_minmax(const subbands::subband_t &sb,
+					 typename wnode::type_selector<member>::result &min,
+					 typename wnode::type_selector<member>::result &max) const
+	{
+		// используемый тип
+		typedef wnode::type_selector<member>::result value_t;
+
+		// итератор по саббенду
+		coefs_iterator set = iterator_over_subband(sb);
+
+		// проверка на пустое множество
+		if (set->end()) return false;
+
+		// инициализация переменных
+		const p_t &p = set->get();
+		min = max = dpcm::encode(at(p).get<member>(),
+								 dpcm_predict<member>(p, sb));
+
+		// поиск минимального и максимального значений
+		for (set->next(); !set->end(); set->next())
+		{
+			const p_t &p = set->get();
+			const value_t dv = dpcm::encode(at(p).get<member>(),
+											dpcm_predict<member>(p, sb));
+
+			if (dv < min) min = dv;
+			else if (dv > max) max = dv;
+		}
+
+		return true;
+	}
+
+	//!	\brief Считает квадратичное отклонение между двумя полями элементов
+	//!	из указанного множества
+	/*!	\param[in,out] set Итератор, задающий множество элементов
+		\return Квадратичное отклонение
+
+		Параметры шаблона <i>member1</i> и <i>member2</i> определяют поля
+		элементов, между которыми будет искаться квадратичное отклонение.
+		Параметр шаблона <i>result_t</i> очень важен, так как он влияет на
+		точность производимых вычислений (внутри функция оперирует
+		значениями именно этого типа), поэтому имеет смысл явно указывать
+		этот параметр.
+
+		\note Метод требует чтобы для спектра был установлен корректный
+		квантователь (возвращаемый функцией wtree::q()), так он производит
+		деквантование выбранного поля для подсчёта квадратичного отклонения.
+	*/
+	template <const wnode::wnode_members member, class result_t>
+	result_t distortion(coefs_iterator &set) const
+	{
+		// проверка утверждений
+		assert(member != wnode::member_w);
+		assert(member == wnode::member_wq || member == wnode::member_wc);
+
+		// инициализация переменных
+		result_t d = 0;
+
+		// подсчёт квадратичного отклонения
+		while (!set->end())
+		{
+			const wnode &node = at(set->get());
+
+			const result_t dw = (wnode::dequantize(node.get<member>(), q())
+								 - node.w);
+
+			d += (dw * dw);
+
+			set->next();
+		}
+
+		return d;
+	}
+
+	//!	\brief Считает квадратичное отклонение между полями wnode::w и
+	//!	wnode::wq
+	/*!	\return Квадратичное отклонение
+	*/
+	template <class result_t>
+	result_t distortion_wq() const
+	{
+		return distortion<wnode::member_wq, result_t>(iterator_over_wtree());
+	}
+
+	//!	\brief Считает квадратичное отклонение между полями wnode::w и
+	//!	wnode::wc
+	/*!	\return Квадратичное отклонение
+	*/
+	template <class result_t>
+	result_t distortion_wc() const
+	{
+		return distortion<wnode::member_wc, result_t>(iterator_over_wtree());
+	}
+
+	//@}
+
+	//! \name Подсчёт прогнозных величин
+	//@{
+
+	//! \brief Высчитывает значение прогнозной величины <i>P<sub>i</sub></i>
+	/*!	\param[in] x Координата x центра маски 3x3
+		\param[in] y Координата y центра маски 3x3
+		\param[in] sb Ограничивающий саббенд
+
+		Функция использует элемент <i>(x, y)</i> и его соседей для расчёта
+		прогнозной величины <i>P<sub>i</sub></i>.
+
+		Вообще, функция применима для любого саббенда, но по алгоритму,
+		она никогда не используется для подсчёта прогноза в <i>LL</i>
+		саббенде.
+
+		См. формулу (4) из 35.pdf
+
+		\todo Сделать расчёт прогноза более точным, учитывая отсутствие
+		некоторых элементов на границах, что приводит к изменению
+		коэффициентов взвешанной суммы.
+	*/
+	template <const wnode::wnode_members member>
+	pi_t calc_pi(const sz_t x, const sz_t y,
+				 const subbands::subband_t &sb)
+	{
+		#ifdef RECALC_PI_FACTOR_ON_EDGES
+		int sums	= 4;
+		#endif
+
+		const pi_t i1	= abs(get_safe<member>(x - 1, y,     sb)) + 
+						  abs(get_safe<member>(x + 1, y,     sb)) +
+						  abs(get_safe<member>(x    , y - 1, sb)) + 
+						  abs(get_safe<member>(x    , y + 1, sb));
+
+		#ifdef RECALC_PI_FACTOR_ON_EDGES
+		if (_subbands->test(p_t(x - 1, y    ), sb)) sums += 2;
+		if (_subbands->test(p_t(x + 1, y    ), sb)) sums += 2;
+		if (_subbands->test(p_t(x    , y - 1), sb)) sums += 2;
+		if (_subbands->test(p_t(x    , y + 1), sb)) sums += 2;
+		#endif
+
+		const pi_t i2	= abs(get_safe<member>(x + 1, y + 1, sb)) + 
+						  abs(get_safe<member>(x + 1, y - 1, sb)) +
+						  abs(get_safe<member>(x - 1, y + 1, sb)) + 
+						  abs(get_safe<member>(x - 1, y - 1, sb));
+
+		#ifdef RECALC_PI_FACTOR_ON_EDGES
+		if (_subbands->test(p_t(x + 1, y + 1), sb)) sums += 1;
+		if (_subbands->test(p_t(x + 1, y - 1), sb)) sums += 1;
+		if (_subbands->test(p_t(x - 1, y + 1), sb)) sums += 1;
+		if (_subbands->test(p_t(x - 1, y - 1), sb)) sums += 1;
+		#endif
+
+		#ifdef RECALC_PI_FACTOR_ON_EDGES
+		return pi_t(4 * abs(get_safe<member>(x, y, sb)) + 2 * i1 + i2) /
+					pi_t(sums);
+		#else
+		return pi_t(4 * abs(get_safe<member>(x, y, sb)) + 2 * i1 + i2) / 16;
+		#endif
+	}
+
+	//!	\brief Вычисляет среднее по дочерним элементам значения прогнозной
+	//!	величины <i>P<sub>i</sub></i>
+	/*!	\param[in] prnt Координаты родительского элемента, дочерние от
+		которого будут использоваться для вычисления прогнозной величины.
+		\param[in] children_sb Саббенд в котором располагаются дочерние
+		элементы.
+		\return Среднее по дочерним элементам значения прогнозной величины
+		<i>P<sub>i</sub></i>
+
+		Функция применима только для родительских элементов не из <i>LL</i>
+		саббенда. Тем не менее, функция возвращает 0 для координат из
+		<i>LL</i> саббенда.
+
+		Шаблонный параметр <i>member</i> позволяет выбирать поле элемента
+		для расчёта прогноза. Обычно это будет wnode::member_wc.
+
+		Для более подробной информации смотри <i>Шаг 2.1</i> и формулу
+		<i>(5)</i> в <i>35.pdf</i>.
+
+		\attention Следует обратить особое внимание на то, что параметр
+		<i>children_sb</i> представляет собой именно саббенд, в котором
+		располагаются дочерние элементы, а не саббенд, в котором находится
+		сам родительский элемент с координатами <i>prnt</i>
+	*/
+	template <const wnode::wnode_members member>
+	pi_t calc_pi_avg(const p_t &prnt, const subbands::subband_t &children_sb)
+	{
+		// проверка на LL саббенд
+		if (sb().test_LL(prnt)) return 0;
+
+		pi_t pi = 0;
+
+		for (coefs_iterator i = iterator_over_children(prnt);
+			!i->end(); i->next())
+		{
+			const p_t &c = i->get();
+			pi += calc_pi<member>(c.x, c.y, children_sb);
+		}
+
+		return (pi / 4);
+	}
+
+	//! \brief Высчитывает значение прогнозной величины <i>S<sub>j</sub></i>
+	/*!	\param[in] x Координата x "центра" маски 2x2
+		\param[in] y Координата y "центра" маски 2x2
+		\param[in] sb Ограничивающий саббенд
+		\param[in] going_left <i>true</i> если выполняется проход влево,
+		иначе <i>false</i>. В зависимости от этого параметра осуществляется
+		выбор формы маски.
+		\return Значение прогнозной величины <i>S<sub>j</sub></i>
+
+		Функция при вычислении прогноза использует до трёх соседних элементов
+		<i>(x, y)</i> и до девяти элементов соседних для родителя элемента
+		<i>(x, y)</i>. По этой причине элемент <i>(x, y)</i> должен лежать
+		на уровнях начиная со второго. Тем не менее функция корректно
+		обрабатывает координаты элементов с первых двух уровней, возвращая
+		при этом нулевое значение прогноза.
+
+		См. формулу (6) из <i>35.pdf</i>
+
+		\note Магические числа, использованные в функции представляют
+		собой коэффициенты (веса) из <i>35.pdf</i>
+
+		\todo Сделать расчёт прогноза более точным, учитывая отсутствие
+		некоторых элементов на границах, что приводит к изменению
+		коэффициентов взвешанной суммы.
+	*/
+	template <const wnode::wnode_members member>
+	pi_t calc_sj(const sz_t x, const sz_t y,
+				 const subbands::subband_t &sb,
+				 const bool going_left)
+	{
+		// проверка на элемент из первых двух уровней
+		if (subbands::LVL_1 >= sb.lvl) return 0;
+
+		// смещение для верхних коэффициентов
+		static const dsz_t	top		= (-1);
+		// смещение для боковых коэффициентов
+			const dsz_t	side	= (going_left)? (+1): (-1);
+		
+		#ifdef RECALC_SJ_FACTOR_ON_EDGES
+		pi_t sums = 0;
+		#endif
+
+		// подсчёт взвешанной суммы
+		pi_t sum = 0.4 * abs(pi_t(get_safe<member>(x + side, y + top, sb))) +
+						 abs(pi_t(get_safe<member>(x + side, y      , sb))) +
+						 abs(pi_t(get_safe<member>(x       , y + top, sb)));
+
+		#ifdef RECALC_SJ_FACTOR_ON_EDGES
+		if (_subbands->test(p_t(x + side, y + top), sb)) sums += 0.4;
+		if (_subbands->test(p_t(x + side, y      ), sb)) sums += 1;
+		if (_subbands->test(p_t(x       , y + top), sb)) sums += 1;
+
+		if (0 != sums) sum = (2.4 * sum / sums);
+		#endif
+
+		// родительский коэффициент
+		const p_t p = prnt(p_t(x, y));
+		const subbands::subband_t &prnt_sb = *(sb.prnt);
+
+		return (0.36 * pi_t(calc_pi<member>(p.x, p.y, prnt_sb)) +
+				1.06 * sum);
+	}
+
+	//! \brief Высчитывает значение прогнозной величины <i>S<sub>j</sub></i>
+	/*!	\param[in] x Координата x "центра" маски 2x2
+		\param[in] y Координата y "центра" маски 2x2
+		\param[in] sb Ограничивающий саббенд
+
+		Автоматически определяет направление обхода, используя для этого
+		функцию _going_left().
+
+		См. формулу (6) из 35.pdf
+
+		\return Значение прогнозной величины <i>S<sub>j</sub></i>
+	*/
+	template <const wnode::wnode_members member>
+	pi_t calc_sj(const sz_t x, const sz_t y,
+				 const subbands::subband_t &sb)
+	{
+		return calc_sj<member>(x, y, sb, _going_left(x, y));
+	}
+
+	//!	\brief Подсчитывает прогнозное значение для коэффициентов
+	//!	спектра, используемое при кодировании с использованием ДИКМ
+	/*!	\param[in] p Координаты прогнозируемого элемента
+		\param[in] sb Саббенд в котором располагается прогнозируемый
+		элемент
+		\return Прогнозное значение элемента
+
+		Функция предполагает, что обход производится змейкой, начиная с
+		левого верхнего эемента.
+	*/
+	template <const wnode::wnode_members member>
+	typename wnode::type_selector<member>::result dpcm_predict(
+						const p_t &p, const subbands::subband_t &sb) const
+	{
+		// Тип, используемый при вычислениях
+		typedef wnode::type_selector<member>::result member_t;
+
+		// Для первого элемента из саббенда всегда возвращаем 0
+		if (p.x == sb.x_min && p.y == sb.y_min) return 0;
+
+		// Определение направления прохода по номеру строки
+		const sz_t dx = (0 == (p.y % 2))? +1: -1;
+
+		// Для всей верхней строки прогнозом является значение предыдущего
+		// элемента в той же строке
+		if (sb.y_min == p.y) return at(p.x - dx, sb.y_min).get<member>();
+
+		// Для самых крайних левых и правых элементов прогнозом является
+		// значение предыдущего элемента в той же строке, а если таковой
+		// лежит вне саббенда, тогда прогнозом является значение верхнего
+		// элемента
+		if (sb.x_min == p.x || sb.x_max == p.x)
+		{
+			return get_safe<member>(p.x - dx, p.y, sb,
+									at(p.x, p.y - 1).get<member>());
+		}
+
+		// Для всех остальных элементов прогноза (x) вычисляется по формуле:
+		// (b + d - (a + c) / 2), где элементы a, b, c, d имеют следующее
+		// расположение относительно элемента x при 0 < dx:
+		// a  b  c
+		// d  x
+		// и при 0 > dx:
+		// c  b  a
+		//    x  d
+		const member_t a = at(p.x - dx, p.y - 1).get<member>();
+		const member_t b = at(p.x,      p.y - 1).get<member>();
+		const member_t c = at(p.x + dx, p.y - 1).get<member>();
+		const member_t d = at(p.x - dx, p.y    ).get<member>();
+
+		return (b + d - (a + c) / 2);
+	}
+
+	//!	\brief Вычисляет прогноз "номера" знака коэффициента исходя из знаков
+	//!	соседних элементов
+	/*!	\param[in] p Координаты элемента для которого будет получен прогноз
+		\param[in] sb Саббенд, в котором лежит элемент
+		\param[in] offset Смещение которое будет прибавлено к результату
+		\return Прогноз "номера" знака коэффициента
+	*/
+	template <const wnode::wnode_members member>
+	typename sz_t sign_num(const p_t &p, const subbands::subband_t &sb,
+						   const sz_t &offset = 0) const
+	{
+		// Коэффициенты многочлена
+		static const sz_t ck0 = 1;
+		static const sz_t ck1 = wnode::signp_max() + 1;
+		static const sz_t ck2 = ck1 * ck1;
+		static const sz_t ck3 = ck1 * ck1 * ck1;
+
+		// Определение направления прохода по номеру строки
+		const sz_t dx = (0 == (p.y % 2))? +1: -1;
+
+		// Определение знаков соседних коэффициентов
+		const sz_t shh = wnode::signp(get_safe<member>(p.x - dx, p.y - 1, sb));
+		const sz_t shl = wnode::signp(get_safe<member>(p.x - dx, p.y,     sb));
+		const sz_t slh = wnode::signp(get_safe<member>(p.x,     p.y - 1, sb));
+
+		// Вычисление формулы
+		return (ck0*shh + ck1*shl + ck2*slh + ck3*sb.i + offset);
+	}
+
+	//@}
+
+	//!	\name Функции для работы с групповыми признаками подрезания
+	//@{
+
+	//!	\brief Возвращает итератор по значениям группового признака
+	//!	подрезания
+	n_iterator iterator_through_n(const sz_t lvl) const;
+
+	//!	\brief Конструирует групповой признак подрезания ветвей, в котором
+	//!	все элементы кроме одного подрезаны. Версия для не <i>LL</i>
+	//!	саббендов.
+	n_t child_n_mask(const p_t &p, const p_t &branch) const;
+
+	//!	\brief Конструирует групповой признак подрезания ветвей, в котором
+	//!	все элементы кроме одного подрезаны. Версия для <i>LL</i> саббенда.
+	n_t child_n_mask_LL(const p_t &p) const;
+
+	//!	\brief Конструирует групповой признак подрезания ветвей, в котором
+	//!	все элементы кроме одного подрезаны. Универсальная версия для всех
+	//!	саббендов.
+	n_t child_n_mask_uni(const p_t &p, const p_t &branch) const;
+
+	//!	\brief Проверяет, подрезанность ветвей в групповом признаке
+	//!	подрезания по маске ветвей.
+	/*!	\param[in] n Групповой признак подрезания ветвей
+		\param[in] mask Маска дочерних ветвей, которые необходимо
+		проверить на подрезаность.
+		\return <i>true</i> если все запрашиваемые в <i>mask</i> ветви
+		не подрезаны. <i>false</i> если хотя бы одна ветвь подрезана.
+	*/
+	inline bool test_n_mask(const n_t &n, const n_t &mask) const {
+		return (mask == (n & mask));
+	}
+
+	//!	\brief Возвращает групповой признак подрезания ветвей, в котором
+	//! все ветви подрезаны
+	/*!	\return Групповой признак подрезания ветвей
+	*/
+	inline n_t get_clear_n() const { return 0; }
+
+	//@}
+
+	//!	\name Модификация топологии дерева
+	//@{
+
+	//!	\brief Подрезает ветви в соответствии с групповым признаком подрезания
+	//!	ветвей
+	/*!	\param[in] branch Координаты элемента, образующего ветвь
+		\param[in] n Групповой признак подрезания ветвей
+
+		Функция выполняет подрезания ветвей, образующими которых являются
+		элементы дочерние от <i>branch</i>, в соответствии с групповым признаком
+		подрезания ветвей.
+
+		Применима для ветвей из любых саббендов, кроме тех что лежат на уровнях
+		больших <i>lvls() - 2</i>
+
+		Параметр шаблона позволяет выбрать поле элемента wnode, которое будет
+		заполнено значением <i>0</i>. Наиболее вероятное значение этого
+		параметра - wnode::member_wc. Эту возможность можно также использовать
+		для отладки.
+	*/
+	template <const wnode::wnode_members member>
+	void cut_leafs(const p_t &branch, const n_t n)
+	{
+		// проверка утверждений
+		assert(lvls() + subbands::LVL_PREV > sb().from_point(branch).lvl);
+
+		const bool is_LL = sb().test_LL(branch);
+
+		for (coefs_iterator i = iterator_over_children_uni(branch);
+			 !i->end(); i->next())
+		{
+			const p_t &p = i->get();
+
+			const n_t mask = (is_LL)? child_n_mask_LL(p)
+									: child_n_mask(p, branch);
+
+			if (!test_n_mask(n, mask)) _cut_branch<member>(p);
+		}
+
+		at(branch).n = n;
+	}
+
+	//!	\brief Выполняет антиподрезание листьев
+	void uncut_leafs(const p_t &branch, const n_t n);
+
+	//@}
+
+	//!	\name Генераторы итераторов по коэффициентам
+	//@{
+
+	//! \brief Возвращает итератор по саббенду
+	coefs_iterator iterator_over_subband(const subbands::subband_t &sb) const;
+
+	//! \brief Возвращает итератор по дочерним элементам (родительский
+	//!	элемент не из <i>LL</i> саббенда)
+	/*!	\param[in] prnt Координаты родительского элемента
+		\return Итератор по дочерним элементам
+
+		\note Данная функция не применима для родительских коэффициентов из
+		<i>LL</i> саббенда.
+
+		\sa _iterator_over_children()
+	*/
+	wtree::coefs_iterator iterator_over_children(const p_t &prnt) const
+	{
+		return _iterator_over_children(prnt);
+	}
+
+	//! \brief Возвращает итератор по дочерним элементам (родительский
+	//!	элемент из <i>LL</i> саббенда)
+	/*!	\param[in] prnt Координаты родительского элемента
+		\return Итератор по дочерним элементам
+
+		\note Данная функция не применима для родительских коэффициентов не из
+		<i>LL</i> саббенда.
+
+		\sa _iterator_over_LL_children()
+	*/
+	wtree::coefs_iterator iterator_over_LL_children(const p_t &prnt) const
+	{
+		return _iterator_over_LL_children(prnt);
+	}
+
+	//! \brief Возвращает итератор по дочерним элементам (родительский
+	//!	элемент из любого саббенда)
+	/*!	\param[in] prnt Координаты родительского элемента
+		\return Итератор по дочерним элементам
+
+		\note Следует помнить, что если родительский элемент из <i>LL</i>
+		саббенда, дочерние элементы лежат в разных саббендах.
+
+		\sa _iterator_over_children(), _iterator_over_LL_children()
+	*/
+	wtree::coefs_iterator iterator_over_children_uni(const p_t &prnt) const
+	{
+		return (sb().test_LL(prnt))
+				? _iterator_over_LL_children(prnt)
+				: _iterator_over_children(prnt);
+	}
+
+	//! \brief Возвращает итератор по дочерним коэффициентам (листьям)
+	coefs_iterator iterator_over_leafs(const p_t &root,
+									   const subbands::subband_t &sb) const;
+
+	//! \brief Возвращает итератор по дочерним коэффициентам (листьям)
+	coefs_iterator iterator_over_leafs(const p_t &root,
+									   const sz_t lvl, const sz_t i) const;
+
+	//!	\brief Возвращает итератор по всему спектру
+	coefs_iterator iterator_over_wtree() const;
+
+	//@}
+
+protected:
+	// protected methods -------------------------------------------------------
+
+	//!	\name Функции работающие с целым деревом
+	//@{
+
+	//!	\brief Производит квантование коэффициентов спектра
+	void _quantize(const q_t q);
+
+	//!	\brief Производит квантование коэффициентов спектра и заполнение других
+	//!	полей элементов (как это необходимо сделать перед началом кодирования)
+	void _filling_quantize(const q_t q);
+
+	//!	\brief Проиводит деквантование коэффициентов спектра
+	/*!	\param[in] q Используемый квантователь
+
+		Функция проводит деквантование поля по выбору (параметр шаблона
+		<i>member</i>) и помещает результат в поле wnode::w
+	*/
+	template <const wnode::wnode_members member>
+	void _deqantize(const q_t q)
+	{
+		assert(1 <= q);
+
+		_q = q;
+
+		for (sz_t i = 0; nodes_count() > i; ++i)
+		{
+			wnode &node = _nodes[i];
+			node.w = wnode::dequantize(node.get<member>(), q);
+		}
+	}
+
+	//! \brief Обновляет спектр
+	void _filling_refresh();
+
+	//@}
+
+	//!	\name Функции для работы с отдельными коэффициентами
+	//@{
+
+	//!	\brief Возвращает координаты верхнего левого элемента из группы
+	//!	дочерних элементов
+	p_t _children_top_left(const p_t &prnt) const;
+
+	//! \brief Определяет координаты верхнего левого элемента блока листьев
+	//!	дерева
+	p_t _leafs_top_left(const p_t &root, const sz_t lvl, const sz_t i) const;
+
+	//!	\brief Из координат элемента получает предполагаемое направление
+	//!	обхода
+	bool _going_left(const sz_t x, const sz_t y);
+
+	//@}
+
+	//!	\name Модификация топологии дерева
+	//@{
+
+	//!	\brief Подрезает ветвь дерева
+	/*!	\param[in] branch Координаты элемента порождающего подрезаемую ветвь.
+
+		Функция осуществляет следующие действия со всеми элементами попавшими
+		в подрезанную ветвь:
+		- Отмечает элемент как <i>недействительный</i>, выставляя поле
+		  wnode::invalid в <i>true</i>.
+		- Изменяет групповой признак подрезания ветвей, связанный с элементом,
+		  отмечая все дочерние ветви как подрезанные.
+
+		Функция выполняет <i>умное</i> подрезание, обрабатывая только ещё не
+		подрезанные ветви. Для остановки процесса подрезания, Функция также
+		использует тот факт, что групповые признаки подрезания ветвей у всех
+		элементов последних двух саббендов равны нулю (все ветви подрезаны).
+		Наличие нулевых групповых признаков подрезания ветвей на двух
+		последних саббендах является необходимым условием правильной работы
+		функции.
+
+		Параметр шаблона позволяет выбрать поле элемента wnode, которое будет
+		заполнено значением <i>0</i>. Наиболее вероятное значение этого
+		параметра - wnode::member_wc. Эту возможность можно также использовать
+		для отладки.
+
+		\note Необходимо, чтобы <i>branch</i> был не из <i>LL</i> саббенда и
+		не из саббендов с последнего уровня.
+
+		\attention Функция нарушает целостность дерева, так как не
+		модифицирует групповой признак подрезания у родительского элемента
+		ветви
+	*/
+	template <const wnode::wnode_members member>
+	void _cut_branch(const p_t &branch)
+	{
+		// проверка утверждений
+		assert(sb().from_point(branch).lvl > subbands::LVL_0);
+		assert(sb().from_point(branch).lvl < lvls());
+
+		n_t &branch_n = at(branch).n;
+
+		// перебор дочерних элементов
+		for (coefs_iterator i = iterator_over_children(branch);
+			 !i->end(); i->next())
+		{
+			const p_t &p = i->get();
+			wnode &node = at(p);
+
+			// необходимо сначала рекурсивно подрезать дочерние ветви
+			// так как следующая строчка обнулит групповой признак подрезания
+			// этой ветви элемента p
+			if (0 != branch_n) _cut_branch<member>(p);
+
+			node.invalid = true;
+			node.n = 0;
+			node.get<member>() = 0;
+		}
+
+		branch_n = 0;
+	}
+
+	//!	\brief Выполняет антиподрезание (порождение) ветви
+	void _uncut_branch(const p_t &branch);
+
+	//@}
+
+	//!	\name Генераторы итераторов
+	//@{
+
+	//! \brief Возвращает итератор по дочерним элементам (родительский элемент
+	//!	не из <i>LL</i> саббенда)
+	basic_iterator<p_t> *_iterator_over_children(const p_t &prnt) const;
+
+	//! \brief Возвращает итератор по дочерним элементам (родительский элемент
+	//!	не <i>LL</i> саббенда)
+	basic_iterator<p_t> *_iterator_over_LL_children(const p_t &prnt) const;
+
+	//@}
+
+private:
+	// private data ------------------------------------------------------------
+
+	//! \brief Ширина карты спектра
+	sz_t _width;
+
+	//! \brief Высота карты спектра
+	sz_t _height;
+
+	//! \brief Количество уровней разложения спектра
+	sz_t _lvls;
+
+	//!	\brief Общее количество элементов в спектре
+	sz_t _nodes_count;
+
+	//!	\brief Квантователь, который был использован в последний раз
+	q_t	_q;
+
+	//! \brief Карта спектра
+	wnode *_nodes;
+
+	//! \brief Саббенды разложения
+	subbands *_subbands;
+};
+
+
+
+}	// end of namespace wic
+
+
+
+#endif	// WIC_LIBWIC_WTREE
