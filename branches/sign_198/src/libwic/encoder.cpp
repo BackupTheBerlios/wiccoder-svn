@@ -1865,32 +1865,43 @@ void encoder::_encode_wtree_level(const sz_t lvl,
 			// подрезанную ветвь
 			if (node_g.invalid) continue;
 
-			// выбираем модель для (де)кодирования коэффициента
-			const sz_t model = _ind_spec<wnode::member_wc>(p_g, sb_g);
+			// выбираем модель для (де)кодирования коэффициента и его знака
+			const sz_t spec_model = _ind_spec<wnode::member_wc>(p_g, sb_g);
+			#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+			const sz_t sign_model = _ind_sign<wnode::member_wc>(p_g, sb_g);
+			#endif
 
 			// (де)кодирование коэффициента
 			if (decode_mode)
 			{
-				node_g.wc = _decode_spec(model);
+				#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+					node_g.wc = _decode_spec_se(spec_model, sign_model);
+				#else
+					node_g.wc = _decode_spec(spec_model);
+				#endif
 
-				#ifdef LIBWIC_USE_DBG_SURFACE
 				// запись информации о кодируемом коэффициенте в отладочную
 				// поверхность
+				#ifdef LIBWIC_USE_DBG_SURFACE
 				wicdbg::dbg_pixel &dbg_pixel = _dbg_dec_surface.get(p_g);
 				dbg_pixel.wc		= node_g.wc;
-				dbg_pixel.wc_model	= model;
+				dbg_pixel.wc_model	= spec_model;
 				#endif
 			}
 			else
 			{
-				_encode_spec(model, node_g.wc);
+				#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+					_encode_spec_se( node_g.wc, spec_model, sign_model);
+				#else
+					_encode_spec(spec_model, node_g.wc);
+				#endif
 
 				#ifdef LIBWIC_USE_DBG_SURFACE
 				// запись информации о кодируемом коэффициенте в отладочную
 				// поверхность
 				wicdbg::dbg_pixel &dbg_pixel = _dbg_enc_surface.get(p_g);
 				dbg_pixel.wc		= node_g.wc;
-				dbg_pixel.wc_model	= model;
+				dbg_pixel.wc_model	= spec_model;
 				#endif
 			}
 		}
