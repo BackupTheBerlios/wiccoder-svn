@@ -1625,7 +1625,7 @@ void encoder::_encode_tree_leafs(const p_t &root, const sz_t lvl,
 			// Запись кодируемого коэффициента в отладочную поверхность
 			wicdbg::dbg_pixel &dbg_pixel = _dbg_opt_surface.get(p_g);
 			dbg_pixel.wc		= node_g.wc;
-			dbg_pixel.wc_model	= model;
+			dbg_pixel.wc_model	= spec_model;
 			#endif
 		}
 
