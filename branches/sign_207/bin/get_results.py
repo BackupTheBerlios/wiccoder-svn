@@ -50,10 +50,10 @@ def main():
 				decode_image(wic_file, dest_image)
 				psnr = calc_psnr(src_image, dest_image)
 
-				plot_acoder_stats = False;
+				do_plot_acoder_stats = False;
 
 				# Plot acoder stats
-				if plot_acoder_stats:
+				if do_plot_acoder_stats:
 					stats_caption 	= image + "; " + filter + "; bpp: " + str(bpp) + " (q=" + str(r["q"]) + ", l=" + str(r["l"]) + ")"
 					wic_stats_file 	= string.join([working_dir + image, filter, str(bpp), "stats", "wic"], ".")
 					dest_stats_image= string.join([working_dir + image, filter, str(bpp), "stats", "bmp"], ".")
