@@ -85,7 +85,31 @@
 /*!	Верхняя граница поиска параметра <i>lambda_t</i> будет
 	<i>(LAMBDA_SEARCH_K_HIGHT * q*q)</i>, где <i>q</i> текущий квантователь.
 */
-#define LAMBDA_SEARCH_K_HIGHT		(1.0f)	//(0.25f)
+#define LAMBDA_SEARCH_K_HIGHT		(2.0f)
+
+//!	\brief Погрешность подбора квантователя <i>q</i>
+/*! Используется функцией encode_fixed_lambda() для передачи в качестве
+	параметра функции _search_q_min_j() и функцией encode_fixed_bpp()
+	для передачи в качестве параметра функции _search_q_lambda_for_bpp().
+	Вычисления продолжаются до тех пор, пока разница между "правым" и
+	"левым" значением квантователя не станет меньше либо равна погрешности.
+*/
+#define DEFAULT_Q_EPSILON			(0.01f)
+
+//!	\brief Погрешность минимизации функции Лагранжа <i>j</i>
+/*!	Используется в функции encode_fixed_lambda() для передачи в качестве
+	параметра в функцию _search_q_min_j().
+*/
+#define DEFAULT_J_EPSILON			(0.0f)
+
+//!	\brief Погрешность попадания в целевой битрейт <i>bpp</i>
+#define DEFAULT_BPP_EPSILON			(0.001f)
+
+//!	\brief Погрешность подбора параметра <i>lambda</i>
+#define DEFAULT_LAMBDA_EPSILON		(0.000001f)
+
+//!	\brief Погрешность подбора параметра <i>lambda</i>
+#define SPECIAL_LAMBDA_EPSILON		(0.0f)
 
 //!	\brief Если данный макрос определён, для кодирования коэффициентов из
 //!	LL саббенда будет использован ДИКМ
@@ -100,6 +124,8 @@
 #define ENCODE_SIGN_IN_SEPARATE_MODELS
 #undef	ENCODE_SIGN_IN_SEPARATE_MODELS
 
+//	Включает вывод отладочной информации в файл dumps/[encoder]debug.out
+// #define LIBWIC_DEBUG
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -611,10 +637,21 @@ protected:
 		_wtree.minmax<member>(_wtree.iterator_over_wtree(), w_min, w_max);
 
 		// +/-1 чтобы учесть корректировку
-		model.min = w_min - 1;
-		model.max = w_max + 1;
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+			// Модель для кодирования LL саббенда
+			model.min = w_min - 1;
+			model.max = w_max + 1;
+			models.push_back(model);
 
-		models.insert(models.end(), ACODER_SPEC_MODELS_COUNT, model);
+			// Модель для кодирования остальных саббендов
+			model.min = 0;
+			model.max = std::max(abs(w_min - 1), abs(w_max + 1));
+			models.insert(models.end(), ACODER_SPEC_MODELS_COUNT - 1, model);
+		#else
+			model.min = w_min - 1;
+			model.max = w_max + 1;
+			models.insert(models.end(), ACODER_SPEC_MODELS_COUNT, model);
+		#endif
 
 		// создание моделей для кодирования групповых признаков подрезания
 		model.min = 0;
@@ -1010,7 +1047,7 @@ protected:
 
 	//!	\brief Возвращает реальные средние битовые затраты на кодирование
 	//!	одного элемента изображения (пикселя)
-	h_t _calc_encoded_bpp(const bool including_tunes = true);
+	h_t _calc_encoded_bpp(const bool including_tunes = false);
 
 	//@}
 
