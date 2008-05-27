@@ -886,7 +886,7 @@ encoder::models_desc1_t encoder::_mk_acoder_smart_models() const
 		const wk_t mdl1_max = std::max(lvl1_max, lvlx_max);
 
 		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
-			desc.mdl_1_min = 0;
+			desc.mdl_1_min = 1;
 			desc.mdl_1_max = short(std::max(abs(mdl1_min), abs(mdl1_max)));
 		#else
 			desc.mdl_1_min = short(mdl1_min);
@@ -895,7 +895,7 @@ encoder::models_desc1_t encoder::_mk_acoder_smart_models() const
 
 		// модели #2..#5
 		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
-			desc.mdl_x_min = 0;
+			desc.mdl_x_min = 1;
 			desc.mdl_x_max = short(std::max(abs(lvlx_max), abs(lvlx_min)));
 		#else
 			desc.mdl_x_min = lvlx_min;
@@ -926,7 +926,7 @@ encoder::models_desc2_t encoder::_mk_acoder_post_models(const acoder &ac) const
 	for (sz_t i = 0; models_desc2_t::desced > i; ++i)
 	{
 		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
-			if (0 == i)
+			if (0 == i || ACODER_SPEC_MODELS_COUNT <= i)
 		#endif
 			{
 				desc.mins[i]	= ac.rmin(i);
@@ -935,7 +935,7 @@ encoder::models_desc2_t encoder::_mk_acoder_post_models(const acoder &ac) const
 		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
 			else
 			{
-				desc.mins[i]	= 0;
+				desc.mins[i]	= 1;
 				desc.maxs[i]	= std::max(abs(ac.rmin(i)), abs(ac.rmax(i)));
 			}
 		#endif
