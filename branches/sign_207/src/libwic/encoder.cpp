@@ -288,8 +288,8 @@ encoder::encode_fixed_lambda(
 	значения аргументов:
 	- <i>q_min = 1</i>
 	- <i>q_max = 64</i>
-	- <i>q_eps = 0.01</i>
-	- <i>j_eps = 0.0</i>
+	- <i>q_eps = DEFAULT_Q_EPSILON</i>
+	- <i>j_eps = DEFAULT_J_EPSILON</i>
 	- <i>max_iterations = 0</i>
 	- <i>precise_bpp = true</i>
 
@@ -302,8 +302,8 @@ encoder::enc_result_t
 encoder::encode_fixed_lambda(const w_t *const w, const lambda_t &lambda,
 							 tunes_t &tunes)
 {
-	static const q_t q_eps	= q_t(0.01);
-	static const j_t j_eps	= j_t(0);
+	static const q_t q_eps	= q_t(DEFAULT_Q_EPSILON);
+	static const j_t j_eps	= j_t(DEFAULT_J_EPSILON);
 
 	static const q_t q_min	= q_t(1);
 	static const q_t q_max	= q_t(64);
@@ -434,10 +434,10 @@ encoder::encode_fixed_q(const w_t *const w, const q_t &q,
 
 	Эта упрощённая версия функции encode_fixed_q() использует следующие
 	значения аргументов:
-	- <i>bpp_eps = 0.001</i>
+	- <i>bpp_eps = DEFAULT_BPP_EPSILON</i>
 	- <i>lambda_min = LAMBDA_SEARCH_K_LOW*q*q</i>
 	- <i>lambda_max = LAMBDA_SEARCH_K_HIGHT*q*q</i>
-	- <i>lambda_eps = 0.0</i>
+	- <i>lambda_eps = SPECIAL_LAMBDA_EPSILON</i>
 	- <i>max_iterations = 0</i>
 	- <i>precise_bpp = true</i>
 
@@ -450,11 +450,11 @@ encoder::enc_result_t
 encoder::encode_fixed_q(const w_t *const w, const q_t &q,
 						const h_t &bpp, tunes_t &tunes)
 {
-	static const h_t bpp_eps			= 0.001;
+	static const h_t bpp_eps			= DEFAULT_BPP_EPSILON;
 
 	static const lambda_t lambda_min	= lambda_t(LAMBDA_SEARCH_K_LOW * q*q);
 	static const lambda_t lambda_max	= lambda_t(LAMBDA_SEARCH_K_HIGHT * q*q);
-	static const lambda_t lambda_eps	= 0;
+	static const lambda_t lambda_eps	= SPECIAL_LAMBDA_EPSILON;
 
 	static const sz_t max_iterations	= 0;
 
@@ -556,11 +556,11 @@ encoder::encode_fixed_bpp(
 
 	Эта упрощённая версия функции encode_fixed_bpp() придаёт следующим
 	аргументам соответствующие значения:
-	- <i>bpp_eps = 0.001</i>
+	- <i>bpp_eps = DEFAULT_BPP_EPSILON</i>
 	- <i>q_min = 1</i>
 	- <i>q_max = 64</i>
-	- <i>q_eps = 0.01</i>
-	- <i>lambda_eps = 0</i>
+	- <i>q_eps = DEFAULT_Q_EPSILON</i>
+	- <i>lambda_eps = DEFAULT_LAMBDA_EPSILON</i>
 	- <i>precise_bpp = true</i>
 
 	\sa _search_q_lambda_for_bpp(), encode_fixed_bpp
@@ -569,13 +569,13 @@ encoder::enc_result_t
 encoder::encode_fixed_bpp(const w_t *const w, const h_t &bpp,
 						  tunes_t &tunes)
 {
-	static const h_t bpp_eps			= 0.001;
+	static const h_t bpp_eps			= DEFAULT_BPP_EPSILON;
 
 	static const q_t q_min				= q_t(1);
 	static const q_t q_max				= q_t(64);
-	static const q_t q_eps				= q_t(0.01);
+	static const q_t q_eps				= q_t(DEFAULT_Q_EPSILON);
 
-	static const lambda_t lambda_eps	= 0.00001;
+	static const lambda_t lambda_eps	= DEFAULT_LAMBDA_EPSILON;
 
 	static const bool precise_bpp		= true;
 
@@ -882,12 +882,25 @@ encoder::models_desc1_t encoder::_mk_acoder_smart_models() const
 										lvlx_min, lvlx_max);
 
 		// модель #1
-		desc.mdl_1_min = short(std::min(lvl1_min, lvlx_min));
-		desc.mdl_1_max = short(std::max(lvl1_max, lvlx_max));
+		const wk_t mdl1_min = std::min(lvl1_min, lvlx_min);
+		const wk_t mdl1_max = std::max(lvl1_max, lvlx_max);
+
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+			desc.mdl_1_min = 0;
+			desc.mdl_1_max = short(std::max(abs(mdl1_min), abs(mdl1_max)));
+		#else
+			desc.mdl_1_min = short(mdl1_min);
+			desc.mdl_1_max = short(mdl1_max);
+		#endif
 
 		// модели #2..#5
-		desc.mdl_x_min = lvlx_min;
-		desc.mdl_x_max = lvlx_max;
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+			desc.mdl_x_min = 0;
+			desc.mdl_x_max = short(std::max(abs(lvlx_max), abs(lvlx_min)));
+		#else
+			desc.mdl_x_min = lvlx_min;
+			desc.mdl_x_max = lvlx_max;
+		#endif
 	}
 
 	return desc;
@@ -912,9 +925,22 @@ encoder::models_desc2_t encoder::_mk_acoder_post_models(const acoder &ac) const
 
 	for (sz_t i = 0; models_desc2_t::desced > i; ++i)
 	{
-		desc.mins[i]		= ac.rmin(i);
-		desc.maxs[i]		= ac.rmax(i);
-		desc.abs_avgs[i]	= (unsigned short)(ac.abs_average(i));
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+			if (0 == i)
+		#endif
+			{
+				desc.mins[i]	= ac.rmin(i);
+				desc.maxs[i]	= ac.rmax(i);
+			}
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+			else
+			{
+				desc.mins[i]	= 0;
+				desc.maxs[i]	= std::max(abs(ac.rmin(i)), abs(ac.rmax(i)));
+			}
+		#endif
+
+		desc.abs_avgs[i]		= (unsigned short)(ac.abs_average(i));
 
 		// проверка на пустую модель (в которых rmin > rmax)
 		// данные действия необходимы, если в модель не попало ни одного
@@ -2892,9 +2918,15 @@ encoder::_search_lambda_at_bpp(
 
 			// сужение диапазона поиска
 			if (bpp > result.bpp)
+			{
 				lambda_b = lambda_c;
+				result_b = result;
+			}
 			else
+			{
 				lambda_a = lambda_c;
+				result_a = result;
+			}
 
 			// проверить, достигнута ли нужная точность по lambda
 			if (lambda_eps >= abs(lambda_b - lambda_a)) break;
@@ -3157,10 +3189,18 @@ encoder::_search_q_lambda_for_bpp(
 		}
 		#endif
 
-		// if (0 == deviation) break;
+		#ifdef LIBWIC_DEBUG
+		if (0 != deviation && _dbg_out_stream.good())
+		{
+			_dbg_out_stream << std::endl;
+			_dbg_out_stream << "\t\tdeviation_b: " << deviation_b << ", "
+							<< "\t\tdeviation_c: " << deviation_c << ", ";
+		}
+		#endif
 
-        if (deviation > 0 || (0 == deviation && dw_b <= dw_c))
-        {
+		if ((0 == deviation)? (dw_b <= dw_c)
+							: (abs(deviation_b) <= abs(deviation_c)))
+		{
 			// вывод отладочной информации
 			#ifdef LIBWIC_DEBUG
 			if (_dbg_out_stream.good())
@@ -3169,10 +3209,11 @@ encoder::_search_q_lambda_for_bpp(
 			}
 			#endif
 
-            q_d = q_c;
-            q_c = q_b;
-            dw_c = dw_b;
-			q_b = q_a + factor_b * (q_d - q_a);
+			q_d			= q_c;
+			q_c			= q_b;
+			dw_c		= dw_b;
+			q_b			= q_a + factor_b * (q_d - q_a);
+			deviation_c	= deviation_b;
 			// a         b    c    d
 			// a    b    c    d
 
@@ -3193,17 +3234,18 @@ encoder::_search_q_lambda_for_bpp(
 			}
 			#endif
 
-            q_a = q_b;
-            q_b = q_c;
-            dw_b = dw_c;
-			q_c = q_a + factor_c * (q_d - q_a);
+			q_a			= q_b;
+			q_b			= q_c;
+			dw_b		= dw_c;
+			q_c			= q_a + factor_c * (q_d - q_a);
+			deviation_b	= deviation_c;
 			// a    b    c         d
 			//      a    b    c    d
 
 			result = result_c =
 					_search_q_lambda_for_bpp_iter(
 										q_c, bpp, bpp_eps, lambda_eps, models,
-										dw_c, deviation_b, virtual_encode,
+										dw_c, deviation_c, virtual_encode,
 										max_iterations, precise_bpp);
 			deviation = deviation_c;
         }
