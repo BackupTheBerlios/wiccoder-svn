@@ -11,12 +11,12 @@ images_dir		= "../res/images/"
 working_dir		= "./tmp/"
 
 images			= ["lenaD.bmp", "barbaraD.bmp", "goldhillD.bmp"]
-#images			= ["goldhillD.bmp"]
+#images			= ["lenaD.bmp"]
 # filters			= ["Antonini", "cdf97", "Petuhov1"]
 filters			= ["Antonini", "Petuhov1"]
 #filters			= ["Petuhov1"]
 bpps			= [0.25, 0.5, 1.0]
-#bpps			= [1.0]
+#bpps			= [0.5]
 
 
 # Main function
