@@ -40,7 +40,7 @@
 /*!
 	\sa acoder::init_mode_e
 */
-#define ACODER_INIT_MODELS_MODE		init_mode_laplace
+#define ACODER_INIT_MODELS_MODE		init_mode_none
 
 
 
