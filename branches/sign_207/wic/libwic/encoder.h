@@ -122,7 +122,7 @@
 /*!	
 */
 #define ENCODE_SIGN_IN_SEPARATE_MODELS
-#undef	ENCODE_SIGN_IN_SEPARATE_MODELS
+//#undef	ENCODE_SIGN_IN_SEPARATE_MODELS
 
 //	Включает вывод отладочной информации в файл dumps/[encoder]debug.out
 // #define LIBWIC_DEBUG
@@ -644,7 +644,7 @@ protected:
 			models.push_back(model);
 
 			// Модель для кодирования остальных саббендов
-			model.min = 0;
+			model.min = 1;
 			model.max = std::max(abs(w_min - 1), abs(w_max + 1));
 			models.insert(models.end(), ACODER_SPEC_MODELS_COUNT - 1, model);
 		#else
