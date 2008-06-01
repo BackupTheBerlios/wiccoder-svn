@@ -40,7 +40,7 @@
 /*!
 	\sa acoder::init_mode_e
 */
-#define ACODER_INIT_MODELS_MODE		init_mode_none
+#define ACODER_INIT_MODELS_MODE		init_mode_laplace
 
 
 
@@ -402,8 +402,21 @@ protected:
 								   arcoder_base *const coder_base,
 								   const sz_t &i, const bool purge = false);
 
-	//!	\brief Инициализирует модель распределением Пауссона
-	void _init_laplace_distribution(const float &factor, const float &lambda,
+	//!	\brief Вычисляет вероятность символа для распределения Лапласа
+	/*!	\param[in] lambda Значения параметра распределения <i>lambda</i>
+		\param[in] x Символ
+		\param[in] power Степень в которую будет возведён символ
+		\return Вероятность символа
+	*/
+	template <class T, class S>
+	T _laplace_func(const T &lambda, const S &x, const T &power = 1)
+	{
+		return (lambda / 2)*exp(-lambda*pow(T(abs(x)), power));
+	}
+
+	//!	\brief Инициализирует модель распределением Лапласа
+	void _init_laplace_distribution(const float &lambda, const float &power,
+									const float &factor, const float &part,
 								    arcoder_base *const coder_base,
 								    const sz_t &i, const bool purge = false);
 
