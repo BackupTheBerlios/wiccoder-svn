@@ -122,7 +122,7 @@
 /*!	
 */
 #define ENCODE_SIGN_IN_SEPARATE_MODELS
-//#undef	ENCODE_SIGN_IN_SEPARATE_MODELS
+// #undef	ENCODE_SIGN_IN_SEPARATE_MODELS
 
 //	Включает вывод отладочной информации в файл dumps/[encoder]debug.out
 // #define LIBWIC_DEBUG
