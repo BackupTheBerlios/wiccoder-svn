@@ -15,7 +15,7 @@ def re_float_field(name):
 	return "([ \t]*" + name + ":[ \t]*)(?P<" + name + ">[-+]?[0-9]*\.?[0-9]+)"
 
 def re_acm_stat_begin(mode):
-	return "acoder::" + mode + "::model::(?P<no>[0-9]+)::(?P<size>[0-9]+)::(?P<delta>[-+]?[0-9]+)::(?P<abs_avg>[0-9]+)"
+	return "acoder::" + mode + "::model::(?P<no>[0-9]+)::(?P<size>[0-9]+)::(?P<delta>[-+]?[0-9]+)::(?P<abs_avg>[-+]?[0-9]*\.?[0-9]+)"
 
 def re_acm_stat_value(mode):
 	return "acoder::" + mode + "::value::(?P<no>[0-9]+)::(?P<i>[-+]?[0-9]+)::(?P<value>[-+]?[0-9]+)"
@@ -108,7 +108,7 @@ def encode_image(src_image, wic_file, channel="r", verbose=None, *args, **vals):
 			no				= int(m.group("no"))
 			size			= int(m.group("size"))
 			delta			= int(m.group("delta"))
-			abs_avg			= int(m.group("abs_avg"))
+			abs_avg			= float(m.group("abs_avg"))
 			acs_init[no]	= acm_stats(no, size, delta, abs_avg)
 
 		m = re.compile(re_acm_stat_value("init")).search(line)
@@ -123,7 +123,7 @@ def encode_image(src_image, wic_file, channel="r", verbose=None, *args, **vals):
 			no				= int(m.group("no"))
 			size			= int(m.group("size"))
 			delta			= int(m.group("delta"))
-			abs_avg			= int(m.group("abs_avg"))
+			abs_avg			= float(m.group("abs_avg"))
 			acs_encd[no]	= acm_stats(no, size, delta, abs_avg)
 
 		m = re.compile(re_acm_stat_value("encd")).search(line)
