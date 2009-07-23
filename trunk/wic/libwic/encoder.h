@@ -645,10 +645,10 @@ protected:
 	models_desc2_t _mk_acoder_post_models(const acoder &ac) const;
 
 	//!	\brief Производит установку моделей арифметического кодера
-	models_desc_t _setup_acoder_models(const use_models = true);
+	models_desc_t _setup_acoder_models(const bool use_models = true);
 
 	//!	\brief Производит установку моделей арифметического кодера
-	models_desc_t _setup_acoder_post_models(const use_models = true);
+	models_desc_t _setup_acoder_post_models(const bool use_models = true);
 
 	//!	\brief Восстанавливает модели арифметического кодера после проведённой
 	//!	оптимизации (вспомогательная функция)

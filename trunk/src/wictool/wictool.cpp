@@ -211,7 +211,7 @@ bmp_channel_bits get_bmp_channel_bits(const std::string &path,
 			return result;
 	}
 
-	using imgs::img_rgb::rgb24_t;
+	typedef imgs::img_rgb::rgb24_t rgb24_t;
 
 	const rgb24_t *const rgb_bits = (rgb24_t *)rgb.bits();
 
@@ -289,7 +289,7 @@ int set_bmp_channel_bits(const std::string &path, const bmp_channel_bits &bits,
 
 	rgb.reset(bits.w, bits.h, 24);
 
-	using imgs::img_rgb::rgb24_t;
+	typedef imgs::img_rgb::rgb24_t rgb24_t;
 
 	rgb24_t *const rgb_bits = (rgb24_t *)rgb.bits();
 

@@ -50,7 +50,13 @@ encoder::encoder(const sz_t width, const sz_t height, const sz_t lvls):
 	{
 		time_t t;
 		time(&t);
+	#ifdef _WIN32
+		char tb[64];
+		if (0 != ctime_s(tb, sizeof(tb), &t)) tb[0] = 0;
+		_dbg_out_stream << std::endl << tb << std::endl;
+	#else
 		_dbg_out_stream << std::endl << ctime(&t) << std::endl;
+	#endif
 	}
 	#endif
 }
@@ -932,7 +938,7 @@ encoder::models_desc2_t encoder::_mk_acoder_post_models(const acoder &ac) const
 	_mk_acoder_smart_models(), соответственно, сгенерированные модели
 	имеют тип MODELS_DESC_V1.
 */
-encoder::models_desc_t encoder::_setup_acoder_models(const use_models)
+encoder::models_desc_t encoder::_setup_acoder_models(const bool use_models)
 {
 	// описание моделей для арифметического кодера
 	models_desc_t desc;
@@ -958,7 +964,7 @@ encoder::models_desc_t encoder::_setup_acoder_models(const use_models)
 	Для генерации описания моделей используется функция
 	_mk_acoder_post_models()
 */
-encoder::models_desc_t encoder::_setup_acoder_post_models(const use_models)
+encoder::models_desc_t encoder::_setup_acoder_post_models(const bool use_models)
 {
 	// описание моделей для арифметического кодера
 	models_desc_t desc;
