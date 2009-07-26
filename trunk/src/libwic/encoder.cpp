@@ -294,8 +294,8 @@ encoder::encode_fixed_lambda(
 	значения аргументов:
 	- <i>q_min = 1</i>
 	- <i>q_max = 64</i>
-	- <i>q_eps = 0.01</i>
-	- <i>j_eps = 0.0</i>
+	- <i>q_eps = DEFAULT_Q_EPSILON</i>
+	- <i>j_eps = DEFAULT_J_EPSILON</i>
 	- <i>max_iterations = 0</i>
 	- <i>precise_bpp = true</i>
 
@@ -308,8 +308,8 @@ encoder::enc_result_t
 encoder::encode_fixed_lambda(const w_t *const w, const lambda_t &lambda,
 							 tunes_t &tunes)
 {
-	static const q_t q_eps	= q_t(0.01);
-	static const j_t j_eps	= j_t(0);
+	static const q_t q_eps	= q_t(DEFAULT_Q_EPSILON);
+	static const j_t j_eps	= j_t(DEFAULT_J_EPSILON);
 
 	static const q_t q_min	= q_t(1);
 	static const q_t q_max	= q_t(64);
@@ -440,10 +440,10 @@ encoder::encode_fixed_q(const w_t *const w, const q_t &q,
 
 	Эта упрощённая версия функции encode_fixed_q() использует следующие
 	значения аргументов:
-	- <i>bpp_eps = 0.001</i>
+	- <i>bpp_eps = DEFAULT_BPP_EPSILON</i>
 	- <i>lambda_min = LAMBDA_SEARCH_K_LOW*q*q</i>
 	- <i>lambda_max = LAMBDA_SEARCH_K_HIGHT*q*q</i>
-	- <i>lambda_eps = 0.0</i>
+	- <i>lambda_eps = SPECIAL_LAMBDA_EPSILON</i>
 	- <i>max_iterations = 0</i>
 	- <i>precise_bpp = true</i>
 
@@ -456,11 +456,11 @@ encoder::enc_result_t
 encoder::encode_fixed_q(const w_t *const w, const q_t &q,
 						const h_t &bpp, tunes_t &tunes)
 {
-	static const h_t bpp_eps			= 0.001;
+	static const h_t bpp_eps			= DEFAULT_BPP_EPSILON;
 
 	static const lambda_t lambda_min	= lambda_t(LAMBDA_SEARCH_K_LOW * q*q);
 	static const lambda_t lambda_max	= lambda_t(LAMBDA_SEARCH_K_HIGHT * q*q);
-	static const lambda_t lambda_eps	= 0;
+	static const lambda_t lambda_eps	= SPECIAL_LAMBDA_EPSILON;
 
 	static const sz_t max_iterations	= 0;
 
@@ -562,11 +562,11 @@ encoder::encode_fixed_bpp(
 
 	Эта упрощённая версия функции encode_fixed_bpp() придаёт следующим
 	аргументам соответствующие значения:
-	- <i>bpp_eps = 0.001</i>
+	- <i>bpp_eps = DEFAULT_BPP_EPSILON</i>
 	- <i>q_min = 1</i>
 	- <i>q_max = 64</i>
-	- <i>q_eps = 0.01</i>
-	- <i>lambda_eps = 0</i>
+	- <i>q_eps = DEFAULT_Q_EPSILON</i>
+	- <i>lambda_eps = DEFAULT_LAMBDA_EPSILON</i>
 	- <i>precise_bpp = true</i>
 
 	\sa _search_q_lambda_for_bpp(), encode_fixed_bpp
@@ -575,13 +575,13 @@ encoder::enc_result_t
 encoder::encode_fixed_bpp(const w_t *const w, const h_t &bpp,
 						  tunes_t &tunes)
 {
-	static const h_t bpp_eps			= 0.001;
+	static const h_t bpp_eps			= DEFAULT_BPP_EPSILON;
 
 	static const q_t q_min				= q_t(1);
 	static const q_t q_max				= q_t(64);
-	static const q_t q_eps				= q_t(0.01);
+	static const q_t q_eps				= q_t(DEFAULT_Q_EPSILON);
 
-	static const lambda_t lambda_eps	= 0.00001;
+	static const lambda_t lambda_eps	= DEFAULT_LAMBDA_EPSILON;
 
 	static const bool precise_bpp		= true;
 
@@ -667,9 +667,15 @@ lambda_t encoder::quality_to_lambda(const double &quality)
 */
 sz_t encoder::_ind_spec(const pi_t &s, const sz_t lvl)
 {
-	assert(0 == ACODER_SPEC_LL_MODELS);
+	// Эта функция предполагает, что модель с номером 0 используется для
+	// кодирования коэффициентов из LL саббенда
+	assert(0 == ACODER_SPEC_LL_MODEL);
 
-	if (subbands::LVL_0 == lvl) return ACODER_SPEC_LL_MODELS;
+	// Функция расчитывает, что всего существует 6 моделей для кодирования
+	// коэффициентов (или их модулей)
+	assert(6 == ACODER_SPEC_MODELS_COUNT);
+
+	if (subbands::LVL_0 == lvl) return ACODER_SPEC_LL_MODEL;
 	if (subbands::LVL_1 == lvl) return 1;
 
 	if (26.0  <= s) return 1;
@@ -882,12 +888,25 @@ encoder::models_desc1_t encoder::_mk_acoder_smart_models() const
 										lvlx_min, lvlx_max);
 
 		// модель #1
-		desc.mdl_1_min = short(std::min(lvl1_min, lvlx_min));
-		desc.mdl_1_max = short(std::max(lvl1_max, lvlx_max));
+		const wk_t mdl1_min = std::min(lvl1_min, lvlx_min);
+		const wk_t mdl1_max = std::max(lvl1_max, lvlx_max);
+
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+			desc.mdl_1_min = 1;
+			desc.mdl_1_max = short(std::max(abs(mdl1_min), abs(mdl1_max)));
+		#else
+			desc.mdl_1_min = short(mdl1_min);
+			desc.mdl_1_max = short(mdl1_max);
+		#endif
 
 		// модели #2..#5
-		desc.mdl_x_min = lvlx_min;
-		desc.mdl_x_max = lvlx_max;
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+			desc.mdl_x_min = 1;
+			desc.mdl_x_max = short(std::max(abs(lvlx_max), abs(lvlx_min)));
+		#else
+			desc.mdl_x_min = lvlx_min;
+			desc.mdl_x_max = lvlx_max;
+		#endif
 	}
 
 	return desc;
@@ -912,9 +931,22 @@ encoder::models_desc2_t encoder::_mk_acoder_post_models(const acoder &ac) const
 
 	for (sz_t i = 0; models_desc2_t::desced > i; ++i)
 	{
-		desc.mins[i]		= ac.rmin(i);
-		desc.maxs[i]		= ac.rmax(i);
-		desc.abs_avgs[i]	= (unsigned short)(ac.abs_average(i));
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+			if (0 == i || ACODER_SPEC_MODELS_COUNT <= i)
+		#endif
+			{
+				desc.mins[i]	= ac.rmin(i);
+				desc.maxs[i]	= ac.rmax(i);
+			}
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+			else
+			{
+				desc.mins[i]	= 1;
+				desc.maxs[i]	= std::max(abs(ac.rmin(i)), abs(ac.rmax(i)));
+			}
+		#endif
+
+		desc.abs_avgs[i]		= (unsigned short)(ac.abs_average(i));
 
 		// проверка на пустую модель (в которых rmin > rmax)
 		// данные действия необходимы, если в модель не попало ни одного
@@ -1021,6 +1053,56 @@ h_t encoder::_h_spec(const sz_t m, const wk_t &wk) {
 }
 
 
+/*!	\param[in] wk Значение коэффициента для кодирования
+	\param[in] spec_m Номер модели для кодирования модуля коэффициента
+	\param[in] sign_m Номер модели для кодирования знака коэффициента
+	\return Битовые затраты, необходимые для кодирования коэффициента
+*/
+h_t encoder::_h_spec_se(const wk_t &wk, const sz_t spec_m, const sz_t sign_m)
+{
+	// Проверка специального случая, чтобы удостовериться что нулевая модель
+	// для знака используется только в том случае, когда кодируется элемент
+	// из LL саббенда
+	assert(0 != sign_m || ACODER_SPEC_LL_MODEL == spec_m);
+
+	// Специальный случай для LL саббенда. Его коэффициенты кодируются целиком
+	// в специальную модель
+	if (ACODER_SPEC_LL_MODEL == spec_m)
+	{
+		return _acoder.enc_entropy(wk, spec_m);
+	}
+
+	// Проверка того, что номер модели для кодирования модуля коэффициента
+	// правильный
+	assert(0 <= spec_m);
+	assert(ACODER_SPEC_MODELS_COUNT > spec_m);
+
+	// Проверка того, что номер модели для кодирования знака правильный
+	assert(ACODER_SIGN_MODELS_OFFSET <= sign_m);
+	assert(ACODER_SIGN_MODELS_OFFSET + ACODER_SIGN_MODELS_COUNT > sign_m);
+
+	// Знак коэффициента
+	const sz_t sign_v = wnode::signp(wk);
+
+	// Битовые затраты на кодирование знака коэффициента
+	const h_t sign_h = _acoder.enc_entropy(sign_v, sign_m);
+
+	// Для кодирования коэффициента равного 0, других битовых
+	// затрат не требуется
+	if (0 == sign_v) return sign_h;
+
+	// Модуль кодируемого коэффициента
+	const sz_t spec_v	= abs(wk);
+
+	// Битовые затраты на кодирование модуля коэффициента
+	const h_t spec_h	= _acoder.enc_entropy(spec_v, spec_m);
+
+	// Битовые затраты на кодирование коэффициента равны сумме битовых затрат
+	// на кодирование модуля и знака
+	return (spec_h + sign_h);
+}
+
+
 /*!	\param[in] m Номер модели для кодирования
 	\param[in] n Значение группового признака подрезания ветвей
 	\return Битовые затраты, необходимые для кодирования группового
@@ -1058,10 +1140,10 @@ void encoder::_encode_spec_se(const wk_t &wk, const sz_t spec_m,
 	// Проверка специального случая, чтобы удостовериться что нулевая модель
 	// для знака используется только в том случае, когда кодируется элемент
 	// из LL саббенда
-	assert(0 != sign_m || ACODER_SPEC_LL_MODELS == spec_m);
+	assert(0 != sign_m || ACODER_SPEC_LL_MODEL == spec_m);
 
 	// Специальный случай для LL саббенда - кодируем как есть
-	if (ACODER_SPEC_LL_MODELS == spec_m)
+	if (ACODER_SPEC_LL_MODEL == spec_m)
 	{
 		_acoder.put(wk, spec_m, virtual_encode);
 
@@ -1115,10 +1197,10 @@ wk_t encoder::_decode_spec_se(const sz_t spec_m, const sz_t sign_m)
 	// Проверка специального случая, чтобы удостовериться что нулевая модель
 	// для знака используется только в том случае, когда декодируется элемент
 	// из LL саббенда
-	assert(0 != sign_m || ACODER_SPEC_LL_MODELS == spec_m);
+	assert(0 != sign_m || ACODER_SPEC_LL_MODEL == spec_m);
 
 	// Специальный случай для LL саббенда - кодируем как есть
-	if (ACODER_SPEC_LL_MODELS == spec_m) return _acoder.get<wk_t>(spec_m);
+	if (ACODER_SPEC_LL_MODEL == spec_m) return _acoder.get<wk_t>(spec_m);
 
 	// Декодирование знака коэффициента
 	const sz_t sign_v = _acoder.get<sz_t>(sign_m);
@@ -1167,7 +1249,45 @@ j_t encoder::_calc_rd_iteration(const p_t &p, const wk_t &k,
 
 	const w_t dw = (wnode::dequantize(k, _wtree.q()) - node.w);
 
-	const double h = _h_spec(model, k);
+	const h_t h = _h_spec(model, k);
+
+	return (dw*dw + lambda * h);
+}
+
+
+/*!	\param[in] p Предполагаемые координаты элемента (коэффициента)
+	\param[in] sb Саббенд в котором располагается коэффициент
+	\param[in] spec_m Номер модели арифметического кодера для кодирования
+	модуля коэффициента
+	\param[in] sign_m Номер модели арифметического кодера для кодирования
+	знака коэффициента коэффициента
+	\param[in] k Откорректированное (или просто проквантованное) значение
+	коэффициента
+	\param[in] lambda Параметр <i>lambda</i>, отвечает за <i>Rate/Distortion</i>
+	баланс при вычислении <i>RD</i> функции. Чем это значение больше, тем
+	больший вклад в значение <i>RD</i> функции будут вносить битовые затраты
+	на кодирование коэффициента арифметическим кодером.
+	\return Значения <i>RD-функции Лагрнанжа</i>
+
+	\note Функция применима для элементов из любых саббендов.
+*/
+j_t encoder::_calc_rd_iteration_se(const p_t &p, const subbands::subband_t &sb,
+								   const sz_t spec_m, const sz_t sign_m,
+								   const wk_t &k, const lambda_t &lambda)
+{
+	// Для кодирования элементов из LL саббендов должна использоваться
+	// специальная модель
+	assert(spec_m != ACODER_SPEC_LL_MODEL || subbands::LVL_0 == sb.lvl);
+	assert(subbands::LVL_0 != sb.lvl || spec_m == ACODER_SPEC_LL_MODEL);
+
+	// Проверка на то, что коэффициент лежит в указанном саббенде
+	assert(_wtree.sb().test(p, sb));
+
+	const wnode &node = _wtree.at(p);
+
+	const w_t dw = (wnode::dequantize(k, _wtree.q()) - node.w);
+
+	const h_t h = _h_spec_se(k, spec_m, sign_m);
 
 	return (dw*dw + lambda * h);
 }
@@ -1194,7 +1314,10 @@ wk_t encoder::_coef_fix(const p_t &p, const subbands::subband_t &sb,
 	#endif
 
 	// выбор модели и оригинального значения коэффициента
-	const sz_t	model	= _ind_spec<wnode::member_wc>(p, sb);
+	const sz_t	spec_model	= _ind_spec<wnode::member_wc>(p, sb);
+	#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+	const sz_t	sign_model	= _ind_sign<wnode::member_wc>(p, sb);
+	#endif
 	const wk_t	&wq		= _wtree.at(p).wq;
 
 	// Определение набора подбираемых значений
@@ -1209,12 +1332,24 @@ wk_t encoder::_coef_fix(const p_t &p, const subbands::subband_t &sb,
 
 	// начальные значения для поиска минимума RD функции
 	wk_t k_optim = w_vals[0];
-	j_t j_optim = _calc_rd_iteration(p, k_optim, lambda, model);
+	#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+		j_t j_optim = _calc_rd_iteration_se(p, sb, spec_model, sign_model,
+											k_optim, lambda);
+	#else
+		j_t j_optim = _calc_rd_iteration(p, k_optim, lambda, spec_model);
+	#endif
 
 	// поиск минимального значения RD функции
 	for (int i = 1; vals_count > i; ++i) {
 		const wk_t &k = w_vals[i];
-		const j_t j = _calc_rd_iteration(p, k, lambda, model);
+
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+			const j_t j = _calc_rd_iteration_se(p, sb, spec_model, sign_model,
+												k, lambda);
+		#else
+			const j_t j = _calc_rd_iteration(p, k, lambda, spec_model);
+		#endif
+
 		if (j < j_optim) {
 			j_optim = j;
 			k_optim = k;
@@ -1290,16 +1425,32 @@ void encoder::_coefs_fix_uni(const p_t &p, const subbands::subband_t &sb_j,
 j_t encoder::_calc_j1_value(const p_t &p, const subbands::subband_t &sb,
 							const lambda_t &lambda)
 {
-	// получение номера модели для кодирования коэффициентов
-	const sz_t model = _ind_spec<wnode::member_wc>(p, sb);
-
+	// Начальное значение RD функции Лагранжа
 	j_t j1 = 0;
 
 	for (wtree::coefs_iterator i = _wtree.iterator_over_children(p);
 		 !i->end(); i->next())
 	{
-		const wnode &node = _wtree.at(i->get());
-		j1 += _calc_rd_iteration(i->get(), node.wc, lambda, model);
+		// координаты обрабатываемого элемента
+		const p_t &q = i->get();
+
+		// ссылка на обрабатываемый элемент
+		const wnode &node = _wtree.at(q);
+
+		// номера моделей арифметического кодера для кодирования коэффициента
+		// (или его модуля) и его знака
+		const sz_t spec_model = _ind_spec<wnode::member_wc>(q, sb);
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+		const sz_t sign_model = _ind_sign<wnode::member_wc>(q, sb);
+		#endif
+
+		// Вычисление RD функции Лагранжа
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+			j1 += _calc_rd_iteration_se(q, sb, spec_model, sign_model,
+										node.wc, lambda);
+		#else
+			j1 += _calc_rd_iteration(q, node.wc, lambda, spec_model);
+		#endif
 	}
 
 	return j1;
@@ -1338,8 +1489,19 @@ j_t encoder::_calc_jx_value(const p_t &root, const j_t &j_map,
 		// получаем ссылку на саббенд в котором лежит рассматриваемый элемент
 		const subbands::subband_t &sb_i = sb.from_point(p, subbands::LVL_1);
 
-		j += _calc_rd_iteration(p, node.wc, lambda,
-								_ind_spec<wnode::member_wc>(p, sb_i));
+		// номера моделей арифметического кодера для кодирования коэффициента
+		// (или его модуля) и его знака
+		const sz_t spec_m = _ind_spec<wnode::member_wc>(p, sb_i);
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+		const sz_t sign_m = _ind_sign<wnode::member_wc>(p, sb_i);
+		#endif
+
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+			j += _calc_rd_iteration_se(p, sb_i, spec_m, sign_m,
+									   node.wc, lambda);
+		#else
+			j += _calc_rd_iteration(p, node.wc, lambda, spec_m);
+		#endif
 	}
 
 	wnode &node = _wtree.at(root);
@@ -2762,9 +2924,15 @@ encoder::_search_lambda_at_bpp(
 
 			// сужение диапазона поиска
 			if (bpp > result.bpp)
+			{
 				lambda_b = lambda_c;
+				result_b = result;
+			}
 			else
+			{
 				lambda_a = lambda_c;
+				result_a = result;
+			}
 
 			// проверить, достигнута ли нужная точность по lambda
 			if (lambda_eps >= abs(lambda_b - lambda_a)) break;
@@ -3027,10 +3195,18 @@ encoder::_search_q_lambda_for_bpp(
 		}
 		#endif
 
-		// if (0 == deviation) break;
+		#ifdef LIBWIC_DEBUG
+		if (0 != deviation && _dbg_out_stream.good())
+		{
+			_dbg_out_stream << std::endl;
+			_dbg_out_stream << "\t\tdeviation_b: " << deviation_b << ", "
+							<< "\t\tdeviation_c: " << deviation_c << ", ";
+		}
+		#endif
 
-        if (deviation > 0 || (0 == deviation && dw_b <= dw_c))
-        {
+		if ((0 == deviation)? (dw_b <= dw_c)
+							: (abs(deviation_b) <= abs(deviation_c)))
+		{
 			// вывод отладочной информации
 			#ifdef LIBWIC_DEBUG
 			if (_dbg_out_stream.good())
@@ -3039,10 +3215,11 @@ encoder::_search_q_lambda_for_bpp(
 			}
 			#endif
 
-            q_d = q_c;
-            q_c = q_b;
-            dw_c = dw_b;
-			q_b = q_a + factor_b * (q_d - q_a);
+			q_d			= q_c;
+			q_c			= q_b;
+			dw_c		= dw_b;
+			q_b			= q_a + factor_b * (q_d - q_a);
+			deviation_c	= deviation_b;
 			// a         b    c    d
 			// a    b    c    d
 
@@ -3063,17 +3240,18 @@ encoder::_search_q_lambda_for_bpp(
 			}
 			#endif
 
-            q_a = q_b;
-            q_b = q_c;
-            dw_b = dw_c;
-			q_c = q_a + factor_c * (q_d - q_a);
+			q_a			= q_b;
+			q_b			= q_c;
+			dw_b		= dw_c;
+			q_c			= q_a + factor_c * (q_d - q_a);
+			deviation_b	= deviation_c;
 			// a    b    c         d
 			//      a    b    c    d
 
 			result = result_c =
 					_search_q_lambda_for_bpp_iter(
 										q_c, bpp, bpp_eps, lambda_eps, models,
-										dw_c, deviation_b, virtual_encode,
+										dw_c, deviation_c, virtual_encode,
 										max_iterations, precise_bpp);
 			deviation = deviation_c;
         }

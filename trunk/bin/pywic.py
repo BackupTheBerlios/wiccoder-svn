@@ -15,7 +15,7 @@ def re_float_field(name):
 	return "([ \t]*" + name + ":[ \t]*)(?P<" + name + ">[-+]?[0-9]*\.?[0-9]+)"
 
 def re_acm_stat_begin(mode):
-	return "acoder::" + mode + "::model::(?P<no>[0-9]+)::(?P<size>[0-9]+)::(?P<delta>[-+]?[0-9]+)"
+	return "acoder::" + mode + "::model::(?P<no>[0-9]+)::(?P<size>[0-9]+)::(?P<delta>[-+]?[0-9]+)::(?P<abs_avg>[-+]?[0-9]*\.?[0-9]+)"
 
 def re_acm_stat_value(mode):
 	return "acoder::" + mode + "::value::(?P<no>[0-9]+)::(?P<i>[-+]?[0-9]+)::(?P<value>[-+]?[0-9]+)"
@@ -23,17 +23,18 @@ def re_acm_stat_value(mode):
 
 # Class that implements acoder model statistic
 class acm_stats:
-	def __init__(self, no, size, delta):
-		self.no		= no
-		self.size	= size
-		self.delta	= delta
-		self.stats	= [0]*size
+	def __init__(self, no, size, delta, abs_avg):
+		self.no			= no
+		self.size		= size
+		self.delta		= delta
+		self.stats		= [0]*size
+		self.abs_avg	= abs_avg
 	def set(self, i, p):
 		self.stats[i] = p
 	def setr(self, i, p):
 		self.stats[i - self.delta] = p
 	def show(self):
-		print "no: " + str(self.no) + "; size: " + str(self.size) + "; delta: "+str(self.delta)
+		print "no: " + str(self.no) + "; size: " + str(self.size) + "; delta: " + str(self.delta)+ "; abs_avg: " +str(self.abs_avg)
 		print "stats:", self.stats
 	def sub(self, other):
 		for i in range(0, min(len(self.stats), len(other.stats))):
@@ -107,7 +108,8 @@ def encode_image(src_image, wic_file, channel="r", verbose=None, *args, **vals):
 			no				= int(m.group("no"))
 			size			= int(m.group("size"))
 			delta			= int(m.group("delta"))
-			acs_init[no]	= acm_stats(no, size, delta)
+			abs_avg			= float(m.group("abs_avg"))
+			acs_init[no]	= acm_stats(no, size, delta, abs_avg)
 
 		m = re.compile(re_acm_stat_value("init")).search(line)
 		if m:
@@ -121,7 +123,8 @@ def encode_image(src_image, wic_file, channel="r", verbose=None, *args, **vals):
 			no				= int(m.group("no"))
 			size			= int(m.group("size"))
 			delta			= int(m.group("delta"))
-			acs_encd[no]	= acm_stats(no, size, delta)
+			abs_avg			= float(m.group("abs_avg"))
+			acs_encd[no]	= acm_stats(no, size, delta, abs_avg)
 
 		m = re.compile(re_acm_stat_value("encd")).search(line)
 		if m:
@@ -151,6 +154,8 @@ def plot_acoder_stats(acs_init, acs_encd, *args, **vals):
 	# Plot initialization stats
 	pylab.subplot(2, 1, 1)
 	for i in models_range:	#acs_init:
+		if not i in acs_init:
+			continue
 		stats = copy.deepcopy(acs_init[i].stats)
 		a = min(stats)
 		b = max(stats)
@@ -163,12 +168,16 @@ def plot_acoder_stats(acs_init, acs_encd, *args, **vals):
 
 	legend = []
 	for i in models_range:	#acs_init:
+		if not i in acs_init:
+			continue
 		legend.append(str(i) + " - "+ str(max(acs_init[i].stats)))
 	pylab.legend(tuple(legend))
 
 	# Plot encoded stats
 	pylab.subplot(2, 1, 2)
 	for i in models_range:	#acs_encd:
+		if not i in acs_encd:
+			continue
 		stats = copy.deepcopy(acs_encd[i].stats)
 		a = min(stats)
 		b = max(stats)
@@ -182,6 +191,8 @@ def plot_acoder_stats(acs_init, acs_encd, *args, **vals):
 
 	legend = []
 	for i in models_range:	#acs_encd:
+		if not i in acs_encd:
+			continue
 		legend.append(str(i) + " - "+ str(max(acs_encd[i].stats)))
 	pylab.legend(tuple(legend))
 
@@ -196,6 +207,66 @@ def plot_acoder_stats(acs_init, acs_encd, *args, **vals):
 
 	# Clear figure
 	#pylab.clf()
+
+
+
+# Writes acoder stats into file
+def write_acoder_stats(acs_init, acs_encd, *args, **vals):
+	
+	#if "models_range" in vals:
+	#	models_range = vals["models_range"]
+	#else:
+	#	models_range = []
+	#	for item in acs_init.keys():
+	#		if item in acs_encd.keys():
+	#			models_range.append(item)
+
+	# Write initialization stats
+	if "save_path" in vals:
+		f = open(vals["save_path"], "w")
+	else:
+		f = sys.stdout
+
+	f.write(80*"-" + "\n")
+
+	if "about" in vals:
+		f.write("About: " + str(vals["about"]) + "\n\n")
+
+	f.write("[Initialization]\n\n")
+	for i in acs_init:
+		mdlMin	= -acs_init[i].delta
+		mdlMax	= acs_init[i].size - acs_init[i].delta
+		stats	= acs_init[i].stats
+		abs_avg	= acs_init[i].abs_avg
+
+		f.write("Model " + str(i) + " [" + str(mdlMin) + ", " + str(mdlMax)+ "], abs_avg=" + str(abs_avg) + ":\n")
+
+		for j in range(0, len(stats)):
+			if 0 != j:
+				f.write(", ")
+			f.write(str(stats[j]))
+
+		f.write("\n\n");
+
+	f.write("[/Initialization]\n\n\n")
+
+	f.write("[Encoded]\n\n")
+	for i in acs_encd:
+		mdlMin	= -acs_encd[i].delta
+		mdlMax	= acs_encd[i].size - acs_encd[i].delta
+		stats	= acs_encd[i].stats
+
+		f.write("Model " + str(i) + " [" + str(mdlMin) + ", " + str(mdlMax)+ "]:\n")
+
+		for j in range(0, len(stats)):
+			if 0 != j:
+				f.write(", ")
+			f.write(str(stats[j]))
+
+		f.write("\n\n");
+
+	f.write("[/Encoded]\n\n\n")
+
 
 
 # Calculates psnr using wictool ------------------------------------------------

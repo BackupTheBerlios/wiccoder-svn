@@ -85,7 +85,31 @@
 /*!	Верхняя граница поиска параметра <i>lambda_t</i> будет
 	<i>(LAMBDA_SEARCH_K_HIGHT * q*q)</i>, где <i>q</i> текущий квантователь.
 */
-#define LAMBDA_SEARCH_K_HIGHT		(1.0f)	//(0.25f)
+#define LAMBDA_SEARCH_K_HIGHT		(2.0f)
+
+//!	\brief Погрешность подбора квантователя <i>q</i>
+/*! Используется функцией encode_fixed_lambda() для передачи в качестве
+	параметра функции _search_q_min_j() и функцией encode_fixed_bpp()
+	для передачи в качестве параметра функции _search_q_lambda_for_bpp().
+	Вычисления продолжаются до тех пор, пока разница между "правым" и
+	"левым" значением квантователя не станет меньше либо равна погрешности.
+*/
+#define DEFAULT_Q_EPSILON			(0.01f)
+
+//!	\brief Погрешность минимизации функции Лагранжа <i>j</i>
+/*!	Используется в функции encode_fixed_lambda() для передачи в качестве
+	параметра в функцию _search_q_min_j().
+*/
+#define DEFAULT_J_EPSILON			(0.0f)
+
+//!	\brief Погрешность попадания в целевой битрейт <i>bpp</i>
+#define DEFAULT_BPP_EPSILON			(0.001f)
+
+//!	\brief Погрешность подбора параметра <i>lambda</i>
+#define DEFAULT_LAMBDA_EPSILON		(0.000001f)
+
+//!	\brief Погрешность подбора параметра <i>lambda</i>
+#define SPECIAL_LAMBDA_EPSILON		(0.0f)
 
 //!	\brief Если данный макрос определён, для кодирования коэффициентов из
 //!	LL саббенда будет использован ДИКМ
@@ -98,8 +122,10 @@
 /*!	
 */
 #define ENCODE_SIGN_IN_SEPARATE_MODELS
-#undef	ENCODE_SIGN_IN_SEPARATE_MODELS
+// #undef	ENCODE_SIGN_IN_SEPARATE_MODELS
 
+//	Включает вывод отладочной информации в файл dumps/[encoder]debug.out
+// #define LIBWIC_DEBUG
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -123,7 +149,7 @@ public:
 
 	//!	\brief Номер модели, используемой для кодирования коэффициентов из
 	//!	LL саббенда
-	static const sz_t ACODER_SPEC_LL_MODELS		= 0;
+	static const sz_t ACODER_SPEC_LL_MODEL		= 0;
 
 	//!	\brief Количество моделей, используемых арифметическим кодером для
 	//!	кодирования коэффициентов
@@ -137,6 +163,10 @@ public:
 	//!	кодирования знаков коэффициентов
 	static const sz_t ACODER_SIGN_MODELS_COUNT	= 27*3;
 
+	//!	\brief Номер первой модели для кодирования знаков коэффициентов
+	/*!	Может быть использовано как смещение номеров моделей для кодирования
+		знаков, относительно 0.
+	*/
 	static const sz_t ACODER_SIGN_MODELS_OFFSET	= ACODER_SPEC_MODELS_COUNT +
 												  ACODER_MAP_MODELS_COUNT;
 
@@ -500,6 +530,10 @@ protected:
 	template <const wnode::wnode_members member>
 	sz_t _ind_spec(const p_t &p, const subbands::subband_t &sb)
 	{
+		// Проверка того, что координаты коэффициента лежат внутри указанного
+		// саббенда
+		assert(_wtree.sb().test(p, sb));
+
 		return _ind_spec(_wtree.calc_sj<member>(p.x, p.y, sb),
 						 sb.lvl);
 	}
@@ -603,10 +637,21 @@ protected:
 		_wtree.minmax<member>(_wtree.iterator_over_wtree(), w_min, w_max);
 
 		// +/-1 чтобы учесть корректировку
-		model.min = w_min - 1;
-		model.max = w_max + 1;
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+			// Модель для кодирования LL саббенда
+			model.min = w_min - 1;
+			model.max = w_max + 1;
+			models.push_back(model);
 
-		models.insert(models.end(), ACODER_SPEC_MODELS_COUNT, model);
+			// Модель для кодирования остальных саббендов
+			model.min = 1;
+			model.max = std::max(abs(w_min - 1), abs(w_max + 1));
+			models.insert(models.end(), ACODER_SPEC_MODELS_COUNT - 1, model);
+		#else
+			model.min = w_min - 1;
+			model.max = w_max + 1;
+			models.insert(models.end(), ACODER_SPEC_MODELS_COUNT, model);
+		#endif
 
 		// создание моделей для кодирования групповых признаков подрезания
 		model.min = 0;
@@ -664,6 +709,11 @@ protected:
 	//! Реализует функцию <i>H<sub>spec</sub></i>.
 	h_t _h_spec(const sz_t m, const wk_t &wk);
 
+	//! \brief Подсчитывает битовые затраты для кодирования коэффициента для
+	//!	режима отдельного кодирования модуля коэффициента и его знака.
+	//! Реализует функцию <i>H<sub>spec</sub></i>.
+	h_t _h_spec_se(const wk_t &wk, const sz_t spec_m, const sz_t sign_m);
+
 	//! \brief Подсчитывает битовые затраты для кодирования группового
 	//! признака подрезания ветвей. Реализует функцию <i>H<sub>map</sub></i>.
 	h_t _h_map(const sz_t m, const n_t &n);
@@ -703,6 +753,14 @@ protected:
 	//!	если бы он находился на определённых координатах.
 	j_t _calc_rd_iteration(const p_t &p, const wk_t &k,
 						   const lambda_t &lambda, const sz_t &model);
+
+	//!	\brief Подсчитывает значение <i>RD</i> функции <i>Лагранжа</i>
+	//! для значения коэффициента при кодировании его арифметическим кодером,
+	//!	если бы он находился на определённых координатах. Вариант для
+	//!	раздельного кодирования знака.
+	j_t _calc_rd_iteration_se(const p_t &p, const subbands::subband_t &sb,
+							  const sz_t spec_m, const sz_t sign_m,
+							  const wk_t &k, const lambda_t &lambda);
 
 	//! \brief Ищет оптимальное откорректированное значение для коэффициента
 	wk_t _coef_fix(const p_t &p, const subbands::subband_t &sb,
@@ -989,7 +1047,7 @@ protected:
 
 	//!	\brief Возвращает реальные средние битовые затраты на кодирование
 	//!	одного элемента изображения (пикселя)
-	h_t _calc_encoded_bpp(const bool including_tunes = true);
+	h_t _calc_encoded_bpp(const bool including_tunes = false);
 
 	//@}
 

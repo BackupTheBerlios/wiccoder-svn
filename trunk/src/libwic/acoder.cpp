@@ -198,7 +198,8 @@ void acoder::encode_stop()
 
 		std::cout << std::endl
 			  << "acoder::encd::model::" << i << "::" << model._symbols
-			  << "::" << model._delta << std::endl;
+			  << "::" << model._delta << "::" << model.abs_avg
+			  << std::endl;
 
 		const std::vector<unsigned int> &freqs = model._encoded_freqs;
 
@@ -623,7 +624,8 @@ void acoder::_init_normal_distribution(const float &factor, const float &sigma,
 	#ifdef LIBWIC_ACODER_PRINT_STATISTIC
 	std::cout << std::endl
 			  << "acoder::init::model::" << i << "::" << model._symbols
-			  << "::" << model._delta << std::endl;
+			  << "::" << model._delta  << "::" << model.abs_avg
+			  << std::endl;
 	#endif
 
 	// Вычисление вероятности для каждого символа в модели
@@ -676,11 +678,22 @@ void acoder::_init_normal_distribution(const float &factor, const float &sigma,
 
 
 
-/**
-*
+/*!	\param[in] lambda Параметр lambda распределения лапласа
+	\param[in] power Степень в котору будет возведён аргумент x в
+	распределении лапласа.
+	\param[in] factor Множитель, на который будет умножено значение
+	вероятности по формуле распределения Лапласа. Полученное значение будет
+	использоваться как количество вызовов функции update_model()
+	арифметического кодера.
+	\param[in] part Часть диапазона модели, которая будет инициализирована.
+	\param[in,out] coder_base Указатель на объект используемого
+	арифметического кодера
+	\param[in] i Номер используемой модели
+	\param[in] purge Если <i>true</i> инициализация модели производится не
+	будет
 */
-void acoder::_init_laplace_distribution(const float &factor,
-										const float &lambda,
+void acoder::_init_laplace_distribution(const float &lambda, const float &power,
+										const float &factor, const float &part,
 										arcoder_base *const coder_base,
 										const sz_t &i, const bool purge)
 {
@@ -688,12 +701,10 @@ void acoder::_init_laplace_distribution(const float &factor,
 	assert(0 != coder_base);
 	assert(0 != lambda);
 	assert(0 != factor);
+	assert(1 <= part);
 
 	// Установка текущей модели
 	coder_base->model(i);
-
-	// Подсчёт часто используемых значений
-	const float lambda_2	= float(lambda / 2);
 
 	// Ссылка на описание используемой модели
 	const model_t &model = _models[i];
@@ -705,14 +716,29 @@ void acoder::_init_laplace_distribution(const float &factor,
 	#ifdef LIBWIC_ACODER_PRINT_STATISTIC
 	std::cout << std::endl
 			  << "acoder::init::model::" << i << "::" << model._symbols
-			  << "::" << model._delta << std::endl;
+			  << "::" << model._delta << "::" << model.abs_avg
+			  << std::endl;
 	#endif
+
+	// вычисление предела инициализации
+	value_type limit;
+
+	if (0 <= model.min && 0 <= model.max)
+	{
+		const float min_d = float(model.max - model.min);
+		limit = (value_type)floor(min_d / part + 0.5f) - model._delta;
+	}
+	else
+	{
+		const float min_d = float(std::min(abs(model.min), abs(model.max)));
+		limit = (value_type)floor(min_d / part + 0.5f);
+	}
 
 	// Вычисление вероятности для каждого символа в модели
 	for (value_type x = model.min; model.max >= x; ++x)
 	{
-		// Вероятность умноженая на масштабный коэффициент
-		const float p = factor*lambda_2*exp(-lambda*abs(x));
+		// Вероятность появления символаи
+		const float p = _laplace_func(lambda, x, power);
 
 		// Символ из модели аркодера (не отритцательный)
 		const value_type smb = x + model._delta;
@@ -721,7 +747,8 @@ void acoder::_init_laplace_distribution(const float &factor,
 		assert(0 <= smb);
 
 		// Целочисленное значение полученной вероятности
-		const unsigned int ip = (unsigned int)floor(p + 0.5);
+		const unsigned int ip = (abs(x) <= limit)
+									? (unsigned int)floor(factor*p + 0.5f) : 0;
 
 		#ifdef LIBWIC_DEBUG
 		freqs[smb] = ip;
@@ -750,9 +777,9 @@ void acoder::_init_laplace_distribution(const float &factor,
 
 	_dbg_out_stream << std::endl;
 
-	_dbg_out_stream << "[_init_normal_distribution]" << std::endl;
+	_dbg_out_stream << "[_init_laplace_distribution]" << std::endl;
 	_dbg_freqs_out(_dbg_out_stream, freqs, model, i, coder_base);
-	_dbg_out_stream << "[/_init_normal_distribution]" << std::endl;
+	_dbg_out_stream << "[/_init_laplace_distribution]" << std::endl;
 	#endif
 }
 
@@ -864,7 +891,7 @@ void acoder::_init_models(arcoder_base *const coder_base)
 	{
 		// init_mode_laplace ---------------------------------------------------
 		static const float scales[6]	= {0.0f, 250.0f,  455.0f, 891.0f, 1400.0f, 1500.0f};
-		static const float factors[6]	= {0.0f, 1.0f,    1.0f,   1.0f,   1.0f,    1.0f};
+		static const float powers[6]	= {0.0f, 1.0f,	  1.1f,   1.3f,   1.5f,    2.0f};
 		static const float lambdas[6]	= {0.0f, 0.05f,   0.2f,   0.6f,   1.0f,    1.5f};
 
 		for (unsigned int i = 1; 6 > i; ++i)
@@ -875,7 +902,7 @@ void acoder::_init_models(arcoder_base *const coder_base)
 									? 1.0f / float(abs(model.abs_avg) + 1)
 									: lambdas[i];
 
-			_init_laplace_distribution(scales[i], factors[i]*lambda,
+			_init_laplace_distribution(lambda, powers[i], 1024, 2.0f,
 									   coder_base, i);
 		}
 	}

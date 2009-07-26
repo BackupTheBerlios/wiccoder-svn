@@ -35,8 +35,8 @@
 /*!	\note Было замечано, что при выключение этого макроса результаты
 	ухудшаются.
 */
-#define	RECALC_PI_FACTOR_ON_EDGES
-// #undef	RECALC_PI_FACTOR_ON_EDGES
+#define RECALC_PI_FACTOR_ON_EDGES
+//#undef RECALC_PI_FACTOR_ON_EDGES
 
 //!	\brief Если макрос определён, то веса граничных элементов  при подсчёте
 //!	прогноза <i>S<sub>j</sub></i> будут пересчитанны в соответствии с
@@ -44,8 +44,15 @@
 /*!	\note Было замечано, что при выключение этого макроса результаты
 	ухудшаются.
 */
-#define	RECALC_SJ_FACTOR_ON_EDGES
-// #undef	RECALC_SJ_FACTOR_ON_EDGES
+#define RECALC_SJ_FACTOR_ON_EDGES
+//#undef RECALC_SJ_FACTOR_ON_EDGES
+
+//!	\brief
+#define ADVANCED_SIGN_NUM
+//#undef ADVANCED_SIGN_NUM
+
+#define ADVANCED_CALC_SJ
+//#undef ADVANCED_CALC_SJ
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -646,23 +653,133 @@ public:
 		// смещение для верхних коэффициентов
 		static const dsz_t	top		= (-1);
 		// смещение для боковых коэффициентов
-			const dsz_t	side	= (going_left)? (+1): (-1);
-		
+		const dsz_t	side	= (going_left)? (+1): (-1);
+
+		#ifdef ADVANCED_CALC_SJ
+		// Ниже используются следующие сокращения:
+		// HL - саббэнд, располагающийся над саббэндом HH
+		// LH - саббэнд, располагающийся слева от саббэнда HH
+		// HH - диагональный саббэнд
+
+		// Структура описывает смещение коэффициента, используемого для
+		// вычисления прогноза (dx, dy), а также вес этого коэффициента
+		// при вычислении взвешенной суммы (k). Структура имеет
+		// вспомогательный метод для вычисления значения элемента
+		// взвешенной суммы, связанного с описываемым соседним
+		// коэффициентом (cv()), а также метод, проверяющий лежит ли
+		// ассоциированный соседний коэффициент в указанном саббенде (test()).
+		struct k_t
+		{
+			// Смещение по горизонтале. Смещение будет производиться
+			// относительно текущего направления обхода (параметр going_left
+			// и переменная side). При положительном значении члена dx
+			// (например, dx = 1) будем взят соседний элемент который уже
+			// был рассмотрен ранее (справа, при направлении обхода влево).
+			// При отрицательном значении параметра dx (например, dx = -1)
+			// будет взят соседний элемент, который ранее не был рассмотрен
+			// (слева, при направлении обхода влево).
+			sz_t dx;
+			// Смещение по вертикале. Положительные значения соответствуют
+			// элементам сверху.
+			sz_t dy;
+			// Вес коэффициента в звешанной сумму
+			pi_t k;
+
+			// Вычисляет элемент взвешенной суммы связанный с описываемым
+			// соседним элементом
+			pi_t cv(const sz_t x, const sz_t y, const subbands::subband_t &sb,
+					const sz_t aside, const wtree *const t) const
+			{
+				return k * abs(t->get_safe<member>(x + aside*dx, y - dy, sb));
+			}
+
+			// Проверяет, лежит ли ассоциированный соседний элемент в
+			// указанном саббэнде, при выбранном направлении обхода
+			bool test(const sz_t x, const sz_t y, const subbands::subband_t &sb,
+					  const sz_t aside, const wtree *const t) const
+			{
+				return t->_subbands->test(p_t(x + aside*dx, y - dy), sb);
+			}
+		};
+
+		// Для саббенда HL (верхний)
+		static const k_t HL_k0 = {0, 2, 0.4};	//           0.4
+		static const k_t HL_k1 = {0, 1, 1.3};	//           1.0
+		static const k_t HL_k2 = {1, 0, 1.0};	//      1.0  X
+
+		// Для саббенда LH (левый)
+		static const k_t LH_k0 = {2, 0, 0.4};	//
+		static const k_t LH_k1 = {1, 0, 1.0};	//           1.0
+		static const k_t LH_k2 = {0, 1, 1.3};	// 0.4  1.0  X
+
+		// Для саббенда HH (диагональный)
+		static const k_t HH_k0 = {1, 1, 1.0};	//
+		static const k_t HH_k1 = {0, 1, 1.0};	//      0.4  1.0
+		static const k_t HH_k2 = {1, 0, 1.0};	//      1.0  X
+
+		// Знаменатели взвешанных сумм
+		static const pi_t HL_sum = HL_k0.k + HL_k1.k + HL_k2.k;
+		static const pi_t LH_sum = LH_k0.k + LH_k1.k + LH_k2.k;
+		static const pi_t HH_sum = HH_k0.k + HH_k1.k + HH_k2.k;
+
+		#endif
+
 		#ifdef RECALC_SJ_FACTOR_ON_EDGES
 		pi_t sums = 0;
 		#endif
 
 		// подсчёт взвешанной суммы
-		pi_t sum = 0.4 * abs(pi_t(get_safe<member>(x + side, y + top, sb))) +
-						 abs(pi_t(get_safe<member>(x + side, y      , sb))) +
-						 abs(pi_t(get_safe<member>(x       , y + top, sb)));
+		#ifdef ADVANCED_CALC_SJ
+			pi_t sum = 0;
+			pi_t v_max = 0;
+			switch (sb.i)
+			{
+			case subbands::SUBBAND_HL:
+				sum = HL_k0.cv(x, y, sb, side, this) +
+					  HL_k1.cv(x, y, sb, side, this) +
+					  HL_k2.cv(x, y, sb, side, this);
+				if (HL_k0.test(x, y, sb, side, this)) sums += HL_k0.k;
+				if (HL_k1.test(x, y, sb, side, this)) sums += HL_k1.k;
+				if (HL_k2.test(x, y, sb, side, this)) sums += HL_k2.k;
+				break;
+
+			case subbands::SUBBAND_LH:
+				sum = LH_k0.cv(x, y, sb, side, this) +
+					  LH_k1.cv(x, y, sb, side, this) +
+					  LH_k2.cv(x, y, sb, side, this);
+				if (LH_k0.test(x, y, sb, side, this)) sums += LH_k0.k;
+				if (LH_k1.test(x, y, sb, side, this)) sums += LH_k1.k;
+				if (LH_k2.test(x, y, sb, side, this)) sums += LH_k2.k;
+				break;
+
+			case subbands::SUBBAND_HH:
+				sum = HH_k0.cv(x, y, sb, side, this) +
+					  HH_k1.cv(x, y, sb, side, this) +
+					  HH_k2.cv(x, y, sb, side, this);
+				if (HH_k0.test(x, y, sb, side, this)) sums += HH_k0.k;
+				if (HH_k1.test(x, y, sb, side, this)) sums += HH_k1.k;
+				if (HH_k2.test(x, y, sb, side, this)) sums += HH_k2.k;
+				break;
+
+			default:
+				assert("invalid subband index");
+			}
+		#else
+			pi_t sum = 0.4 * abs(pi_t(get_safe<member>(x + side, y + top, sb))) +
+							 abs(pi_t(get_safe<member>(x + side, y      , sb))) +
+							 abs(pi_t(get_safe<member>(x       , y + top, sb)));
+		#endif
 
 		#ifdef RECALC_SJ_FACTOR_ON_EDGES
-		if (_subbands->test(p_t(x + side, y + top), sb)) sums += 0.4;
-		if (_subbands->test(p_t(x + side, y      ), sb)) sums += 1;
-		if (_subbands->test(p_t(x       , y + top), sb)) sums += 1;
+			#ifdef ADVANCED_CALC_SJ
+				// sums уже имеет верное значение
+			#else
+				if (_subbands->test(p_t(x + side, y + top), sb)) sums += 0.4;
+				if (_subbands->test(p_t(x + side, y      ), sb)) sums += 1;
+				if (_subbands->test(p_t(x       , y + top), sb)) sums += 1;
+			#endif
 
-		if (0 != sums) sum = (2.4 * sum / sums);
+			if (0 != sums) sum = (2.4 * sum / sums);
 		#endif
 
 		// родительский коэффициент
@@ -756,19 +873,57 @@ public:
 	typename sz_t sign_num(const p_t &p, const subbands::subband_t &sb,
 						   const sz_t &offset = 0) const
 	{
+		// Проверка номера саббенда
+		assert(subbands::SUBBAND_HL == sb.i ||
+			   subbands::SUBBAND_LH == sb.i ||
+			   subbands::SUBBAND_HH == sb.i);
+
 		// Коэффициенты многочлена
 		static const sz_t ck0 = 1;
 		static const sz_t ck1 = wnode::signp_max() + 1;
 		static const sz_t ck2 = ck1 * ck1;
 		static const sz_t ck3 = ck1 * ck1 * ck1;
 
-		// Определение направления прохода по номеру строки
+		// Определение направления прохода по номеру строки.
+		// +1 для чётных строк (проход слева направо)
+		// -1 для нечётных строк (проход справо налево)
 		const sz_t dx = (0 == (p.y % 2))? +1: -1;
 
+		// Значения соседних коэффициентов
+		sz_t shh;
+		sz_t shl;
+		sz_t slh;
+
 		// Определение знаков соседних коэффициентов
-		const sz_t shh = wnode::signp(get_safe<member>(p.x - dx, p.y - 1, sb));
-		const sz_t shl = wnode::signp(get_safe<member>(p.x - dx, p.y,     sb));
-		const sz_t slh = wnode::signp(get_safe<member>(p.x,     p.y - 1, sb));
+		#ifdef ADVANCED_SIGN_NUM
+			switch (sb.i)
+			{
+			case subbands::SUBBAND_HL:
+				shh = wnode::signp(get_safe<member>(p.x,        p.y - 2, sb));
+				shl = wnode::signp(get_safe<member>(p.x,        p.y - 1, sb));
+				slh = wnode::signp(get_safe<member>(p.x - dx,   p.y,     sb));
+				break;
+
+			case subbands::SUBBAND_LH:
+				shh = wnode::signp(get_safe<member>(p.x,        p.y - 1, sb));
+				shl = wnode::signp(get_safe<member>(p.x - dx,   p.y,     sb));
+				slh = wnode::signp(get_safe<member>(p.x - 2*dx, p.y,     sb));
+				break;
+
+			case subbands::SUBBAND_HH:
+				shh = wnode::signp(get_safe<member>(p.x - dx,  p.y - 1, sb));
+				shl = wnode::signp(get_safe<member>(p.x - dx,  p.y,     sb));
+				slh = wnode::signp(get_safe<member>(p.x,       p.y - 1, sb));
+				break;
+
+			default:
+				assert("invalid subband index");
+			}
+		#else
+			shh = wnode::signp(get_safe<member>(p.x - dx, p.y - 1, sb));
+			shl = wnode::signp(get_safe<member>(p.x - dx, p.y,     sb));
+			slh = wnode::signp(get_safe<member>(p.x,      p.y - 1, sb));
+		#endif
 
 		// Вычисление формулы
 		return (ck0*shh + ck1*shl + ck2*slh + ck3*sb.i + offset);
