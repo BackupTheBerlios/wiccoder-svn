@@ -10,8 +10,8 @@ from pywic import *
 images_dir		= "../res/images/"
 working_dir		= "./tmp/"
 
-####images			= ["lenaD.bmp", "barbaraD.bmp", "goldhillD.bmp"]
-images			= ["lenaR.bmp", "barbaraR.bmp", "goldhillR.bmp"]
+images			= ["lenaD.bmp", "barbaraD.bmp", "goldhillD.bmp"]
+#images			= ["lenaR.bmp", "barbaraR.bmp", "goldhillR.bmp"]
 #images			= ["lenaR.bmp"]
 # filters			= ["Antonini", "cdf97", "Petuhov1"]
 #filters			= ["Antonini", "Petuhov1"]
@@ -55,7 +55,7 @@ def main():
 				decode_image(wic_file, dest_image)
 				psnr = calc_psnr(src_image, dest_image)
 
-				do_plot_acoder_stats = True;
+				do_plot_acoder_stats = False;
 
 				# Plot acoder stats
 				if do_plot_acoder_stats:
