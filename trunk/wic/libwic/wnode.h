@@ -70,6 +70,8 @@ struct wnode {
 	n_t n;
 	//!	\brief Флаг, указывающий, попал коэффициент в подрезанную ветвь или нет
 	bool invalid;
+	//!	\brief Модель использованная для кодирования знака коэффициента
+	sz_t ms;
 
 	//! \brief Производит округление до ближайшего целого
 	/*!	\param[in] w Число с плавающей запятой
@@ -175,7 +177,8 @@ struct wnode {
 		member_j0,			//!< \brief Соответствует полю j0
 		member_j1,			//!< \brief Соответствует полю j1
 		member_n,			//!< \brief Соответствует полю n
-		member_invalid		//!< \brief Соответствует полю invalid
+		member_invalid,		//!< \brief Соответствует полю invalid
+		member_ms,			//!< \brief Соответствует полю ms
 	};
 
 	//! \brief Шаблон для выбора подходящего типа
@@ -226,6 +229,12 @@ struct wnode {
 	template <>
 	struct type_selector<member_invalid> {
 		typedef bool result;
+	};
+
+	//! \brief Специализация для поля ms
+	template <>
+	struct type_selector<member_ms> {
+		typedef sz_t result;
 	};
 
 	//! \brief Шаблонная структура, которая имеет метод, возвращающий
@@ -292,6 +301,14 @@ struct wnode {
 	struct field<member_invalid> {
 		static type_selector<member_invalid>::result &get(wnode &node) {
 			return node.invalid;
+		}
+	};
+
+	//! \brief Специализация для поля ms
+	template <>
+	struct field<member_ms> {
+		static type_selector<member_ms>::result &get(wnode &node) {
+			return node.ms;
 		}
 	};
 
