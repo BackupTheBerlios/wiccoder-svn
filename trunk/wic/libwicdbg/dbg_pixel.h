@@ -44,6 +44,10 @@ struct dbg_pixel
 	//!	<i>wc</i>
 	wic::sz_t wc_model;
 
+	//!	\brief Номер модели, в которую попал знак закодированного коэффициента
+	//!	<i>wc</i>
+	wic::sz_t sign_model;
+
 	//!	\brief Признак подрезания ветвей
 	wic::n_t n;
 
@@ -58,8 +62,9 @@ struct dbg_pixel
 	{
 		member_wc,			//!< \brief Соответствует полю wc
 		member_wc_model,	//!< \brief Соответствует полю wc_model
+		member_sign_model,	//!< \brief Соответствует полю sign_model
 		member_n,			//!< \brief Соответствует полю n
-		member_n_model		//!< \brief Соответствует полю n_model
+		member_n_model,		//!< \brief Соответствует полю n_model
 	};
 
 	// public types ------------------------------------------------------------
@@ -81,6 +86,12 @@ struct dbg_pixel
 	//! \brief Специализация для поля wc_model
 	template <>
 	struct type_selector<member_wc_model> {
+		typedef wic::sz_t result;
+	};
+
+	//! \brief Специализация для поля sign_model
+	template <>
+	struct type_selector<member_sign_model> {
 		typedef wic::sz_t result;
 	};
 
@@ -120,6 +131,14 @@ struct dbg_pixel
 	struct field<member_wc_model> {
 		static type_selector<member_wc_model>::result &get(dbg_pixel &pixel) {
 			return pixel.wc_model;
+		}
+	};
+
+	//! \brief Специализация для поля sign_model
+	template <>
+	struct field<member_sign_model> {
+		static type_selector<member_sign_model>::result &get(dbg_pixel &pixel) {
+			return pixel.sign_model;
 		}
 	};
 
