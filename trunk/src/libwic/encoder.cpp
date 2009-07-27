@@ -614,6 +614,9 @@ void encoder::decode(const byte_t *const data, const sz_t data_sz,
 
 	// инициализация спектра перед кодированием
 	_wtree.wipeout();
+	#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+	_wtree.set_field<wnode::member_ms>(0);
+	#endif
 
 	// установка характеристик моделей
 	_acoder.use(_mk_acoder_models(tunes.models));
@@ -627,6 +630,8 @@ void encoder::decode(const byte_t *const data, const sz_t data_sz,
 
 	// деквантование
 	_wtree.dequantize<wnode::member_wc>(tunes.q);
+
+	// Дополнительная фильтрация
 }
 
 
@@ -1192,6 +1197,10 @@ wk_t encoder::_decode_spec(const sz_t m)
 	return _acoder.get<wk_t>(m);
 }
 
+
+/*!	\param[in] spec_m Номер модели для декодирования модуля коэффициента
+	\param[in] sign_m Номер модели для декодирования знака коэффициента
+*/
 wk_t encoder::_decode_spec_se(const sz_t spec_m, const sz_t sign_m)
 {
 	// Проверка специального случая, чтобы удостовериться что нулевая модель
@@ -1897,6 +1906,7 @@ void encoder::_encode_wtree_root(const bool decode_mode)
 			// декодирование коэффициента
 			#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
 				node.wc = _decode_spec_se(spec_LL_model, sign_LL_model);
+				node.ms = sign_LL_model;
 			#else
 				node.wc = _decode_spec(spec_LL_model);;
 			#endif
@@ -1913,6 +1923,19 @@ void encoder::_encode_wtree_root(const bool decode_mode)
 			// порождение ветвей в соответствии с полученным признаком
 			// подрезания
 			_wtree.uncut_leafs(p_i, node.n);
+
+			#ifdef LIBWIC_USE_DBG_SURFACE
+			// запись информации о декодируемых коэффициентах и признаках
+			// подрезания в отладочную поверхность
+			wicdbg::dbg_pixel &dbg_pixel = _dbg_dec_surface.get(p_i);
+			dbg_pixel.wc				= node.wc;
+			dbg_pixel.wc_model			= spec_LL_model;
+				#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+				dbg_pixel.sign_model	= sign_LL_model;
+				#endif
+			dbg_pixel.n					= node.n;
+			dbg_pixel.n_model			= map_LL_model;
+			#endif
 		}
 		else
 		{
@@ -1965,32 +1988,44 @@ void encoder::_encode_wtree_root(const bool decode_mode)
 				const sz_t sign_model = _ind_sign<wnode::member_wc>(p, sb);
 			#endif
 
-			// ссылка на (де)кодируемый коэффициент
-			wk_t &wc = _wtree.at(p).wc;
+			// ссылка на (де)кодируемый элемент
+			wnode &node = _wtree.at(p);
 
 			// (де)кодирование дочерендного коэффициента
 			if (decode_mode)
 			{
 				#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
-					wc = _decode_spec_se(spec_1_model, sign_model);
+					node.wc = _decode_spec_se(spec_1_model, sign_model);
+					node.ms = sign_model;
 				#else
-					wc = _decode_spec(spec_1_model);
+					node.wc = _decode_spec(spec_1_model);
+				#endif
+
+				// запись информации о кодируемом коэффициенте в отладочную
+				// поверхность
+				#ifdef LIBWIC_USE_DBG_SURFACE
+				wicdbg::dbg_pixel &dbg_pixel = _dbg_dec_surface.get(p);
+				dbg_pixel.wc				= node.wc;
+				dbg_pixel.wc_model			= spec_1_model;
+					#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+					dbg_pixel.sign_model	= sign_model;
+					#endif
 				#endif
 			}
 			else
 			{
 				#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
-					_encode_spec_se(wc, spec_1_model, sign_model);
+					_encode_spec_se(node.wc, spec_1_model, sign_model);
 				#else
-					_encode_spec(spec_1_model, wc);
+					_encode_spec(spec_1_model, node.wc);
 				#endif
 
 				// запись информации о кодируемом коэффициенте в отладочную
 				// поверхность
 				#ifdef LIBWIC_USE_DBG_SURFACE
 				wicdbg::dbg_pixel &dbg_pixel = _dbg_enc_surface.get(p);
-				dbg_pixel.wc		= wc;
-				dbg_pixel.wc_model	= spec_1_model;
+				dbg_pixel.wc				= node.wc;
+				dbg_pixel.wc_model			= spec_1_model;
 				#endif
 			}
 		}
@@ -2050,6 +2085,7 @@ void encoder::_encode_wtree_level(const sz_t lvl,
 			{
 				#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
 					node_g.wc = _decode_spec_se(spec_model, sign_model);
+					node_g.ms = sign_model;
 				#else
 					node_g.wc = _decode_spec(spec_model);
 				#endif
@@ -2058,8 +2094,11 @@ void encoder::_encode_wtree_level(const sz_t lvl,
 				// поверхность
 				#ifdef LIBWIC_USE_DBG_SURFACE
 				wicdbg::dbg_pixel &dbg_pixel = _dbg_dec_surface.get(p_g);
-				dbg_pixel.wc		= node_g.wc;
-				dbg_pixel.wc_model	= spec_model;
+				dbg_pixel.wc				= node_g.wc;
+				dbg_pixel.wc_model			= spec_model;
+					#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+					dbg_pixel.sign_model	= sign_model;
+					#endif
 				#endif
 			}
 			else
@@ -2197,6 +2236,10 @@ void encoder::_encode_wtree(const bool decode_mode)
 			("dumps/[decoder]dbg_dec_suface.wc.txt", false);
 		_dbg_dec_surface.save<wicdbg::dbg_pixel::member_wc_model>
 			("dumps/[decoder]dbg_dec_suface.wc_model.bmp", true);
+		#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
+		_dbg_dec_surface.save<wicdbg::dbg_pixel::member_sign_model>
+			("dumps/[decoder]dbg_dec_suface.sign_model.bmp", true);
+		#endif
 		_dbg_dec_surface.save<wicdbg::dbg_pixel::member_n>
 			("dumps/[decoder]dbg_dec_suface.n.bmp", true);
 	}
