@@ -64,11 +64,12 @@ void dbg_surface::clear()
 	// очистка поверхности
 	for (wic::sz_t i = 0; _sz > i; ++i)
 	{
-		dbg_pixel &pixel = _surface[i];
-		pixel.wc		= 0;
-		pixel.wc_model	= INVALID_MODEL;
-		pixel.n			= 0;
-		pixel.n_model	= INVALID_MODEL;
+		dbg_pixel &pixel	= _surface[i];
+		pixel.wc			= 0;
+		pixel.wc_model		= INVALID_MODEL;
+		pixel.sign_model	= INVALID_MODEL;
+		pixel.n				= 0;
+		pixel.n_model		= INVALID_MODEL;
 	}
 }
 

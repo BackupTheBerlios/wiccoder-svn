@@ -55,7 +55,7 @@ public:
 	// public constants --------------------------------------------------------
 
 	//!	\brief Номер не существующей модели арифметического кодера
-	static const wic::sz_t INVALID_MODEL	= 0x0F;
+	static const wic::sz_t INVALID_MODEL	= wic::MAX_ACODER_MODELS;
 
 	// public methods ----------------------------------------------------------
 
