@@ -1009,6 +1009,34 @@ double acoder::_entropy_eval(arcoder_base *const coder_base,
 }
 
 
+/*! \param[in] coder_base Базовый класс для арифметических енкодера и
+	декодера
+	\param[in] value Значение, символ из алфавита модели
+	\param[in] model_no Номер используемой модели
+	\return Нормализованное количество символов, попавших в модель
+*/
+int acoder::_freq_eval(arcoder_base *const coder_base,
+					   const value_type &value, const sz_t model_no)
+{
+	// проверка утверждений
+	assert(0 != coder_base);
+	assert(coder_base->Models().Size() == _models.size());
+	assert(0 <= model_no && model_no < int(_models.size()));
+
+	const model_t &model = _models[model_no];
+
+	assert(model.min <= value && value <= model.max);
+
+	// выбор модели
+	coder_base->model(model_no);
+
+	// индекс символа в модели
+	const long index = coder_base->char_to_index()[value + model._delta];
+
+	return (0 == index)? 0: coder_base->freq()[index];
+}
+
+
 #ifdef LIBWIC_DEBUG
 /*!	\param[out] out Стандартный поток для вывода
 	\param[in] freqs Вектор частот символов

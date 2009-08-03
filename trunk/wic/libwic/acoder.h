@@ -330,6 +330,27 @@ public:
 							 model_no);
 	}
 
+	//!	\brief Возвращает нормализованное количество символов, попавших в модель
+	/*!	\param[in] param Значение, символ из алфавита модели
+		\param[in] model_no Номер используемой модели
+		\param[in] kind Тип группы моделей:
+		- encoder_models - кодер
+		- decoder_models - декодер
+		\return Нормализованное количество символов, попавших в модель
+	*/
+	template <models_e kind, class param_t>
+	int freq_eval(const param_t &param, const sz_t model_no)
+	{
+		assert(sizeof(param_t) <= sizeof(value_type));
+		assert(encoder_models == kind || decoder_models == kind);
+
+		arcoder_base *const coder = (kind == encoder_models)
+									? (arcoder_base *)_aencoder
+									: (arcoder_base *)_adecoder;
+		return _freq_eval(coder, static_cast<const value_type &>(param),
+						  model_no);
+	}
+
 	//@}
 
 	//!	\name Функции декодера
@@ -442,6 +463,10 @@ protected:
 	//!	\brief Подсчёт битовых затрат на кодирование символа
 	double _entropy_eval(arcoder_base *const coder_base,
 						 const value_type &value, const sz_t model_no);
+
+	//!	\brief Возвращает нормализованное количество символов, попавших в модель
+	int _freq_eval(arcoder_base *const coder_base,
+				   const value_type &value, const sz_t model_no);
 
 	//@}
 

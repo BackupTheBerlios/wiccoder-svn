@@ -42,10 +42,14 @@ bool test_acoder_integration()
 	models.push_back(model2);
 
 	// create arcoder and strings
-	std::string expected = "abcdefghijklmnopqrstuvwxyz";
+	std::string expected = "abcdefghijklmnopqrstuvwxyzaaaa";
 	std::string decoded = "";
 	wic::acoder coder((wic::sz_t) expected.length());
+	coder.init_mode(wic::acoder::init_mode_none);
 	coder.use(models);
+
+	// нормализованное количество символов в модели
+	int freq;
 
 	// encode
 	coder.encode_start();
@@ -55,6 +59,19 @@ bool test_acoder_integration()
 	}
 	coder.encode_stop();
 
+	freq = coder.freq_eval<wic::acoder::encoder_models>('a', 0);
+	if (2 != freq) return false;
+	freq = coder.freq_eval<wic::acoder::encoder_models>('a', 1);
+	if (1 != freq) return false;
+	freq = coder.freq_eval<wic::acoder::encoder_models>('a', 2);
+	if (2 != freq) return false;
+	freq = coder.freq_eval<wic::acoder::decoder_models>('a', 0);
+	if (0 != freq) return false;
+	freq = coder.freq_eval<wic::acoder::decoder_models>('a', 1);
+	if (0 != freq) return false;
+	freq = coder.freq_eval<wic::acoder::decoder_models>('a', 2);
+	if (0 != freq) return false;
+
 	// decode
 	coder.decode_start();
 	for (unsigned int cnt = 0; cnt < expected.length(); ++cnt)
@@ -62,6 +79,25 @@ bool test_acoder_integration()
 		decoded.append(1, (char) coder.get_value(cnt %3));
 	}
 	coder.decode_stop();
+
+	freq = coder.freq_eval<wic::acoder::encoder_models>('a', 0);
+	if (2 != freq) return false;
+	freq = coder.freq_eval<wic::acoder::encoder_models>('a', 1);
+	if (1 != freq) return false;
+	freq = coder.freq_eval<wic::acoder::encoder_models>('a', 2);
+	if (2 != freq) return false;
+	freq = coder.freq_eval<wic::acoder::decoder_models>('a', 0);
+	if (2 != freq) return false;
+	freq = coder.freq_eval<wic::acoder::decoder_models>('a', 1);
+	if (1 != freq) return false;
+	freq = coder.freq_eval<wic::acoder::decoder_models>('a', 2);
+	if (2 != freq) return false;
+	freq = coder.freq_eval<wic::acoder::decoder_models>('b', 0);
+	if (0 != freq) return false;
+	freq = coder.freq_eval<wic::acoder::decoder_models>('b', 1);
+	if (1 != freq) return false;
+	freq = coder.freq_eval<wic::acoder::decoder_models>('b', 2);
+	if (0 != freq) return false;
 
 	// check
 	if (decoded == expected)
