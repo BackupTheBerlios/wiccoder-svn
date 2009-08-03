@@ -493,6 +493,50 @@ public:
 
 	//@}
 
+	//!	\bref Дополнительные филтры
+	//@{
+
+	//!	\brief Производит корректировку выбранного поля member, основываясь
+	//!	на статистике модели арифметического кодера, в которой был закодирован
+	//!	знак коэффициента
+	/*!	\param[in] k Значение коэффициента k
+	*/
+	template <const wnode::wnode_members member, class k_t>
+	void filter_fix_member_by_signs(const k_t k)
+	{
+		// Тип корректируемого поля
+		typedef typename wnode::type_selector<member>::result member_t;
+
+		// Перебор всех коэффициентов
+		for (wtree::coefs_iterator i = _wtree.iterator_over_wtree();
+			 !i->end(); i->next())
+		{
+			// координаты элемента
+			const p_t &p = i->get();
+
+			// ссылка на элемент
+			wnode &node = _wtree.at(p);
+
+			// корректируются только нулевые элементы, знак которых
+			// был закодирован в одну из моделей арифметического кодера
+			if (0 == node.ms || 0 != node.get<member>()) continue;
+
+			const int f_0 = _acoder.freq_eval<acoder::decoder_models>
+							(wnode::signp(0), node.ms);
+			const int f_p = _acoder.freq_eval<acoder::decoder_models>
+							(wnode::signp(+1), node.ms);
+			const int f_n = _acoder.freq_eval<acoder::decoder_models>
+							(wnode::signp(-1), node.ms);
+			const double p_spn = double(f_p + f_n);
+			const double p_p = double(f_p) / p_spn;
+			const double p_n = double(f_n) / p_spn;
+
+			node.get<member>() = member_t(k * (p_p - 0.5));
+		}
+	}
+
+	//@}
+
 protected:
 	// protected types ---------------------------------------------------------
 
