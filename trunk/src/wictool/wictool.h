@@ -91,6 +91,13 @@ struct encode_params_t
 	unsigned int steps;
 };
 
+//!	\brief Параметра пост-обработки
+struct post_processing_t
+{
+	bool fzws;
+	double fzws_k;
+};
+
 //!	\brief Спектр вейвлет преобразования (коэффициенты разложения
 //!	и сопутствующая информация)
 struct spectre_t
@@ -276,6 +283,10 @@ int get_encode_options(const int argc, const char *const *const args,
 					   std::string &source, char &channel,
 					   std::string &output,
 					   std::ostream *const err = 0);
+
+//!	\brief Получает опции командной строки для пост обработки
+int get_post_processing(const int argc, const char *const *const args,
+						post_processing_t &pp, std::ostream *const err = 0);
 
 //!	\brief Записывает заголовок кодирования в поток вывода
 int write_wic_header(const unsigned int &data_sz, const std::string &filter,

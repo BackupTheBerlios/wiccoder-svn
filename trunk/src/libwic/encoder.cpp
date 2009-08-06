@@ -630,11 +630,6 @@ void encoder::decode(const byte_t *const data, const sz_t data_sz,
 
 	// деквантование
 	_wtree.dequantize<wnode::member_wc>(tunes.q);
-
-	// Дополнительная фильтрация
-	#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
-	// filter_fix_member_by_signs<wnode::member_w>(10);
-	#endif
 }
 
 

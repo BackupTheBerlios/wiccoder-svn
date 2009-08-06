@@ -1541,6 +1541,59 @@ int get_encode_options(const int argc, const char *const *const args,
 }
 
 
+/*!	\param[in] argc Количество параметров доступных в массиве <i>args</i>
+	\param[in] args Массив строковых параметров
+	\param[out] pp Параметры пост обработки
+	\param[in,out] err Указатель на поток для вывода ошибок. Если равен
+	<i>0</i> будет использован стандартный поток для вывода ошибок.
+	\return Количество использованных аргументов в случае успеха, иначе
+	<i>-1</i>.
+*/
+int get_post_processing(const int argc, const char *const *const args,
+						post_processing_t &pp, std::ostream *const err)
+{
+	// Параметры по умолчанию
+	pp.fzws = false;
+	pp.fzws_k = 0;
+
+	// определяем поток для вывода ошибок
+	std::ostream &out = (0 == err)? std::cerr: (*err);
+
+	// номер текущего аргумента
+	int arg_i = 0;
+
+	// чтение параметров из командной строки
+	while (arg_i < argc)
+	{
+		if (0 == strcmp("-p0", args[arg_i]) ||
+			0 == strcmp("--pp-fzws", args[arg_i]))
+		{
+			// [-p|--pp-fzws]
+			if (argc <= ++arg_i)
+			{
+				out << "Error: not enough arguments for [-p0|--pp-fzws]"
+					<< std::endl;
+				return -1;
+			}
+
+			// получение значения параметра k
+			std::stringstream k_as_string(args[arg_i++]);
+			k_as_string >> pp.fzws_k;
+
+			pp.fzws = true;
+		}
+		else
+		{
+			// Дошли до неизвестной опции - предполагаем, что параметры
+			// кончились
+			break;
+		}
+	}
+
+	return arg_i;
+}
+
+
 /*!	\param[in] data_sz Размер закодированных данных
 	\param[in] filter Имя вейвлет фильтра
 	\param[in] steps Количество шагов вейвлет преобразования
@@ -1778,7 +1831,8 @@ int usage(std::ostream &out)
 	out << "wictool -h|--help" << std::endl;
 	out << "wictool -e|--encode [<filter>] [<method>] [<params>] <image> "
 		<< "<file.wic>" << std::endl;
-	out << "wictool -d|--decode <file.wic> <image>" << std::endl;
+	out << "wictool -d|--decode [<post>] <file.wic> <image>"
+		<< std::endl;
 	out << "wictool -p|--psnr <image1> <image2>" << std::endl;
 	out << "wictool -s|--stat <image1> <image2>" << std::endl;
 	out << std::endl;
@@ -1789,11 +1843,15 @@ int usage(std::ostream &out)
 	out << "<params>: [-q|--quantizer quantizer] [-l|--lambda lambda] "
 		<< "[-b|--bpp bpp] " << std::endl
 		<< "          [-s|--steps n] [-u|--quality k]" << std::endl;
+	out << "<post>:   [-p0|--pp-fzws k]" << std::endl;
 	out << std::endl;
-	out << "Filters are: cdf97 (default)" /*", Haar, Daub4, Daub6, Daub8"*/
+	out << "Filters are:  cdf97 (default)" /*", Haar, Daub4, Daub6, Daub8"*/
 		<< std::endl;
-	out << "Methods are: manual (default), fixed_lambda, fixed_q, fixed_bpp"
-		<< std::endl << std::endl;
+	out << "Methods are:  manual (default), fixed_lambda, fixed_q, fixed_bpp"
+		<< std::endl;
+	out << "Post fzws is: fix zero W based on sign models statistic"
+		<< std::endl;
+	out << std::endl;
 	out << "More options:" << std::endl
 		<< "          [-v|--verbose] will enable verbose output" << std::endl;
 
@@ -2021,6 +2079,13 @@ int main(int argc, char **args)
 			// Обработка опций командной строки
 			int argx = -1;
 
+			// Получение параметров пост-обработки
+			post_processing_t post_proc;
+			argx = get_post_processing(argc - argk, args + argk, post_proc);
+
+			if (0 > argx) return usage(std::cout);
+			else argk += argx;
+
 			// Получение пути к закодированному файлу
 			std::string wic_file;
 			argx = get_wic_file(argc - argk, args + argk, wic_file);
@@ -2085,6 +2150,13 @@ int main(int argc, char **args)
 			wic::encoder decoder(w, h, steps);
 			decoder.decode(data, data_sz, tunes);
 			delete[] data;
+
+			// p0 - fzws
+			if (post_proc.fzws)
+			{
+				decoder.filter_fix_member_by_signs<wic::wnode::member_w>
+						(post_proc.fzws_k);
+			}
 
 			if (verbose)
 			{
