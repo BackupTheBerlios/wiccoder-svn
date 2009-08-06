@@ -58,8 +58,12 @@ def decode_image(wic_file, dest_image, *args, **vals):
 		_wic_tool_path = str(vals["wic_tool_path"])
 	else:
 		_wic_tool_path = wic_tool_path
+	if "post_args" in vals:
+		post_args = str(vals["post_args"]) + " "
+	else:
+		post_args = ""
 
-	cmd_line = _wic_tool_path  + " -v -d " + wic_file + " " + dest_image;
+	cmd_line = _wic_tool_path  + " -v -d " + post_args + wic_file + " " + dest_image;
 	f = os.popen(cmd_line, "r")
 
 	if not f: return -1
