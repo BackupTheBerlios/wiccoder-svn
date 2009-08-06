@@ -70,7 +70,7 @@ def main():
 					stats_save_path = string.join([working_dir + image, filter, str(bpp), "stats", "png"], ".")
 					stats_save_patt = string.join([working_dir + image, filter, str(bpp), "stats", "txt"], ".")
 
-					stats_r = encode_image(src_image, wic_stats_file, filter=filter, method="manual", q=r["q"], l=r["l"], wic_tool_path=wic_tool_path_r)
+					stats_r = encode_image(src_image, wic_stats_file, filter=filter, method="manual", q=r["q"], l=r["l"], wic_tool_path=wic_tool_stats)
 					decode_image(wic_stats_file, dest_stats_image, wic_tool_path=wic_tool_stats, post_args=wic_post_args)
 					write_acoder_stats(stats_r["acs_init"], stats_r["acs_encd"],
 									   about=stats_caption, save_path=stats_save_patt);
