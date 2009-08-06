@@ -1845,8 +1845,7 @@ int usage(std::ostream &out)
 		<< "          [-s|--steps n] [-u|--quality k]" << std::endl;
 	out << "<post>:   [-p0|--pp-fzws k]" << std::endl;
 	out << std::endl;
-	out << "Filters are:  cdf97 (default)" /*", Haar, Daub4, Daub6, Daub8"*/
-		<< std::endl;
+	out << "Filters are:  cdf97 (default), Antonini, Petuhov1" << std::endl;
 	out << "Methods are:  manual (default), fixed_lambda, fixed_q, fixed_bpp"
 		<< std::endl;
 	out << "Post fzws is: fix zero W based on sign models statistic"
