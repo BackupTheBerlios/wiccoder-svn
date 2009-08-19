@@ -517,16 +517,27 @@ public:
 			// ссылка на элемент
 			wnode &node = _wtree.at(p);
 
-			// корректируются только нулевые элементы, знак которых
-			// был закодирован в одну из моделей арифметического кодера
-			if (0 == node.ms || 0 != node.get<member>()) continue;
+			// корректируются только нулевые элементы
+			if (0 != node.get<member>()) continue;
 
+			// индекс модели арифметического кодера, в которой
+			// закодирован (мог быть закодирован) знак коэффициента
+			const sz_t ms = _ind_sign<wnode::member_wc>(p);
+
+			// номер модели должен быть больше 0, за исключением тех случаев,
+			// когда коэффициент из нулевого саббенда
+			assert(0 != ms || _wtree.sb().test_LL(p));
+
+			// коэффициенты из нулевого саббенда пропускаются
+			if (0 == ms) continue;
+
+			// выполнение корректировки коэффициента
 			const int f_0 = _acoder.freq_eval<acoder::decoder_models>
-							(wnode::signp(0), node.ms);
+							(wnode::signp(0), ms);
 			const int f_p = _acoder.freq_eval<acoder::decoder_models>
-							(wnode::signp(+1), node.ms);
+							(wnode::signp(+1), ms);
 			const int f_n = _acoder.freq_eval<acoder::decoder_models>
-							(wnode::signp(-1), node.ms);
+							(wnode::signp(-1), ms);
 			const double p_spn = double(f_p + f_n);
 			const double p_p = double(f_p) / p_spn;
 			const double p_n = double(f_n) / p_spn;

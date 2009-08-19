@@ -614,9 +614,6 @@ void encoder::decode(const byte_t *const data, const sz_t data_sz,
 
 	// инициализация спектра перед кодированием
 	_wtree.wipeout();
-	#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
-	_wtree.set_field<wnode::member_ms>(0);
-	#endif
 
 	// установка характеристик моделей
 	_acoder.use(_mk_acoder_models(tunes.models));
@@ -1904,7 +1901,6 @@ void encoder::_encode_wtree_root(const bool decode_mode)
 			// декодирование коэффициента
 			#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
 				node.wc = _decode_spec_se(spec_LL_model, sign_LL_model);
-				node.ms = sign_LL_model;
 			#else
 				node.wc = _decode_spec(spec_LL_model);;
 			#endif
@@ -1994,7 +1990,6 @@ void encoder::_encode_wtree_root(const bool decode_mode)
 			{
 				#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
 					node.wc = _decode_spec_se(spec_1_model, sign_model);
-					node.ms = sign_model;
 				#else
 					node.wc = _decode_spec(spec_1_model);
 				#endif
@@ -2083,7 +2078,6 @@ void encoder::_encode_wtree_level(const sz_t lvl,
 			{
 				#ifdef ENCODE_SIGN_IN_SEPARATE_MODELS
 					node_g.wc = _decode_spec_se(spec_model, sign_model);
-					node_g.ms = sign_model;
 				#else
 					node_g.wc = _decode_spec(spec_model);
 				#endif
